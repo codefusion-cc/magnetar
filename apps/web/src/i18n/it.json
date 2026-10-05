@@ -164,8 +164,6 @@
     "settings.checkAuto": "Controllo automatico ogni 6 ore.",
     "settings.installNote": "Installazione dell'aggiornamento — l'app si riavvierà, ricarica questa pagina tra un momento…",
     "settings.updateSnack": "È disponibile l'aggiornamento {0}",
-    "dialog.folder": "Cartella di download",
-    "dialog.folderHelp": "I file del torrent verranno salvati qui",
     "dialog.chooseFolder": "Scegli cartella",
     "dialog.chooseDownloadFolder": "Scegli cartella di download",
     "folderBrowser.selectFolder": "Seleziona questa cartella",

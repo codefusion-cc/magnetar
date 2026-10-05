@@ -30,9 +30,10 @@ export function Chooser({ start, path, onPath, recent, fallback, needBytes, onRe
   const t = useT()
   const { connection, info } = useDevice()
   const { supported, roots, error, setRoots } = useRoots()
+  const rootOf = (folder: string) => roots?.roots.find(r => isWithin(folder, r.path, separatorOf(r.path)))
   useEffect(() => {
     if (path !== undefined || !roots) return
-    const inside = (folder: string) => folder !== '' && roots.roots.some(r => isWithin(folder, r.path, separatorOf(r.path)))
+    const inside = (folder: string) => folder !== '' && rootOf(folder) !== undefined
     if (fallback === undefined) {
       const wanted = start.trim()
       onPath(inside(wanted) ? wanted : null)
@@ -53,11 +54,10 @@ export function Chooser({ start, path, onPath, recent, fallback, needBytes, onRe
   }
   if (error && !roots) return <p role="alert" className="text-sm text-error">{error}</p>
   if (!roots || path === undefined) return <Loading />
-  const inside = (folder: string) => roots.roots.find(r => isWithin(folder, r.path, separatorOf(r.path)))
   // Only folders the device lets this dashboard browse: a remembered one may be outside them now.
-  const jumps = (recent ?? []).filter(inside)
+  const jumps = (recent ?? []).filter(rootOf)
   const labels = chipLabels(jumps)
-  const here = path === null ? undefined : inside(path)
+  const here = path === null ? undefined : rootOf(path)
   const tooSmall = recent !== undefined && exceedsFreeSpace(needBytes, here?.freeBytes)
   return (
     <>

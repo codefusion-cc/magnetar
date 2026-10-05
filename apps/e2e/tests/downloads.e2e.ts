@@ -2,6 +2,8 @@ import { expect, test, type Page } from '@playwright/test'
 
 const magnet = (hash: string, name: string) => `magnet:?xt=urn:btih:${hash}&dn=${encodeURIComponent(name)}`
 const dialog = (page: Page, title: string) => page.locator('dialog[open]').filter({ hasText: title })
+/** Asking where to save is on by default: Download opens the folder browser, which opens in the download folder. */
+const downloadHere = (page: Page) => page.getByRole('button', { name: 'Download here' }).click()
 
 test('magnets pasted into the add dialog start as downloads that can be paused, inspected and deleted', async ({ page }) => {
   await page.goto('/')
@@ -13,7 +15,8 @@ test('magnets pasted into the add dialog start as downloads that can be paused, 
   await add.getByRole('textbox').fill(`notes ${magnet('1'.repeat(40), 'First show')} and ${magnet('2'.repeat(40), 'Second show')} end`)
   await expect(add.getByText('2 magnet links found')).toBeVisible()
   await add.getByRole('button', { name: 'Download 2' }).click()
-  await expect(page.getByText('Started 2 downloads')).toBeVisible()
+  await downloadHere(page)
+  await expect(page.getByText('Started 2 downloads in downloads')).toBeVisible()
   await expect(add).toBeHidden()
 
   const first = page.locator('li').filter({ hasText: 'First show' })
@@ -58,6 +61,13 @@ test('a bad magnet link is refused with the reason, and the dialog stays open', 
   const add = dialog(page, 'Add magnet links or torrent files')
   await add.getByRole('textbox').fill('magnet:?xt=urn:btih:nothash')
   await add.getByRole('button', { name: 'Download', exact: true }).click()
+  // Cancelling the folder browser leaves the add dialog as it was.
+  await page.locator('dialog[open]').last().getByRole('button', { name: 'Cancel' }).click()
+  await expect(page.getByRole('button', { name: 'Download here' })).toBeHidden()
+  await expect(add).toBeVisible()
+  await expect(add.getByRole('textbox')).toHaveValue('magnet:?xt=urn:btih:nothash')
+  await add.getByRole('button', { name: 'Download', exact: true }).click()
+  await downloadHere(page)
   await expect(add.getByRole('alert')).toContainText('no valid info hash')
   await expect(add).toBeVisible()
 })
@@ -88,7 +98,8 @@ test('.torrent files up to 4 MB start, and larger ones are refused as soon as th
   await picker.setInputFiles([torrentFile('Ubuntu desktop', 495_000), torrentFile('Season pack', 4 * 1024 * 1024)])
   await expect(add.getByRole('alert')).toBeHidden()
   await add.getByRole('button', { name: 'Download 2' }).click()
-  await expect(page.getByText('Started 2 downloads')).toBeVisible()
+  await downloadHere(page)
+  await expect(page.getByText('Started 2 downloads in downloads')).toBeVisible()
   await expect(add).toBeHidden()
   await expect(page.locator('li').filter({ hasText: 'Ubuntu desktop' })).toHaveCount(1)
   await expect(page.locator('li').filter({ hasText: 'Season pack' })).toHaveCount(1)

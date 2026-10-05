@@ -164,8 +164,6 @@
     "settings.checkAuto": "Sprawdzane automatycznie co 6 godzin.",
     "settings.installNote": "Instalowanie aktualizacji — aplikacja uruchomi się ponownie, odśwież stronę za chwilę…",
     "settings.updateSnack": "Dostępna jest aktualizacja {0}",
-    "dialog.folder": "Folder pobierania",
-    "dialog.folderHelp": "Pliki torrenta zostaną zapisane tutaj",
     "dialog.chooseFolder": "Wybierz folder",
     "dialog.chooseDownloadFolder": "Wybierz folder pobierania",
     "folderBrowser.selectFolder": "Wybierz ten folder",

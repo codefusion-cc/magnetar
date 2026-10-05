@@ -164,8 +164,6 @@
     "settings.checkAuto": "Проверяется автоматически каждые 6 часов.",
     "settings.installNote": "Установка обновления — приложение перезапустится, обновите страницу через минуту…",
     "settings.updateSnack": "Доступно обновление {0}",
-    "dialog.folder": "Папка загрузки",
-    "dialog.folderHelp": "Файлы торрента будут сохранены здесь",
     "dialog.chooseFolder": "Выбрать папку",
     "dialog.chooseDownloadFolder": "Выбрать папку загрузки",
     "folderBrowser.selectFolder": "Выбрать эту папку",

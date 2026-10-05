@@ -170,8 +170,6 @@
     "settings.checkAuto": "Checked automatically every 6 hours.",
     "settings.installNote": "Installing update — the app will restart, reload this page in a moment…",
     "settings.updateSnack": "Update {0} is available",
-    "dialog.folder": "Download folder",
-    "dialog.folderHelp": "The torrent's files will be saved here",
     "dialog.chooseFolder": "Choose folder",
     "dialog.chooseDownloadFolder": "Choose download folder",
     "folderBrowser.selectFolder": "Select this folder",

@@ -3,6 +3,7 @@ import { formatBytes } from '@magnetar/protocol/bytes'
 import { BellRing, Check, CircleAlert, Copy, Download, ExternalLink, SearchIcon, SearchX, Sprout, Telescope } from 'lucide-react'
 import { memo, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
+import { askingWhere } from '../../lib/downloadFlow.ts'
 import { noticeExtra, offersOtherFolder, startedNotice } from '../../lib/recentFolders.ts'
 import { errorMessage } from '../../lib/errors.ts'
 import { useFormatDate, useFormatRelative, useT } from '../../lib/i18n.tsx'
@@ -61,7 +62,7 @@ export function SearchPage() {
   const run = useRun()
   const [details, setDetails] = useState<SearchResultDto | null>(null)
   const [added, setAdded] = useState<Set<string>>(new Set())
-  const ask = settings?.askDownloadFolder === true
+  const { ask } = askingWhere(settings)
   const { request, browser } = useStartDownload(result => {
     setAdded(s => new Set(s).add(result.resultId))
     setDetails(null)

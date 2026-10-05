@@ -164,8 +164,6 @@
     "settings.checkAuto": "Verificação automática a cada 6 horas.",
     "settings.installNote": "A instalar a atualização — a aplicação vai reiniciar, recarregue esta página daqui a pouco…",
     "settings.updateSnack": "A atualização {0} está disponível",
-    "dialog.folder": "Pasta de transferência",
-    "dialog.folderHelp": "Os ficheiros do torrent serão guardados aqui",
     "dialog.chooseFolder": "Escolher pasta",
     "dialog.chooseDownloadFolder": "Escolher pasta de transferência",
     "folderBrowser.selectFolder": "Selecionar esta pasta",

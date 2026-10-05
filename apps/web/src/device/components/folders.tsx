@@ -23,9 +23,10 @@ export function FolderBrowser({ open, start, onClose, onSelect, save }: {
   onSelect: (path: string, always: boolean) => void
   /**
    * Saving a download rather than setting a folder: the button reads "Download here" and starts it, the folders
-   * used before are offered to jump to, and a refusal from the device shows in the dialog.
+   * used before are offered to jump to, and a refusal from the device shows in the dialog. `canAlways` says whether the
+   * device can save "always save here" (an older app cannot).
    */
-  save?: { recent: string[]; fallback: string; busy: boolean; error: string | null; subject?: { name: string; bytes: number | null } }
+  save?: { canAlways: boolean; recent: string[]; fallback: string; busy: boolean; error: string | null; subject?: { name: string; bytes: number | null } }
 }) {
   const t = useT()
   // The folder on screen: null on the list of folders, undefined until the chooser has placed itself.
@@ -50,7 +51,7 @@ export function FolderBrowser({ open, start, onClose, onSelect, save }: {
   return (
     <Modal open={open} title={t(save ? 'dialog.downloadTo' : 'dialog.chooseFolder')} icon={save ? <Download size={20} /> : <FolderOpen size={20} />} onClose={onClose} wide
       actions={<>
-        {save && (
+        {save?.canAlways && (
           <label className="flex min-h-10 w-full cursor-pointer items-center gap-3 text-sm sm:min-h-0 sm:w-auto sm:flex-1">
             <input type="checkbox" className="checkbox checkbox-sm checkbox-primary" checked={always} disabled={save.busy} onChange={e => setAlways(e.target.checked)} />
             {t('folderBrowser.always')}

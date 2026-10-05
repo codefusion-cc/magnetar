@@ -4,12 +4,14 @@ import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { errorMessage } from '../../lib/errors.ts'
 import { useT, type Translate } from '../../lib/i18n.tsx'
 import { magnetsIn } from '../../lib/magnets.ts'
-import { folderChoices, noticeExtra, offersOtherFolder, readRecentFolders, rememberFolder, startedNotice } from '../../lib/recentFolders.ts'
+import { askingWhere, saveAlways } from '../../lib/downloadFlow.ts'
+import { noticeExtra, offersOtherFolder, startedNotice } from '../../lib/recentFolders.ts'
 import { RpcError } from '../../lib/rpcClient.ts'
 import { sendTorrent } from '../../lib/torrentUpload.ts'
 import { Modal } from '../../ui/Modal.tsx'
 import { useToast } from '../../ui/toast.tsx'
-import { useDevice, useDownloads } from '../DeviceContext.tsx'
+import { useDevice } from '../DeviceContext.tsx'
+import { useFolderChoices } from '../useDownloadFlow.tsx'
 import { FolderBrowser } from './folders.tsx'
 
 const isTorrentFile = (file: File) => file.name.toLowerCase().endsWith('.torrent') || file.type === 'application/x-bittorrent'
@@ -52,10 +54,9 @@ export interface PendingAdd {
 export function AddDownloadDialog({ open, initial, onClose }: { open: boolean; initial: PendingAdd | null; onClose: () => void }) {
   const t = useT()
   const toast = useToast()
-  const { connection, settings, deviceName } = useDevice()
-  const downloads = useDownloads()
-  const [stored, setStored] = useState<string[]>([])
-  useEffect(() => setStored(readRecentFolders(deviceName)), [deviceName])
+  const { connection, settings } = useDevice()
+  const { choices, defaultFolder, remember, alwaysHere } = useFolderChoices()
+  const { ask, canRemember } = askingWhere(settings)
   const [choosing, setChoosing] = useState(false)
   const [text, setText] = useState('')
   const [files, setFiles] = useState<File[]>([])
@@ -101,13 +102,11 @@ export function AddDownloadDialog({ open, initial, onClose }: { open: boolean; i
     try { if (!file && magnet) name = decodeURIComponent(magnet.replace(/\+/g, ' ')) } catch { /* keep it as written */ }
     return { name, bytes: sizes }
   }
-  const defaultFolder = settings?.downloadFolder ?? ''
-  const choices = folderChoices(downloads, stored, defaultFolder)
 
   /** Download clicked: where it goes is asked first when the setting says so; `folder` is the answer. */
   const submit = async (folder?: string, always = false) => {
     if (count === 0) return setError(t('add.nothing'))
-    if (folder === undefined && settings?.askDownloadFolder) return setChoosing(true)
+    if (folder === undefined && ask) return setChoosing(true)
     const run = opened.current
     const stillOpen = () => opened.current === run
     setBusy(true)
@@ -147,17 +146,9 @@ export function AddDownloadDialog({ open, initial, onClose }: { open: boolean; i
         if (stillOpen()) setProgress(null)
       }
     }
-    if (started > 0 && target) setStored(rememberFolder(deviceName, target))
+    if (started > 0 && target) remember(target)
     // "Always save here": only once what was asked for is added, and one patch for both settings.
-    let outcome: { saved: true } | { saved: false; error: string } | undefined
-    if (always && target && started > 0 && !failures.length) {
-      try {
-        await connection.call('settings.update', { downloadFolder: target, askDownloadFolder: false })
-        outcome = { saved: true }
-      } catch (e) {
-        outcome = { saved: false, error: describe(t, e) }
-      }
-    }
+    const outcome = always && target && started > 0 && !failures.length ? await saveAlways(() => alwaysHere(target), e => describe(t, e)) : undefined
     if (started > 0) {
       const notice = startedNotice(started === 1 ? { plain: 'add.startedOne', inFolder: 'add.startedOneIn' } : { plain: 'add.started', inFolder: 'add.startedIn' }, target, outcome)
       toast(t(notice.key, started === 1 ? (notice.folder ?? '') : started, notice.folder ?? '') + noticeExtra(t, notice), 'success')
@@ -230,11 +221,11 @@ export function AddDownloadDialog({ open, initial, onClose }: { open: boolean; i
           })}
         </ul>
       )}
-      {offersOtherFolder(settings?.askDownloadFolder === true) && <div className="mt-4">
+      {offersOtherFolder(ask) && <div className="mt-4">
         <button type="button" className="link link-hover text-sm" disabled={busy || count === 0} onClick={() => setChoosing(true)}>{t('add.otherFolder')}</button>
       </div>}
       <FolderBrowser open={choosing} start={choices[0] ?? defaultFolder} onClose={() => setChoosing(false)}
-        onSelect={(folder, always) => { setChoosing(false); void submit(folder, always) }} save={{ recent: choices, fallback: defaultFolder, busy: false, error: null, subject: subject() }} />
+        onSelect={(folder, always) => { setChoosing(false); void submit(folder, always) }} save={{ canAlways: canRemember, recent: choices, fallback: defaultFolder, busy: false, error: null, subject: subject() }} />
       {error && <p role="alert" className="mt-3 whitespace-pre-line text-sm text-error">{error}</p>}
     </Modal>
   )

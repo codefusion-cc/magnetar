@@ -68,6 +68,11 @@ describe('the folders offered for saving', () => {
     expect(folderChoices([dl('/downloads/', '2026-01-01T00:00:00Z')], ['/downloads'], '/downloads')).toEqual([])
   })
 
+  test('a download with no readable date counts as the oldest instead of scrambling the order', () => {
+    const downloads = [dl('/a', '2026-01-01T00:00:00Z'), dl('/blank', ''), dl('/b', '2026-02-01T00:00:00Z'), dl('/bad', 'yesterday'), dl('/c', '2026-03-01T00:00:00Z')]
+    expect(folderChoices(downloads, [], '/downloads')).toEqual(['/c', '/b', '/a', '/blank', '/bad'])
+  })
+
   test('no downloads and no storage: nothing remembered', () => {
     expect(folderChoices([], [], '/downloads')).toEqual([])
   })

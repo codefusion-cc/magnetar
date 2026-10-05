@@ -1,6 +1,25 @@
 /** How "always save here" went: saved, or refused with the device's message. */
 export type AlwaysOutcome = { saved: true } | { saved: false; error: string }
 
+/**
+ * What a device's settings say about asking where to save: whether a Download asks, and whether "always save here" is
+ * offered. An app from before the setting has no such field, asks, and would refuse the patch that turns asking off.
+ */
+export function askingWhere(settings: { askDownloadFolder?: boolean } | null | undefined): { ask: boolean; canRemember: boolean } {
+  if (!settings) return { ask: false, canRemember: false }
+  return { ask: settings.askDownloadFolder ?? true, canRemember: typeof settings.askDownloadFolder === 'boolean' }
+}
+
+/** Runs "always save here" and says how it went: a refusal is an outcome to tell, not an error to throw. */
+export async function saveAlways(remember: () => Promise<void>, describe: (error: unknown) => string): Promise<AlwaysOutcome> {
+  try {
+    await remember()
+    return { saved: true }
+  } catch (error) {
+    return { saved: false, error: describe(error) }
+  }
+}
+
 /** What the folder browser of a download shows: the thing being downloaded, whether it is being added, what went wrong. */
 export interface DownloadFlowState<T> {
   choosing: T | null
@@ -74,15 +93,7 @@ export class DownloadFlow<T> {
     } catch (error) {
       return this.set({ busy: false, error: this.options.describe(error) })
     }
-    let outcome: AlwaysOutcome | undefined
-    if (always) {
-      try {
-        await this.options.remember(folder.trim())
-        outcome = { saved: true }
-      } catch (error) {
-        outcome = { saved: false, error: this.options.describe(error) }
-      }
-    }
+    const outcome = always ? await saveAlways(() => this.options.remember(folder.trim()), this.options.describe) : undefined
     this.set({ busy: false, choosing: null })
     this.options.started(choosing, folder, outcome)
   }

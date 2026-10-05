@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, Navigate, useParams } from 'react-router'
+import { askingWhere } from '../../lib/downloadFlow.ts'
 import { featuresUrl } from '../../lib/featuresLink.ts'
 import { LANGUAGES, useFormatDate, useLanguage, useT } from '../../lib/i18n.tsx'
 import { askNotificationPermission } from '../../lib/notifications.ts'
@@ -178,9 +179,11 @@ function DownloadsSection({ settings }: { settings: SettingsDto }) {
           <FolderField hideLabel label={t('settings.downloadFolder')} value={settings.downloadFolder}
             onChange={downloadFolder => downloadFolder.trim() && save({ downloadFolder })} />
         </SettingRow>
-        <SettingRow title={t('settings.askDownloadFolder')} description={t(settings.askDownloadFolder ? 'settings.askDownloadFolderOn' : 'settings.askDownloadFolderOff')}>
-          <Switch label={t('settings.askDownloadFolder')} checked={settings.askDownloadFolder} onChange={askDownloadFolder => save({ askDownloadFolder })} />
-        </SettingRow>
+        {askingWhere(settings).canRemember && (
+          <SettingRow title={t('settings.askDownloadFolder')} description={t(settings.askDownloadFolder ? 'settings.askDownloadFolderOn' : 'settings.askDownloadFolderOff')}>
+            <Switch label={t('settings.askDownloadFolder')} checked={settings.askDownloadFolder} onChange={askDownloadFolder => save({ askDownloadFolder })} />
+          </SettingRow>
+        )}
         <SeedingRow settings={settings} save={save} />
         <SettingRow title={t('settings.notifyStart')}>
           <Switch label={t('settings.notifyStart')} checked={settings.notifyOnStart} onChange={notifyOnStart => save({ notifyOnStart })} />

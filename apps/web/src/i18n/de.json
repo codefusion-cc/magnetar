@@ -164,8 +164,6 @@
     "settings.checkAuto": "Wird automatisch alle 6 Stunden geprüft.",
     "settings.installNote": "Update wird installiert — die App startet neu, lade diese Seite gleich neu…",
     "settings.updateSnack": "Update {0} ist verfügbar",
-    "dialog.folder": "Download-Ordner",
-    "dialog.folderHelp": "Die Dateien des Torrents werden hier gespeichert",
     "dialog.chooseFolder": "Ordner wählen",
     "dialog.chooseDownloadFolder": "Download-Ordner auswählen",
     "folderBrowser.selectFolder": "Diesen Ordner auswählen",

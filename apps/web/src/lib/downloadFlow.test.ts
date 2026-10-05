@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { DownloadFlow } from './downloadFlow.ts'
+import { DownloadFlow, askingWhere } from './downloadFlow.ts'
 
 function setup({ ask = false, fail = false, failRemember = false } = {}) {
   const calls: { item: string; folder?: string }[] = []
@@ -166,5 +166,21 @@ describe('a Download click', () => {
     gate.release()
     await first
     expect([calls.length, patches.length]).toEqual([1, 1])
+  })
+})
+
+describe('what the device says about asking where to save', () => {
+  test('a setting that is on or off is followed, and "always save here" is offered', () => {
+    expect(askingWhere({ askDownloadFolder: true })).toEqual({ ask: true, canRemember: true })
+    expect(askingWhere({ askDownloadFolder: false })).toEqual({ ask: false, canRemember: true })
+  })
+
+  test('an older app without the setting asks, and cannot be told to stop (it would refuse the whole patch)', () => {
+    expect(askingWhere({})).toEqual({ ask: true, canRemember: false })
+  })
+
+  test('settings not loaded yet change nothing and offer nothing', () => {
+    expect(askingWhere(undefined)).toEqual({ ask: false, canRemember: false })
+    expect(askingWhere(null)).toEqual({ ask: false, canRemember: false })
   })
 })

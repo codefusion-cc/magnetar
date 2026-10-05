@@ -164,8 +164,6 @@
     "settings.checkAuto": "Vérification automatique toutes les 6 heures.",
     "settings.installNote": "Installation de la mise à jour — l'application va redémarrer, rechargez cette page dans un instant…",
     "settings.updateSnack": "La mise à jour {0} est disponible",
-    "dialog.folder": "Dossier de téléchargement",
-    "dialog.folderHelp": "Les fichiers du torrent seront enregistrés ici",
     "dialog.chooseFolder": "Choisir un dossier",
     "dialog.chooseDownloadFolder": "Choisir le dossier de téléchargement",
     "folderBrowser.selectFolder": "Sélectionner ce dossier",
