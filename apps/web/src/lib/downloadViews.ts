@@ -22,9 +22,3 @@ export function countViews(downloads: readonly { status: DownloadStatus }[]): Re
   for (const d of downloads) counts[viewOf(d.status)]++
   return counts
 }
-
-/** The view to open for a link to one download: the one that lists it, or the default when it is not known (yet). */
-export function viewForDownload(downloads: readonly { id: number; status: DownloadStatus }[], id: number): DownloadView {
-  const found = downloads.find(d => d.id === id)
-  return found ? viewOf(found.status) : DEFAULT_DOWNLOAD_VIEW
-}

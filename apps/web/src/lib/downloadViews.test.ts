@@ -1,6 +1,6 @@
 import { DOWNLOAD_STATUSES } from '@magnetar/protocol'
 import { describe, expect, test } from 'vitest'
-import { countViews, DEFAULT_DOWNLOAD_VIEW, DOWNLOAD_VIEWS, inView, viewForDownload } from './downloadViews.ts'
+import { countViews, DEFAULT_DOWNLOAD_VIEW, DOWNLOAD_VIEWS, inView } from './downloadViews.ts'
 import { pickParam } from './urlState.ts'
 
 describe('the Downloads views', () => {
@@ -20,13 +20,6 @@ describe('the Downloads views', () => {
     const list = ['Downloading', 'Paused', 'Error', 'Seeding', 'Completed', 'Completed'].map((status, id) => ({ id, status })) as { id: number; status: (typeof DOWNLOAD_STATUSES)[number] }[]
     expect(countViews(list)).toEqual({ active: 3, finished: 3, all: 6 })
     expect(countViews([])).toEqual({ active: 0, finished: 0, all: 0 })
-  })
-
-  test('a link to one download opens the view that lists it, the default if it is unknown', () => {
-    const list = [{ id: 1, status: 'Completed' as const }, { id: 2, status: 'Paused' as const }]
-    expect(viewForDownload(list, 1)).toBe('finished')
-    expect(viewForDownload(list, 2)).toBe('active')
-    expect(viewForDownload(list, 99)).toBe('active')
   })
 
   test('the page opens on Active, also for an address with an unknown view', () => {

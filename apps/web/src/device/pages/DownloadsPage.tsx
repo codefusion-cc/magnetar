@@ -4,7 +4,7 @@ import { ArrowDown, ArrowUp, CloudDownload, Plus, Search, Tv } from 'lucide-reac
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { useLanguage, useT } from '../../lib/i18n.tsx'
-import { DEFAULT_DOWNLOAD_VIEW, DOWNLOAD_VIEWS, countViews, inView, viewForDownload, type DownloadView } from '../../lib/downloadViews.ts'
+import { DEFAULT_DOWNLOAD_VIEW, DOWNLOAD_VIEWS, countViews, inView, type DownloadView } from '../../lib/downloadViews.ts'
 import { DOWNLOAD_SORTS, parseDownloadSort, readDownloadSort, sortDownloads, writeDownloadSort } from '../../lib/downloadSort.ts'
 import { pickParam, withParam } from '../../lib/urlState.ts'
 import { magnetsIn } from '../../lib/magnets.ts'
@@ -24,11 +24,8 @@ export function DownloadsPage() {
   const downloads = useDownloads()
   const searchLink = useSearchLink()
   const [params, setParams] = useSearchParams()
-  // A link to one download (?download=7) opens the view that lists it; otherwise Active unless the address says more.
-  const linked = Number(params.get('download'))
-  const fallback = params.has('download') ? viewForDownload(downloads, linked) : DEFAULT_DOWNLOAD_VIEW
-  const view = pickParam(params, 'view', DOWNLOAD_VIEWS, fallback)
-  const setView = useCallback((next: DownloadView) => setParams(current => withParam(withParam(current, 'download', ''), 'view', next, DEFAULT_DOWNLOAD_VIEW), { replace: true }), [setParams])
+  const view = pickParam(params, 'view', DOWNLOAD_VIEWS, DEFAULT_DOWNLOAD_VIEW)
+  const setView = useCallback((next: DownloadView) => setParams(current => withParam(current, 'view', next, DEFAULT_DOWNLOAD_VIEW), { replace: true }), [setParams])
   const [sort, setSort] = useState(() => readDownloadSort(deviceName))
   const language = useLanguage()
   const [adding, setAdding] = useState<PendingAdd | null>(null)
