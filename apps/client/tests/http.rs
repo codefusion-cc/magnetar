@@ -353,6 +353,19 @@ mod dashboard_socket {
     }
 
     #[tokio::test]
+    async fn a_torrent_file_on_the_device_goes_where_it_is_told_to() {
+        let (_app, base, dir) = start().await;
+        let mut socket = open(&base).await;
+        let file = dir.path().join("opened.torrent");
+        std::fs::write(&file, torrent_of_size(100_000, "Opened")).unwrap();
+        let folder = dir.path().join("Films");
+        std::fs::create_dir_all(&folder).unwrap();
+        let params = json!({ "path": file.display().to_string(), "folder": folder.display().to_string() });
+        let started = call(&mut socket, 1, "downloads.addTorrentPath", params).await.unwrap();
+        assert_eq!(started["result"]["savePath"], folder.display().to_string());
+    }
+
+    #[tokio::test]
     async fn a_socket_closed_mid_transfer_lets_the_pieces_go() {
         let (_app, base, _dir) = start().await;
         let torrent = torrent_of_size(700_000, "Dropped");

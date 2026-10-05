@@ -75,3 +75,41 @@ export async function usableOrDefault(remembered: string, defaultFolder: string,
     return defaultFolder
   }
 }
+
+const segments = (folder: string) => folder.split(/[\\/]/).filter(Boolean)
+
+/** The last segment of a folder, or the folder itself for a root with none: how a notice names where a download went. */
+export function shortFolder(folder: string): string {
+  return segments(folder).at(-1) ?? folder
+}
+
+/**
+ * A short label for each folder: its last segment, with as many parent segments added (`External › Films`) as it
+ * takes to tell it from another folder that ends the same. Folders with a name of their own stay short.
+ */
+export function chipLabels(folders: readonly string[]): string[] {
+  const parts = folders.map(segments)
+  return parts.map((own, i) => {
+    if (own.length === 0) return folders[i]!
+    const same = (depth: number) => parts.filter(other => other.length > 0 && other.slice(-depth).join('›') === own.slice(-depth).join('›'))
+    let depth = 1
+    while (depth < own.length && same(depth).length > 1) depth++
+    return own.slice(-depth).join(' › ')
+  })
+}
+
+/** Whether a download of `sizeBytes` will not fit in `freeBytes`. Unknown on either side is no warning; equal fits. */
+export function exceedsFreeSpace(sizeBytes: number | null | undefined, freeBytes: number | null | undefined): boolean {
+  return typeof sizeBytes === 'number' && typeof freeBytes === 'number' && sizeBytes > freeBytes
+}
+
+/** What a result row offers: Download to… as a button of its own, or only a Download that opens the browser first. */
+export function rowActions(ask: boolean): { downloadToButton: boolean; downloadLabelKey: 'common.download' | 'common.downloadAsk' } {
+  return { downloadToButton: !ask, downloadLabelKey: ask ? 'common.downloadAsk' : 'common.download' }
+}
+
+/** Which notice says a download was added: it names the folder when one was chosen. */
+export function startedNotice<K extends string>(keys: { plain: K; inFolder: K }, folder?: string): { key: K; folder?: string } {
+  const named = folder?.trim()
+  return named ? { key: keys.inFolder, folder: shortFolder(named) } : { key: keys.plain }
+}

@@ -38,7 +38,7 @@ export function useRoots() {
 }
 
 /** The name a root goes by: "Download folder", or its own name. */
-function rootLabel(root: Pick<FolderRootDto, 'kind' | 'path'>, separator: Separator, t: ReturnType<typeof useT>): string {
+export function rootLabel(root: Pick<FolderRootDto, 'kind' | 'path'>, separator: Separator, t: ReturnType<typeof useT>): string {
   return root.kind === 'downloads' ? t('files.downloadFolder') : baseName(root.path, separator)
 }
 
@@ -172,7 +172,7 @@ function TextForm({ label, submitLabel, help, placeholder, mono = false, onSubmi
  * One folder: its breadcrumb, a few actions, and its entries, folders first. `onOpen` goes into a folder; files of a
  * download offer what the dashboard already does with them (`fileActions`).
  */
-export function FolderPanel({ path, roots, foldersOnly = false, onOpen, onHome, toolbar, fileActions, compact = false }: {
+export function FolderPanel({ path, roots, foldersOnly = false, onOpen, onHome, toolbar, fileActions, compact = false, status, onReady }: {
   path: string
   roots: FolderRootDto[]
   foldersOnly?: boolean
@@ -183,6 +183,10 @@ export function FolderPanel({ path, roots, foldersOnly = false, onOpen, onHome, 
   fileActions?: (entry: FolderEntryDto) => ReactNode
   /** Inside a dialog: no heading of its own, a list that scrolls. */
   compact?: boolean
+  /** Beside the folder's name and count: what to know about where it is, such as its free space. */
+  status?: (root: FolderRootDto | undefined) => ReactNode
+  /** Called once each time the folder's listing has loaded. */
+  onReady?: () => void
 }) {
   const t = useT()
   const formatDate = useFormatDate()
@@ -201,6 +205,8 @@ export function FolderPanel({ path, roots, foldersOnly = false, onOpen, onHome, 
     }
   }, [settled, path, compact])
   useEffect(() => setMaking(false), [path])
+  const listed = state?.status === 'ready'
+  useEffect(() => { if (listed) onReady?.() }, [listed, path])
 
   const page = state?.status === 'ready' ? state.page : null
   const separator = page?.separator ?? separatorOf(path)
@@ -235,6 +241,7 @@ export function FolderPanel({ path, roots, foldersOnly = false, onOpen, onHome, 
           {name}
         </h2>
         {count && <span className="muted text-sm tabular-nums">{count}</span>}
+        {status?.(rootFound)}
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" className="btn btn-ghost btn-sm" onClick={reload} disabled={state?.status === 'loading'}>

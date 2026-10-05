@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { folderChoices, MAX_RECENT_FOLDERS, readRecentFolders, rememberFolder, usableOrDefault, withRecent } from './recentFolders.ts'
+import { chipLabels, exceedsFreeSpace, folderChoices, MAX_RECENT_FOLDERS, readRecentFolders, rememberFolder, rowActions, shortFolder, startedNotice, usableOrDefault, withRecent } from './recentFolders.ts'
 
 const memory = () => {
   const data = new Map<string, string>()
@@ -87,5 +87,54 @@ describe('where the browser opens', () => {
     const asked: string[] = []
     expect(await usableOrDefault('', '/downloads', async f => { asked.push(f); return true })).toBe('/downloads')
     expect(asked).toEqual([])
+  })
+})
+
+describe('recent folder chips', () => {
+  test('stay short when each folder has a name of its own', () => {
+    expect(chipLabels(['/Volumes/Media/Films', '/Volumes/Media/TV'])).toEqual(['Films', 'TV'])
+  })
+
+  test('show enough of the parent to tell equal last segments apart', () => {
+    expect(chipLabels(['/Volumes/External/Films', '/Volumes/Media/Films', '/Volumes/Media/TV'])).toEqual(['External › Films', 'Media › Films', 'TV'])
+  })
+
+  test('go as deep as it takes, for Windows paths too', () => {
+    expect(chipLabels(['D:\\A\\X\\Films', 'E:\\B\\X\\Films'])).toEqual(['A › X › Films', 'B › X › Films'])
+  })
+
+  test('a root with no segment is shown as it is', () => {
+    expect(chipLabels(['/'])).toEqual(['/'])
+  })
+})
+
+describe('the free space warning', () => {
+  test('shows only when the size is known and larger than the free space; equal fits', () => {
+    expect(exceedsFreeSpace(101, 100)).toBe(true)
+    expect(exceedsFreeSpace(100, 100)).toBe(false)
+    expect(exceedsFreeSpace(99, 100)).toBe(false)
+    expect(exceedsFreeSpace(null, 100)).toBe(false)
+    expect(exceedsFreeSpace(500, null)).toBe(false)
+    expect(exceedsFreeSpace(0, 0)).toBe(false)
+  })
+})
+
+describe('a result row', () => {
+  test('has a Download to… button of its own unless the setting asks every time, then one Download…', () => {
+    expect(rowActions(false)).toEqual({ downloadToButton: true, downloadLabelKey: 'common.download' })
+    expect(rowActions(true)).toEqual({ downloadToButton: false, downloadLabelKey: 'common.downloadAsk' })
+  })
+})
+
+describe('the notice that a download was added', () => {
+  test('names the folder it was saved to, short', () => {
+    expect(startedNotice({ plain: 'a', inFolder: 'b' }, '/Volumes/Media/Films')).toEqual({ key: 'b', folder: 'Films' })
+    expect(startedNotice({ plain: 'a', inFolder: 'b' }, 'C:\\Users\\me\\TV')).toEqual({ key: 'b', folder: 'TV' })
+  })
+
+  test('says nothing of a folder when the default one was used', () => {
+    expect(startedNotice({ plain: 'a', inFolder: 'b' })).toEqual({ key: 'a' })
+    expect(startedNotice({ plain: 'a', inFolder: 'b' }, '  ')).toEqual({ key: 'a' })
+    expect(shortFolder('/')).toBe('/')
   })
 })

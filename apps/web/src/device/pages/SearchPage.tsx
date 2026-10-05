@@ -3,6 +3,7 @@ import { formatBytes } from '@magnetar/protocol/bytes'
 import { BellRing, Check, CircleAlert, Copy, Download, ExternalLink, FolderDown, SearchIcon, SearchX, Sprout, Telescope } from 'lucide-react'
 import { memo, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
+import { rowActions, startedNotice } from '../../lib/recentFolders.ts'
 import { errorMessage } from '../../lib/errors.ts'
 import { useFormatDate, useFormatRelative, useT } from '../../lib/i18n.tsx'
 import { RESOLUTIONS } from '../../lib/quality.ts'
@@ -42,22 +43,25 @@ function useStartDownload(onStarted: (result: SearchResultDto) => void) {
       askNotificationPermission()
       await connection.call('downloads.start', { resultId: result.resultId, folder: folder?.trim() || undefined })
     },
-    started: result => {
-      toast(t('search.started', result.title), 'success', { label: t('search.viewDownloads'), onClick: () => navigate(basePath || '/') })
+    started: (result, folder) => {
+      const notice = startedNotice({ plain: 'search.started', inFolder: 'search.startedIn' }, folder)
+      toast(t(notice.key, result.title, notice.folder ?? ''), 'success', { label: t('search.viewDownloads'), onClick: () => navigate(basePath || '/') })
       onStarted(result)
     },
     failed: error => toast(t('search.startFailed', errorMessage(error)), 'error'),
+    subject: result => ({ name: result.title, bytes: result.sizeBytes }),
   })
 }
 
 export function SearchPage() {
   const t = useT()
-  const { connection, connectionState, sources, basePath } = useDevice()
+  const { connection, connectionState, sources, basePath, settings } = useDevice()
   const { search, setSearch, setSearchAddress } = useSearch()
   const navigate = useNavigate()
   const run = useRun()
   const [details, setDetails] = useState<SearchResultDto | null>(null)
   const [added, setAdded] = useState<Set<string>>(new Set())
+  const ask = settings?.askDownloadFolder === true
   const { request, browser } = useStartDownload(result => {
     setAdded(s => new Set(s).add(result.resultId))
     setDetails(null)
@@ -159,14 +163,14 @@ export function SearchPage() {
       ) : (
         <>
           <ul className="flex flex-col gap-2">
-            {results.slice(0, shown).map(r => <ResultRow key={r.resultId} result={r} added={added.has(r.resultId)} onOpen={setDetails} onDownload={request} onDownloadTo={downloadTo} />)}
+            {results.slice(0, shown).map(r => <ResultRow key={r.resultId} result={r} added={added.has(r.resultId)} onOpen={setDetails} onDownload={request} onDownloadTo={downloadTo} ask={ask} />)}
           </ul>
           {results.length > shown && <ShowMore remaining={results.length - shown} onMore={() => setShown(n => n + PAGE_SIZE)} />}
         </>
       )}
 
       <TorrentInfoDialog result={details} added={details ? added.has(details.resultId) : false} onClose={() => setDetails(null)}
-        onDownload={request} onDownloadTo={downloadTo} />
+        onDownload={request} onDownloadTo={downloadTo} ask={ask} />
       {browser}
     </>
   )
@@ -196,15 +200,19 @@ function Tags({ title }: { title: string }) {
   )
 }
 
-const ResultRow = memo(function ResultRow({ result: r, added, onOpen, onDownload, onDownloadTo }: {
+const ResultRow = memo(function ResultRow({ result: r, added, onOpen, onDownload, onDownloadTo, ask }: {
   result: SearchResultDto
   added: boolean
+  /** The setting asking where to save each download: one button, which opens the browser. */
+  ask: boolean
   onOpen: (result: SearchResultDto) => void
   onDownload: (result: SearchResultDto) => void
   onDownloadTo: (result: SearchResultDto) => void
 }) {
   const t = useT()
   const formatRelative = useFormatRelative()
+  const actions = rowActions(ask)
+  const label = added ? t('search.added') : t(actions.downloadLabelKey)
   return (
     <li className="surface flex items-start gap-3 p-4 transition-colors hover:border-base-content/20">
       <button type="button" className="min-w-0 flex-1 text-left" onClick={() => onOpen(r)}>
@@ -217,16 +225,18 @@ const ResultRow = memo(function ResultRow({ result: r, added, onOpen, onDownload
           <span>{r.source}</span>
         </div>
       </button>
-      <div className="flex shrink-0 gap-1.5">
-      {!added && (
-        <button type="button" className="btn btn-sm btn-ghost btn-square" onClick={() => onDownloadTo(r)}
-          aria-label={t('info.downloadTo')} title={t('info.downloadTo')}><FolderDown size={16} /></button>
-      )}
-      <button type="button" className={`btn btn-sm shrink-0 ${added ? 'btn-ghost text-success' : 'btn-primary btn-soft'}`} disabled={added}
-        onClick={() => onDownload(r)} aria-label={added ? t('search.added') : t('common.download')} title={added ? t('search.added') : t('common.download')}>
-        {added ? <Check size={16} /> : <Download size={16} />}
-        <span className="hidden sm:inline">{added ? t('search.added') : t('common.download')}</span>
-      </button>
+      <div className="join shrink-0">
+        <button type="button" className={`btn join-item h-10 min-h-10 max-sm:w-10 max-sm:px-0 sm:h-8 sm:min-h-8 ${added ? 'btn-ghost text-success' : 'btn-primary btn-soft'}`} disabled={added}
+          onClick={() => onDownload(r)} aria-label={label} title={label}>
+          {added ? <Check size={16} /> : <Download size={16} />}
+          <span className="hidden sm:inline">{added ? t('search.added') : label}</span>
+        </button>
+        {!added && actions.downloadToButton && (
+          <button type="button" className="btn join-item btn-primary btn-soft h-10 min-h-10 w-10 border-s border-base-100/40 px-0 sm:h-8 sm:min-h-8 sm:w-8 lg:w-auto lg:px-3"
+            onClick={() => onDownloadTo(r)} aria-label={t('info.downloadTo')} title={t('info.downloadTo')}>
+            <FolderDown size={16} /><span className="hidden lg:inline">{t('info.downloadTo')}</span>
+          </button>
+        )}
       </div>
     </li>
   )
@@ -276,14 +286,16 @@ function Outcomes({ outcomes, total, searching, onWatch }: { outcomes: SourceOut
 const isDayOnly = (iso: string | null) => iso !== null && /T00:00:00(\.0+)?(Z|\+00:00)$/.test(iso)
 
 /** Details fetched on demand: the only time a lazy source's detail page is loaded. */
-function TorrentInfoDialog({ result, added, onClose, onDownload, onDownloadTo }: {
+function TorrentInfoDialog({ result, added, onClose, onDownload, onDownloadTo, ask }: {
   result: SearchResultDto | null
   added: boolean
   onClose: () => void
   onDownload: (r: SearchResultDto) => void
   onDownloadTo: (r: SearchResultDto) => void
+  ask: boolean
 }) {
   const t = useT()
+  const actions = rowActions(ask)
   const formatDate = useFormatDate()
   const copy = useCopy(t('info.copied'))
   const { connection } = useDevice()
@@ -315,11 +327,13 @@ function TorrentInfoDialog({ result, added, onClose, onDownload, onDownloadTo }:
     <Modal open title={t('info.title')} onClose={onClose} wide
       actions={<>
         {row.detailsUrl && <a className="btn btn-ghost btn-sm mr-auto" href={row.detailsUrl} target="_blank" rel="noreferrer noopener"><ExternalLink size={14} />{t('info.openPage')}</a>}
-        <button type="button" className="btn btn-ghost btn-sm" disabled={added} onClick={() => onDownloadTo(result)}>
-          <FolderDown size={14} />{t('info.downloadTo')}
-        </button>
+        {actions.downloadToButton && (
+          <button type="button" className="btn btn-ghost btn-sm" disabled={added} onClick={() => onDownloadTo(result)}>
+            <FolderDown size={14} />{t('info.downloadTo')}
+          </button>
+        )}
         <button type="button" className="btn btn-primary btn-sm" disabled={added} onClick={() => onDownload(result)}>
-          {added ? <Check size={14} /> : <Download size={14} />}{added ? t('search.added') : t('common.download')}
+          {added ? <Check size={14} /> : <Download size={14} />}{added ? t('search.added') : t(actions.downloadLabelKey)}
         </button>
       </>}>
       <p className="break-release mb-3 text-lg font-semibold leading-snug">{row.title}</p>

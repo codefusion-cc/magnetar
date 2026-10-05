@@ -1,5 +1,6 @@
 import { Download, FolderOpen } from 'lucide-react'
-import { lazy, Suspense, useEffect, useId, useState } from 'react'
+import { formatBytes } from '@magnetar/protocol/bytes'
+import { lazy, Suspense, useEffect, useId, useRef, useState } from 'react'
 import { useT } from '../../lib/i18n.tsx'
 import { updates } from '../../lib/updates.ts'
 import { blurOnEnter } from '../../ui/fields.tsx'
@@ -23,26 +24,44 @@ export function FolderBrowser({ open, start, onClose, onSelect, save }: {
    * Saving a download rather than setting a folder: the button reads "Download here" and starts it, the folders
    * used before are offered to jump to, and a refusal from the device shows in the dialog.
    */
-  save?: { recent: string[]; fallback: string; busy: boolean; error: string | null }
+  save?: { recent: string[]; fallback: string; busy: boolean; error: string | null; subject?: { name: string; bytes: number | null } }
 }) {
   const t = useT()
   // The folder on screen: null on the list of folders, undefined until the chooser has placed itself.
   const [chosen, setChosen] = useState<string | null | undefined>(undefined)
+  const primary = useRef<HTMLButtonElement>(null)
+  // The first listing of an opening takes focus to Download here, so Enter saves to the folder it opened in;
+  // after that, where the user goes is theirs.
+  const focused = useRef(false)
   useEffect(() => {
-    if (!open) setChosen(undefined)
+    if (!open) {
+      setChosen(undefined)
+      focused.current = false
+    }
   }, [open])
+  const ready = () => {
+    if (focused.current || !save) return
+    focused.current = true
+    primary.current?.focus()
+  }
   return (
     <Modal open={open} title={t(save ? 'dialog.downloadTo' : 'dialog.chooseFolder')} icon={save ? <Download size={20} /> : <FolderOpen size={20} />} onClose={onClose} wide
       actions={<>
         <button type="button" className="btn btn-ghost btn-sm" disabled={save?.busy} onClick={onClose}>{t('common.cancel')}</button>
-        <button type="button" className="btn btn-primary btn-sm" disabled={!chosen || save?.busy} onClick={() => chosen && onSelect(chosen)}>
+        <button type="button" ref={primary} className="btn btn-primary btn-sm" disabled={!chosen || save?.busy} onClick={() => chosen && onSelect(chosen)}>
           {save?.busy && <span className="loading loading-spinner loading-xs" />}
           {save && !save.busy && <Download size={14} />}
           {t(save ? 'folderBrowser.downloadHere' : 'folderBrowser.selectFolder')}
         </button>
       </>}>
+      {save?.subject && (
+        <p className="mb-3 flex items-baseline gap-2 text-sm">
+          <span className="min-w-0 flex-1 truncate font-medium" title={save.subject.name}>{save.subject.name}</span>
+          {save.subject.bytes !== null && <span className="muted shrink-0 tabular-nums">{formatBytes(save.subject.bytes)}</span>}
+        </p>
+      )}
       {save?.error && <p role="alert" className="mb-3 whitespace-pre-line text-sm text-error">{save.error}</p>}
-      {open && <Suspense fallback={<Loading />}><Chooser start={start} path={chosen} onPath={setChosen} recent={save?.recent} fallback={save?.fallback} /></Suspense>}
+      {open && <Suspense fallback={<Loading />}><Chooser start={start} path={chosen} onPath={setChosen} recent={save?.recent} fallback={save?.fallback} needBytes={save?.subject?.bytes} onReady={ready} /></Suspense>}
     </Modal>
   )
 }

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { errorMessage } from '../../lib/errors.ts'
 import { useT, type Translate } from '../../lib/i18n.tsx'
 import { magnetsIn } from '../../lib/magnets.ts'
-import { folderChoices, readRecentFolders, rememberFolder } from '../../lib/recentFolders.ts'
+import { folderChoices, readRecentFolders, rememberFolder, startedNotice } from '../../lib/recentFolders.ts'
 import { RpcError } from '../../lib/rpcClient.ts'
 import { sendTorrent } from '../../lib/torrentUpload.ts'
 import { Modal } from '../../ui/Modal.tsx'
@@ -91,6 +91,16 @@ export function AddDownloadDialog({ open, initial, onClose }: { open: boolean; i
     refuse(withFiles(files, more).tooBig)
   }
 
+  /** What the browser says is being saved: the one item, or how many and, when every one is a file, their size. */
+  const subject = () => {
+    const sizes = files.length === count ? files.reduce((sum, f) => sum + f.size, 0) : null
+    if (count > 1) return { name: t('folderBrowser.items', count), bytes: sizes }
+    const [file] = files
+    const magnet = magnets[0] ? /[?&]dn=([^&]+)/i.exec(magnets[0])?.[1] : undefined
+    let name = file?.name ?? paths[0]?.split(/[\\/]/).pop() ?? magnet ?? t('add.title')
+    try { if (!file && magnet) name = decodeURIComponent(magnet.replace(/\+/g, ' ')) } catch { /* keep it as written */ }
+    return { name, bytes: sizes }
+  }
   const defaultFolder = settings?.downloadFolder ?? ''
   const choices = folderChoices(downloads, stored, defaultFolder)
 
@@ -117,7 +127,7 @@ export function AddDownloadDialog({ open, initial, onClose }: { open: boolean; i
     }
     for (const path of paths) {
       try {
-        await connection.call('downloads.addTorrentPath', { path })
+        await connection.call('downloads.addTorrentPath', { path, folder: target })
         started++
       } catch (e) {
         failures.push(`${path.split(/[\\/]/).pop()}: ${describe(t, e)}`)
@@ -138,7 +148,10 @@ export function AddDownloadDialog({ open, initial, onClose }: { open: boolean; i
       }
     }
     if (started > 0 && target) setStored(rememberFolder(deviceName, target))
-    if (started > 0) toast(started === 1 ? t('add.startedOne') : t('add.started', started), 'success')
+    if (started > 0) {
+      const notice = startedNotice(started === 1 ? { plain: 'add.startedOne', inFolder: 'add.startedOneIn' } : { plain: 'add.started', inFolder: 'add.startedIn' }, target)
+      toast(t(notice.key, started === 1 ? (notice.folder ?? '') : started, notice.folder ?? ''), 'success')
+    }
     // Closed while this ran, and maybe opened again for something else: that is no longer this run's.
     if (!stillOpen()) return
     setBusy(false)
@@ -211,7 +224,7 @@ export function AddDownloadDialog({ open, initial, onClose }: { open: boolean; i
         <button type="button" className="link link-hover text-sm" disabled={busy || count === 0} onClick={() => setChoosing(true)}>{t('add.otherFolder')}</button>
       </div>
       <FolderBrowser open={choosing} start={choices[0] ?? defaultFolder} onClose={() => setChoosing(false)}
-        onSelect={folder => { setChoosing(false); void submit(folder) }} save={{ recent: choices, fallback: defaultFolder, busy: false, error: null }} />
+        onSelect={folder => { setChoosing(false); void submit(folder) }} save={{ recent: choices, fallback: defaultFolder, busy: false, error: null, subject: subject() }} />
       {error && <p role="alert" className="mt-3 whitespace-pre-line text-sm text-error">{error}</p>}
     </Modal>
   )
