@@ -177,7 +177,7 @@ function DownloadsSection({ settings }: { settings: SettingsDto }) {
           <FolderField hideLabel label={t('settings.downloadFolder')} value={settings.downloadFolder}
             onChange={downloadFolder => downloadFolder.trim() && save({ downloadFolder })} />
         </SettingRow>
-        <SettingRow title={t('settings.askDownloadFolder')} description={t('settings.askDownloadFolderHint')}>
+        <SettingRow title={t('settings.askDownloadFolder')} description={t(settings.askDownloadFolder ? 'settings.askDownloadFolderOn' : 'settings.askDownloadFolderOff')}>
           <Switch label={t('settings.askDownloadFolder')} checked={settings.askDownloadFolder} onChange={askDownloadFolder => save({ askDownloadFolder })} />
         </SettingRow>
         <SeedingRow settings={settings} save={save} />

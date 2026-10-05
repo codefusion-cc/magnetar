@@ -1,3 +1,6 @@
+/** How "always save here" went: saved, or refused with the device's message. */
+export type AlwaysOutcome = { saved: true } | { saved: false; error: string }
+
 /** What the folder browser of a download shows: the thing being downloaded, whether it is being added, what went wrong. */
 export interface DownloadFlowState<T> {
   choosing: T | null
@@ -19,8 +22,10 @@ export class DownloadFlow<T> {
     start: (item: T, folder?: string) => Promise<void>
     /** Whether a plain Download opens the browser first. */
     ask: () => boolean
-    /** A download added: the item and the folder chosen for it, if any. */
-    started: (item: T, folder?: string) => void
+    /** Saves "always here, don't ask again": the folder becomes the download folder and asking is off. Rejects when refused. */
+    remember: (folder: string) => Promise<void>
+    /** A download added: the item, the folder chosen for it if any, and how "always here" went if it was ticked. */
+    started: (item: T, folder?: string, always?: AlwaysOutcome) => void
     /** A failure with no browser open to show it in. */
     failed: (error: unknown) => void
     /** A failure as the browser shows it. */
@@ -55,8 +60,12 @@ export class DownloadFlow<T> {
     else this.options.started(item)
   }
 
-  /** "Download here": adds the download being chosen for to `folder`. A failure stays in the browser. */
-  async confirm(folder: string): Promise<void> {
+  /**
+   * "Download here": adds the download being chosen for to `folder`. A failure stays in the browser. With `always`, the
+   * folder is then saved as the download folder with asking off, once, and only if the download was added; a refusal
+   * there leaves the download added and is told with it.
+   */
+  async confirm(folder: string, always = false): Promise<void> {
     const { choosing, busy } = this.state
     if (choosing === null || busy || !folder.trim()) return
     this.set({ busy: true, error: null })
@@ -65,8 +74,17 @@ export class DownloadFlow<T> {
     } catch (error) {
       return this.set({ busy: false, error: this.options.describe(error) })
     }
+    let outcome: AlwaysOutcome | undefined
+    if (always) {
+      try {
+        await this.options.remember(folder.trim())
+        outcome = { saved: true }
+      } catch (error) {
+        outcome = { saved: false, error: this.options.describe(error) }
+      }
+    }
     this.set({ busy: false, choosing: null })
-    this.options.started(choosing, folder)
+    this.options.started(choosing, folder, outcome)
   }
 
   /** Closes the browser, adding nothing. Not while the download is being added. */

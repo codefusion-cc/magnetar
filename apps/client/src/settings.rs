@@ -57,7 +57,8 @@ pub struct AppSettings {
     pub agent_api_allow_remote: bool,
     /// Scrubbed error reports to CodeFusion Console (see telemetry.rs).
     pub error_reports_enabled: bool,
-    /// Every Download click opens the folder browser first, to choose where that one goes.
+    /// Every Download click opens the folder browser first, to choose where that one goes. On unless turned off
+    /// ("don't ask again"), also for settings saved before it existed.
     pub ask_download_folder: bool,
 }
 
@@ -97,7 +98,7 @@ impl Default for AppSettings {
             agent_api_enabled: false,
             agent_api_allow_remote: false,
             error_reports_enabled: true,
-            ask_download_folder: false,
+            ask_download_folder: true,
         }
     }
 }
@@ -417,12 +418,19 @@ mod tests {
     }
 
     #[test]
-    fn asking_where_to_save_is_off_until_turned_on_and_stays_through_a_restart() {
+    fn asking_where_to_save_is_on_by_default_and_off_stays_off_through_a_restart() {
         let store = Store::new();
-        assert!(!store.settings.to_dto().ask_download_folder);
-        let patch = SettingsPatch { ask_download_folder: Some(true), ..Default::default() };
-        assert!(store.settings.apply_patch(patch).unwrap().ask_download_folder);
-        assert!(store.reopened().to_dto().ask_download_folder);
+        assert!(store.settings.to_dto().ask_download_folder);
+        let patch = SettingsPatch { ask_download_folder: Some(false), ..Default::default() };
+        assert!(!store.settings.apply_patch(patch).unwrap().ask_download_folder);
+        assert!(!store.reopened().to_dto().ask_download_folder);
+    }
+
+    #[test]
+    fn settings_saved_before_asking_existed_ask() {
+        let saved: AppSettings = serde_json::from_str(r#"{"downloadLimit":5,"language":"de"}"#).unwrap();
+        assert_eq!(saved.download_limit, 5);
+        assert!(saved.ask_download_folder);
     }
 
     #[test]

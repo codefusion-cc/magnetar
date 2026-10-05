@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { chipLabels, exceedsFreeSpace, folderChoices, MAX_RECENT_FOLDERS, readRecentFolders, rememberFolder, rowActions, shortFolder, startedNotice, usableOrDefault, withRecent } from './recentFolders.ts'
+import { chipLabels, exceedsFreeSpace, folderChoices, MAX_RECENT_FOLDERS, readRecentFolders, rememberFolder, noticeExtra, offersOtherFolder, shortFolder, startedNotice, usableOrDefault, withRecent } from './recentFolders.ts'
 
 const memory = () => {
   const data = new Map<string, string>()
@@ -119,10 +119,10 @@ describe('the free space warning', () => {
   })
 })
 
-describe('a result row', () => {
-  test('has a Download to… button of its own unless the setting asks every time, then one Download…', () => {
-    expect(rowActions(false)).toEqual({ downloadToButton: true, downloadLabelKey: 'common.download' })
-    expect(rowActions(true)).toEqual({ downloadToButton: false, downloadLabelKey: 'common.downloadAsk' })
+describe('the link to another folder', () => {
+  test('is offered only while asking is off, since otherwise Download asks', () => {
+    expect(offersOtherFolder(false)).toBe(true)
+    expect(offersOtherFolder(true)).toBe(false)
   })
 })
 
@@ -136,5 +136,16 @@ describe('the notice that a download was added', () => {
     expect(startedNotice({ plain: 'a', inFolder: 'b' })).toEqual({ key: 'a' })
     expect(startedNotice({ plain: 'a', inFolder: 'b' }, '  ')).toEqual({ key: 'a' })
     expect(shortFolder('/')).toBe('/')
+  })
+
+  test('says what "always save here" came to: downloads go there now, or why it could not be saved', () => {
+    const t = (key: string, ...args: (string | number)[]) => `${key}(${args.join(',')})`
+    const keys = { plain: 'a', inFolder: 'b' }
+    const saved = startedNotice(keys, '/m/Films', { saved: true })
+    expect(saved).toEqual({ key: 'b', folder: 'Films', extra: { key: 'notice.always', folder: 'Films' } })
+    expect(noticeExtra(t, saved)).toBe(' notice.always(Films)')
+    const refused = startedNotice(keys, '/m/Films', { saved: false, error: 'not allowed' })
+    expect(noticeExtra(t, refused)).toBe(' notice.alwaysFailed(not allowed)')
+    expect(noticeExtra(t, startedNotice(keys, '/m/Films'))).toBe('')
   })
 })

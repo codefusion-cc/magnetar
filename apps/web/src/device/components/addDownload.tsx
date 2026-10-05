@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { errorMessage } from '../../lib/errors.ts'
 import { useT, type Translate } from '../../lib/i18n.tsx'
 import { magnetsIn } from '../../lib/magnets.ts'
-import { folderChoices, readRecentFolders, rememberFolder, startedNotice } from '../../lib/recentFolders.ts'
+import { folderChoices, noticeExtra, offersOtherFolder, readRecentFolders, rememberFolder, startedNotice } from '../../lib/recentFolders.ts'
 import { RpcError } from '../../lib/rpcClient.ts'
 import { sendTorrent } from '../../lib/torrentUpload.ts'
 import { Modal } from '../../ui/Modal.tsx'
@@ -105,7 +105,7 @@ export function AddDownloadDialog({ open, initial, onClose }: { open: boolean; i
   const choices = folderChoices(downloads, stored, defaultFolder)
 
   /** Download clicked: where it goes is asked first when the setting says so; `folder` is the answer. */
-  const submit = async (folder?: string) => {
+  const submit = async (folder?: string, always = false) => {
     if (count === 0) return setError(t('add.nothing'))
     if (folder === undefined && settings?.askDownloadFolder) return setChoosing(true)
     const run = opened.current
@@ -148,9 +148,19 @@ export function AddDownloadDialog({ open, initial, onClose }: { open: boolean; i
       }
     }
     if (started > 0 && target) setStored(rememberFolder(deviceName, target))
+    // "Always save here": only once what was asked for is added, and one patch for both settings.
+    let outcome: { saved: true } | { saved: false; error: string } | undefined
+    if (always && target && started > 0 && !failures.length) {
+      try {
+        await connection.call('settings.update', { downloadFolder: target, askDownloadFolder: false })
+        outcome = { saved: true }
+      } catch (e) {
+        outcome = { saved: false, error: describe(t, e) }
+      }
+    }
     if (started > 0) {
-      const notice = startedNotice(started === 1 ? { plain: 'add.startedOne', inFolder: 'add.startedOneIn' } : { plain: 'add.started', inFolder: 'add.startedIn' }, target)
-      toast(t(notice.key, started === 1 ? (notice.folder ?? '') : started, notice.folder ?? ''), 'success')
+      const notice = startedNotice(started === 1 ? { plain: 'add.startedOne', inFolder: 'add.startedOneIn' } : { plain: 'add.started', inFolder: 'add.startedIn' }, target, outcome)
+      toast(t(notice.key, started === 1 ? (notice.folder ?? '') : started, notice.folder ?? '') + noticeExtra(t, notice), 'success')
     }
     // Closed while this ran, and maybe opened again for something else: that is no longer this run's.
     if (!stillOpen()) return
@@ -220,11 +230,11 @@ export function AddDownloadDialog({ open, initial, onClose }: { open: boolean; i
           })}
         </ul>
       )}
-      <div className="mt-4">
+      {offersOtherFolder(settings?.askDownloadFolder === true) && <div className="mt-4">
         <button type="button" className="link link-hover text-sm" disabled={busy || count === 0} onClick={() => setChoosing(true)}>{t('add.otherFolder')}</button>
-      </div>
+      </div>}
       <FolderBrowser open={choosing} start={choices[0] ?? defaultFolder} onClose={() => setChoosing(false)}
-        onSelect={folder => { setChoosing(false); void submit(folder) }} save={{ recent: choices, fallback: defaultFolder, busy: false, error: null, subject: subject() }} />
+        onSelect={(folder, always) => { setChoosing(false); void submit(folder, always) }} save={{ recent: choices, fallback: defaultFolder, busy: false, error: null, subject: subject() }} />
       {error && <p role="alert" className="mt-3 whitespace-pre-line text-sm text-error">{error}</p>}
     </Modal>
   )

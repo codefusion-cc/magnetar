@@ -19,7 +19,8 @@ export function FolderBrowser({ open, start, onClose, onSelect, save }: {
   open: boolean
   start: string
   onClose: () => void
-  onSelect: (path: string) => void
+  /** `always` is the box "always save here, don't ask again" in save mode. */
+  onSelect: (path: string, always: boolean) => void
   /**
    * Saving a download rather than setting a folder: the button reads "Download here" and starts it, the folders
    * used before are offered to jump to, and a refusal from the device shows in the dialog.
@@ -30,12 +31,14 @@ export function FolderBrowser({ open, start, onClose, onSelect, save }: {
   // The folder on screen: null on the list of folders, undefined until the chooser has placed itself.
   const [chosen, setChosen] = useState<string | null | undefined>(undefined)
   const primary = useRef<HTMLButtonElement>(null)
+  const [always, setAlways] = useState(false)
   // The first listing of an opening takes focus to Download here, so Enter saves to the folder it opened in;
   // after that, where the user goes is theirs.
   const focused = useRef(false)
   useEffect(() => {
     if (!open) {
       setChosen(undefined)
+      setAlways(false)
       focused.current = false
     }
   }, [open])
@@ -47,8 +50,14 @@ export function FolderBrowser({ open, start, onClose, onSelect, save }: {
   return (
     <Modal open={open} title={t(save ? 'dialog.downloadTo' : 'dialog.chooseFolder')} icon={save ? <Download size={20} /> : <FolderOpen size={20} />} onClose={onClose} wide
       actions={<>
+        {save && (
+          <label className="mr-auto flex cursor-pointer items-center gap-2 text-sm">
+            <input type="checkbox" className="checkbox checkbox-sm" checked={always} disabled={save.busy} onChange={e => setAlways(e.target.checked)} />
+            {t('folderBrowser.always')}
+          </label>
+        )}
         <button type="button" className="btn btn-ghost btn-sm" disabled={save?.busy} onClick={onClose}>{t('common.cancel')}</button>
-        <button type="button" ref={primary} className="btn btn-primary btn-sm" disabled={!chosen || save?.busy} onClick={() => chosen && onSelect(chosen)}>
+        <button type="button" ref={primary} className="btn btn-primary btn-sm" disabled={!chosen || save?.busy} onClick={() => chosen && onSelect(chosen, always)}>
           {save?.busy && <span className="loading loading-spinner loading-xs" />}
           {save && !save.busy && <Download size={14} />}
           {t(save ? 'folderBrowser.downloadHere' : 'folderBrowser.selectFolder')}

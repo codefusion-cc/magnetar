@@ -103,13 +103,27 @@ export function exceedsFreeSpace(sizeBytes: number | null | undefined, freeBytes
   return typeof sizeBytes === 'number' && typeof freeBytes === 'number' && sizeBytes > freeBytes
 }
 
-/** What a result row offers: Download to… as a button of its own, or only a Download that opens the browser first. */
-export function rowActions(ask: boolean): { downloadToButton: boolean; downloadLabelKey: 'common.download' | 'common.downloadAsk' } {
-  return { downloadToButton: !ask, downloadLabelKey: ask ? 'common.downloadAsk' : 'common.download' }
+/** Whether a "Save to another folder…" link is offered: only while asking is off, since otherwise Download asks. */
+export const offersOtherFolder = (ask: boolean) => !ask
+
+/**
+ * Which notice says a download was added: it names the folder when one was chosen, and when "always save here" was
+ * ticked says that downloads now go there without asking, or that the choice could not be saved and why.
+ */
+export function startedNotice<K extends string>(
+  keys: { plain: K; inFolder: K },
+  folder?: string,
+  always?: { saved: true } | { saved: false; error: string },
+): { key: K; folder?: string; extra?: { key: 'notice.always'; folder: string } | { key: 'notice.alwaysFailed'; error: string } } {
+  const named = folder?.trim()
+  if (!named) return { key: keys.plain }
+  const short = shortFolder(named)
+  if (!always) return { key: keys.inFolder, folder: short }
+  return { key: keys.inFolder, folder: short, extra: always.saved ? { key: 'notice.always', folder: short } : { key: 'notice.alwaysFailed', error: always.error } }
 }
 
-/** Which notice says a download was added: it names the folder when one was chosen. */
-export function startedNotice<K extends string>(keys: { plain: K; inFolder: K }, folder?: string): { key: K; folder?: string } {
-  const named = folder?.trim()
-  return named ? { key: keys.inFolder, folder: shortFolder(named) } : { key: keys.plain }
+/** The sentence a notice adds after "started in …": what "always save here" came to. Empty when it was not ticked. */
+export function noticeExtra(t: (key: string, ...args: (string | number)[]) => string, notice: ReturnType<typeof startedNotice>): string {
+  if (!notice.extra) return ''
+  return ` ${notice.extra.key === 'notice.always' ? t('notice.always', notice.extra.folder) : t('notice.alwaysFailed', notice.extra.error)}`
 }
