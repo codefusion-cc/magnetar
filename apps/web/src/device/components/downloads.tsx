@@ -2,7 +2,7 @@ import type { DownloadDto, DownloadStatus } from '@magnetar/protocol'
 import { formatBytes, formatRate } from '@magnetar/protocol/bytes'
 import { ArrowDown, ArrowUp, Clock, Files, Pause, Play, RotateCw, Trash2, Tv, Users } from 'lucide-react'
 import { memo, useState } from 'react'
-import { useFormatEta, useT } from '../../lib/i18n.tsx'
+import { useFormatDate, useFormatEta, useFormatRelative, useT } from '../../lib/i18n.tsx'
 import { ConfirmDialog } from '../../ui/Modal.tsx'
 import { useConnection } from '../DeviceContext.tsx'
 import { useRun } from '../useRun.ts'
@@ -54,6 +54,8 @@ export const DownloadRow = memo(function DownloadRow({ download: d, seriesName, 
 }) {
   const t = useT()
   const formatEta = useFormatEta()
+  const formatRelative = useFormatRelative()
+  const formatDate = useFormatDate()
   const status = STATUS[d.status]
   const percent = Math.round(d.progress * 10) / 10
   const done = isFinished(d)
@@ -73,6 +75,8 @@ export const DownloadRow = memo(function DownloadRow({ download: d, seriesName, 
     isActive(d) && d.peers > 0 && <span key="peers" className="inline-flex items-center gap-1 tabular-nums"><Users size={12} />{d.peers}</span>,
     d.status === 'Seeding' && d.uploadedBytes > 0 && <span key="ratio" className="tabular-nums">{t('downloads.ratio', ratioOf(d).toFixed(2))}</span>,
     d.partialFiles && <span key="files" className="inline-flex items-center gap-1"><Files size={12} />{t('downloads.someFiles', d.partialFiles.selected, d.partialFiles.total)}</span>,
+    d.addedAt && <span key="added" title={formatDate(d.addedAt, true)}>{t('downloads.added', formatRelative(d.addedAt))}</span>,
+    done && d.completedAt && <span key="finished" title={formatDate(d.completedAt, true)}>{t('downloads.finishedAt', formatRelative(d.completedAt))}</span>,
   ].filter(Boolean)
 
   return (
