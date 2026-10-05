@@ -234,12 +234,12 @@ export const content: FeaturesContent = {
       lead: 'Gdy pobieranie się zaczyna lub kończy, obserwacja coś znajduje albo wychodzi aktualizacja – tam, gdzie chcesz się o tym dowiedzieć.',
       features: {
         channels: {
-          title: 'Pięć sposobów powiadamiania',
+          title: 'Cztery sposoby powiadamiania',
           gain: 'Dowiedz się o ukończonym pobieraniu na telefonie, w skrzynce e-mail albo na Telegramie, bez trzymania otwartej karty.',
-          text: 'Włącz dowolne kanały – powiadomienia na pulpicie, push w przeglądarce, e-mail, ntfy i Telegram – i wybierz, czy chcesz wiedzieć o rozpoczęciu pobierania, o jego ukończeniu, czy o obu. Każdy kanał ma przycisk „Wyślij testowe powiadomienie”.',
+          text: 'Włącz dowolne kanały – powiadomienia na pulpicie, push w przeglądarce, e-mail i Telegram – i wybierz, czy chcesz wiedzieć o rozpoczęciu pobierania, o jego ukończeniu, czy o obu. Każdy kanał ma przycisk „Wyślij testowe powiadomienie”.',
           points: [
             'Awaria jednego kanału nigdy nie zatrzymuje pozostałych',
-            'E-mail przez Twój własny serwer SMTP; ntfy.sh lub własny serwer ntfy; bot Telegram',
+            'E-mail przez Twój własny serwer SMTP; bot Telegram',
             'O znalezisku obserwacji i o nowej wersji dowiesz się tylko raz',
           ],
         },

@@ -2,7 +2,7 @@ import type { ThemeMode } from '@codefusion-cc/theme'
 import { useTheme } from '@codefusion-cc/theme/react'
 import type { AgentStatusDto, HandlerStatus, LoginStartupStatus, SettingsDto, SettingsPatch, UpdateStatusDto } from '@magnetar/protocol'
 import {
-  Bell, Bot, Cloud, Copy, Download, Eye, EyeOff, Info, Mail, RefreshCw, Send, Server, Smartphone, SlidersHorizontal, Upload,
+  Bell, Bot, Cloud, Copy, Download, Eye, EyeOff, Info, Mail, RefreshCw, Send, Server, SlidersHorizontal, Upload,
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, Navigate, useParams } from 'react-router'
@@ -257,7 +257,7 @@ function NotificationsSection({ settings: s }: { settings: SettingsDto }) {
     setTimeout(() => setPermission(Notification.permission), 1500)
   }
   const [browserPush, setBrowserPush] = useState(false)
-  const anyOn = s.desktopEnabled || s.emailEnabled || s.pushEnabled || s.telegramEnabled || browserPush
+  const anyOn = s.desktopEnabled || s.emailEnabled || s.telegramEnabled || browserPush
 
   return (
     <>
@@ -290,10 +290,6 @@ function NotificationsSection({ settings: s }: { settings: SettingsDto }) {
         <SecretField label={t('settings.password')} isSet={s.smtpPasswordSet} onSave={smtpPassword => save({ smtpPassword })} />
         <Text type="email" label={t('settings.from')} value={s.emailFrom} onSave={emailFrom => save({ emailFrom: emailFrom.trim() })} />
         <Text type="email" label={t('settings.to')} value={s.emailTo} onSave={emailTo => save({ emailTo: emailTo.trim() })} />
-      </Channel>
-      <Channel icon={<Smartphone size={18} />} title={t('settings.push')} description={t('settings.pushHint')} enabled={s.pushEnabled} onToggle={pushEnabled => save({ pushEnabled })}>
-        <Text label={t('settings.ntfyServer')} value={s.ntfyServer} onSave={ntfyServer => save({ ntfyServer: ntfyServer.trim() })} />
-        <Text label={t('settings.topic')} help={t('settings.topicHint')} value={s.ntfyTopic} onSave={ntfyTopic => save({ ntfyTopic })} />
       </Channel>
       <Channel icon={<Send size={18} />} title={t('settings.telegram')} enabled={s.telegramEnabled} onToggle={telegramEnabled => save({ telegramEnabled })}>
         <SecretField label={t('settings.botToken')} help={t('settings.botTokenHint')} isSet={s.telegramBotTokenSet} onSave={telegramBotToken => save({ telegramBotToken })} />

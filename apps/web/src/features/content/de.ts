@@ -234,12 +234,12 @@ export const content: FeaturesContent = {
       lead: 'Wenn ein Download startet oder fertig ist, eine Beobachtung etwas findet oder ein Update erscheint: dort, wo du es erfahren willst.',
       features: {
         channels: {
-          title: 'Fünf Wege, Bescheid zu bekommen',
+          title: 'Vier Wege, Bescheid zu bekommen',
           gain: 'Erfahre auf dem Handy, im Posteingang oder in Telegram, dass ein Download fertig ist, ohne einen Tab offen zu halten.',
-          text: 'Schalte Desktop, Browser-Push, E-Mail, ntfy und Telegram nach Belieben ein und wähle, ob du vom Start eines Downloads, von seinem Abschluss oder von beidem erfahren willst. Jeder Kanal hat einen Knopf „Testbenachrichtigung senden“.',
+          text: 'Schalte Desktop, Browser-Push, E-Mail und Telegram nach Belieben ein und wähle, ob du vom Start eines Downloads, von seinem Abschluss oder von beidem erfahren willst. Jeder Kanal hat einen Knopf „Testbenachrichtigung senden“.',
           points: [
             'Fällt ein Kanal aus, laufen die anderen trotzdem weiter',
-            'E-Mail über deinen eigenen SMTP-Server; ntfy.sh oder dein eigener ntfy-Server; ein Telegram-Bot',
+            'E-Mail über deinen eigenen SMTP-Server; ein Telegram-Bot',
             'Der Fund einer Beobachtung und eine neue Version werden je einmal gemeldet',
           ],
         },

@@ -45,7 +45,7 @@ Every feature with screenshots of the app, in all eight languages: [magnetar.cod
 - **Speed limits** with alternative limits switched by hand or on a schedule; **seed** to a ratio, or stop or keep
   seeding when a download finishes; free space shown on the Downloads page.
 - **VPN kill switch** (macOS and Linux): bind torrent traffic to one network interface, and nothing moves without it.
-- **Notifications** by desktop (browser), e-mail (SMTP), push (ntfy), Telegram, and **browser push**: a linked phone
+- **Notifications** by desktop (browser), e-mail (SMTP), Telegram, and **browser push**: a linked phone
   or browser gets them with the website closed, encrypted on the computer for that browser.
 - **Installable website** (a Progressive Web App) with a download button for your system.
 - **Remote access** from any browser: sign in with Google, connect the computer once, link your phone with a QR code.

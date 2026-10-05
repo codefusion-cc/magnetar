@@ -234,12 +234,12 @@ export const content: FeaturesContent = {
       lead: 'Quando uma transferência começa ou termina, um seguimento encontra algo ou sai uma atualização: onde quiser ser avisado.',
       features: {
         channels: {
-          title: 'Cinco formas de ser avisado',
+          title: 'Quatro formas de ser avisado',
           gain: 'Saiba que uma transferência terminou no telemóvel, no e-mail ou no Telegram, sem manter um separador aberto.',
-          text: 'Ative qualquer um destes canais: ambiente de trabalho, push do navegador, e-mail, ntfy e Telegram, e escolha se quer ser avisado quando as transferências começam, quando terminam ou ambos. Cada canal tem um botão «Enviar notificação de teste».',
+          text: 'Ative qualquer um destes canais: ambiente de trabalho, push do navegador, e-mail e Telegram, e escolha se quer ser avisado quando as transferências começam, quando terminam ou ambos. Cada canal tem um botão «Enviar notificação de teste».',
           points: [
             'A falha de um canal nunca trava os outros',
-            'E-mail pelo seu próprio servidor SMTP; ntfy.sh ou o seu próprio servidor ntfy; um bot do Telegram',
+            'E-mail pelo seu próprio servidor SMTP; um bot do Telegram',
             'Cada achado de um seguimento e cada nova versão da aplicação são avisados uma única vez',
           ],
         },

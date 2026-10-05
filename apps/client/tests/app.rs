@@ -61,7 +61,7 @@ fn legacy_database(dir: &std::path::Path) -> std::path::PathBuf {
           "CompleteNotificationSent" INTEGER NOT NULL, "SeriesTaskId" INTEGER NULL, "TorrentFilePath" TEXT NULL, "NameIsPlaceholder" INTEGER NOT NULL DEFAULT 0);
         INSERT INTO "SeriesTasks" VALUES (7, 'Frieren', 'Frieren 1080p', 'Nyaa', 'SubsPlease', NULL, 1, 28, NULL, 12, 60, 1, '2026-09-01 10:00:00.1234567', '2026-07-01 09:00:00');
         INSERT INTO "Settings" VALUES (1, '/Volumes/Media', 1, 0, 1, 'smtp.example.com', 465, 1, 'me', 'CfDJ8-encrypted', 'me@example.com', 'me@example.com',
-          1, 0, 'https://ntfy.sh', '', 0, '', '', 1, 'PTE,EZTV', 'pl', 0, 1, 'CfDJ8-token');
+          1, 1, 'https://ntfy.sh', 'old-topic', 0, '', '', 1, 'PTE,EZTV', 'pl', 0, 1, 'CfDJ8-token');
         INSERT INTO "Downloads" VALUES (1, 'Frieren - 12', 'magnet:?xt=urn:btih:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&dn=x', 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
           '/Volumes/Media', 'Nyaa', 5, 100, 1000, '2026-09-01 10:00:00', '2026-09-01 11:00:00', NULL, 1, 1, 7, NULL, 0);
         INSERT INTO "Downloads" VALUES (2, 'Ubuntu', 'magnet:?xt=urn:btih:BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB', 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',

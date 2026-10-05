@@ -46,9 +46,6 @@ pub struct AppSettings {
     pub email_from: String,
     pub email_to: String,
     pub desktop_enabled: bool,
-    pub push_enabled: bool,
-    pub ntfy_server: String,
-    pub ntfy_topic: String,
     pub telegram_enabled: bool,
     pub telegram_chat_id: String,
     /// Off by default: enabling it lets any program on this machine search and start downloads.
@@ -90,9 +87,6 @@ impl Default for AppSettings {
             email_from: String::new(),
             email_to: String::new(),
             desktop_enabled: true,
-            push_enabled: false,
-            ntfy_server: "https://ntfy.sh".into(),
-            ntfy_topic: String::new(),
             telegram_enabled: false,
             telegram_chat_id: String::new(),
             agent_api_enabled: false,
@@ -214,9 +208,6 @@ impl SettingsService {
                 email_from,
                 email_to,
                 desktop_enabled,
-                push_enabled,
-                ntfy_server,
-                ntfy_topic,
                 telegram_enabled,
                 telegram_chat_id,
                 error_reports_enabled,
@@ -262,9 +253,6 @@ impl SettingsService {
             email_from: s.email_from,
             email_to: s.email_to,
             desktop_enabled: s.desktop_enabled,
-            push_enabled: s.push_enabled,
-            ntfy_server: s.ntfy_server,
-            ntfy_topic: s.ntfy_topic,
             telegram_enabled: s.telegram_enabled,
             telegram_bot_token_set: self.secrets.has(SecretName::TelegramBotToken),
             telegram_chat_id: s.telegram_chat_id,
@@ -440,5 +428,18 @@ mod tests {
         assert_eq!(store.settings.get().language, "en");
         store.settings.update(|s| s.language = "de".into()).unwrap();
         assert_eq!(store.reopened().get().language, "de");
+    }
+
+    #[test]
+    fn settings_saved_with_the_removed_ntfy_fields_load_and_keep_everything_else() {
+        let store = Store::new();
+        let saved = r#"{"language":"de","downloadLimit":7,"telegramEnabled":true,"pushEnabled":true,"ntfyServer":"https://ntfy.sh","ntfyTopic":"mine"}"#;
+        store.db.lock().execute("INSERT INTO settings (id, json) VALUES (1, ?1)", [saved]).unwrap();
+        let loaded = store.reopened().get();
+        assert_eq!((loaded.language.as_str(), loaded.download_limit, loaded.telegram_enabled), ("de", 7, true));
+        // Saving writes the row again without them.
+        store.reopened().update(|s| s.download_limit = 8).unwrap();
+        let row: String = store.db.lock().query_row("SELECT json FROM settings WHERE id = 1", [], |r| r.get(0)).unwrap();
+        assert!(!row.to_lowercase().contains("ntfy") && row.contains("\"downloadLimit\":8"), "{row}");
     }
 }

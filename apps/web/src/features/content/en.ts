@@ -234,12 +234,12 @@ export const en: FeaturesContent = {
       lead: 'When a download starts or finishes, a watch finds something, or an update is out: wherever you want to hear it.',
       features: {
         channels: {
-          title: 'Five ways to be told',
+          title: 'Four ways to be told',
           gain: 'Hear that a download finished on your phone, in your inbox or in Telegram, without keeping a tab open.',
-          text: 'Turn on any of the desktop, browser push, e-mail, ntfy and Telegram, and choose whether to hear about downloads starting, finishing, or both. Each channel has a "Send a test" button.',
+          text: 'Turn on any of the desktop, browser push, e-mail and Telegram, and choose whether to hear about downloads starting, finishing, or both. Each channel has a "Send a test" button.',
           points: [
             'One channel failing never stops the others',
-            'E-mail through your own SMTP server; ntfy.sh or your own ntfy server; a Telegram bot',
+            'E-mail through your own SMTP server; a Telegram bot',
             'A watch\'s find and a new version are told once each',
           ],
         },

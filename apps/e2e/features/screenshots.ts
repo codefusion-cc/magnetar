@@ -191,7 +191,7 @@ async function prepare(browser: Browser): Promise<Website> {
   await rpc(main, 'settings.update', {
     altSpeedMode: 'on', altScheduleFrom: 8 * 60, altScheduleTo: 23 * 60,
     uploadLimit: 1024 * 1024, postDownloadAction: 'SeedToRatio', seedRatio: 1.5,
-    desktopEnabled: true, ntfyTopic: 'magnetar-alex', notifyOnStart: false, notifyOnComplete: true,
+    desktopEnabled: true, notifyOnStart: false, notifyOnComplete: true,
   })
   const tears = await startTorrent(main, TORRENTS.tears)
   await startTorrent(main, TORRENTS.cosmos)

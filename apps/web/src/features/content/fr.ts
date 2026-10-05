@@ -234,12 +234,12 @@ export const content: FeaturesContent = {
       lead: 'Quand un téléchargement démarre ou se termine, qu’un suivi trouve quelque chose ou qu’une mise à jour sort : là où vous voulez l’apprendre.',
       features: {
         channels: {
-          title: 'Cinq façons d’être prévenu',
+          title: 'Quatre façons d’être prévenu',
           gain: 'Apprenez qu’un téléchargement est terminé sur votre téléphone, dans votre boîte mail ou dans Telegram, sans garder d’onglet ouvert.',
-          text: 'Activez au choix les notifications de bureau, le push du navigateur, l’e-mail, ntfy et Telegram, et choisissez d’être prévenu du début des téléchargements, de leur fin, ou des deux. Chaque canal a un bouton « Envoyer une notification de test ».',
+          text: 'Activez au choix les notifications de bureau, le push du navigateur, l’e-mail et Telegram, et choisissez d’être prévenu du début des téléchargements, de leur fin, ou des deux. Chaque canal a un bouton « Envoyer une notification de test ».',
           points: [
             'Un canal en panne n’arrête jamais les autres',
-            'L’e-mail par votre propre serveur SMTP ; ntfy.sh ou votre propre serveur ntfy ; un bot Telegram',
+            'L’e-mail par votre propre serveur SMTP ; un bot Telegram',
             'La trouvaille d’un suivi et une nouvelle version ne sont annoncées qu’une fois chacune',
           ],
         },

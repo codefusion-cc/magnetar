@@ -234,12 +234,12 @@ export const content: FeaturesContent = {
       lead: 'Cuando una descarga empieza o termina, un seguimiento encuentra algo o sale una actualización: donde quieras enterarte.',
       features: {
         channels: {
-          title: 'Cinco formas de enterarte',
+          title: 'Cuatro formas de enterarte',
           gain: 'Entérate de que terminó una descarga en el móvil, en tu correo o en Telegram, sin tener una pestaña abierta.',
-          text: 'Activa los que quieras entre escritorio, push del navegador, correo electrónico, ntfy y Telegram, y elige si quieres enterarte de las descargas que empiezan, de las que terminan o de ambas. Cada canal tiene un botón «Enviar notificación de prueba».',
+          text: 'Activa los que quieras entre escritorio, push del navegador, correo electrónico y Telegram, y elige si quieres enterarte de las descargas que empiezan, de las que terminan o de ambas. Cada canal tiene un botón «Enviar notificación de prueba».',
           points: [
             'Si un canal falla, los demás siguen funcionando',
-            'Correo a través de tu propio servidor SMTP; ntfy.sh o tu propio servidor ntfy; un bot de Telegram',
+            'Correo a través de tu propio servidor SMTP; un bot de Telegram',
             'Lo que encuentra un seguimiento y cada versión nueva de la app se avisan una sola vez',
           ],
         },

@@ -234,12 +234,12 @@ export const content: FeaturesContent = {
       lead: 'Quando un download inizia o finisce, un’attesa trova qualcosa o esce un aggiornamento: dove preferisci saperlo.',
       features: {
         channels: {
-          title: 'Cinque modi per essere avvisato',
+          title: 'Quattro modi per essere avvisato',
           gain: 'Scopri che un download è finito sul telefono, via e-mail o su Telegram, senza tenere aperta una scheda.',
-          text: 'Attiva quelli che vuoi tra notifiche desktop, push del browser, e-mail, ntfy e Telegram, e scegli se essere avvisato quando i download iniziano, finiscono o entrambi. Ogni canale ha un pulsante «Invia notifica di prova».',
+          text: 'Attiva quelli che vuoi tra notifiche desktop, push del browser, e-mail e Telegram, e scegli se essere avvisato quando i download iniziano, finiscono o entrambi. Ogni canale ha un pulsante «Invia notifica di prova».',
           points: [
             'Se un canale non funziona, gli altri continuano',
-            'E-mail tramite il tuo server SMTP; ntfy.sh o il tuo server ntfy; un bot Telegram',
+            'E-mail tramite il tuo server SMTP; un bot Telegram',
             'Una release trovata da un’attesa e una nuova versione vengono notificate una sola volta ciascuna',
           ],
         },
