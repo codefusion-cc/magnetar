@@ -160,9 +160,9 @@ async function socketPage(browser: Browser, key: DeviceKey): Promise<Page> {
   return page
 }
 
-async function startTorrent(page: Page, url: string): Promise<DownloadRow> {
+async function startTorrent(page: Page, url: string, folder?: string): Promise<DownloadRow> {
   const file = Buffer.from(await (await fetch(url, { signal: AbortSignal.timeout(30_000) })).arrayBuffer())
-  return rpc<DownloadRow>(page, 'downloads.start', { torrent: file.toString('base64') })
+  return rpc<DownloadRow>(page, 'downloads.start', { torrent: file.toString('base64'), folder })
 }
 
 /** Signs a browser in to the local website with the dev account. */
@@ -191,11 +191,14 @@ async function prepare(browser: Browser): Promise<Website> {
   await rpc(main, 'settings.update', {
     altSpeedMode: 'on', altScheduleFrom: 8 * 60, altScheduleTo: 23 * 60,
     uploadLimit: 1024 * 1024, postDownloadAction: 'SeedToRatio', seedRatio: 1.5,
-    desktopEnabled: true, ntfyTopic: 'magnetar-alex', notifyOnStart: false, notifyOnComplete: true,
+    desktopEnabled: true, notifyOnStart: false, notifyOnComplete: true,
   })
   const tears = await startTorrent(main, TORRENTS.tears)
   await startTorrent(main, TORRENTS.cosmos)
-  await startTorrent(main, TORRENTS.debian)
+  // Into a folder of its own, so the folder browser has a recent folder to offer.
+  const isos = join(scratch, 'main', 'downloads', 'ISOs')
+  mkdirSync(isos, { recursive: true })
+  await startTorrent(main, TORRENTS.debian, isos)
   await startTorrent(main, TORRENTS.ubuntu)
   await until('Tears of Steel to start', async () => (await downloads(main)).find(row => row.id === tears.id && row.progress > 0.05))
   await rpc(main, 'downloads.pause', { id: tears.id })
@@ -292,6 +295,12 @@ function scenes(website: Website): Scene<BrowserContext, Page>[] {
   return [
     localShot('downloads', '/', 'Downloads', { ready: page => page.getByText('Ubuntu', { exact: false }).first().waitFor() }),
     shot('search', (page: Page) => search(page, '/search/sintel')),
+    shot('save-folder', async (page: Page) => {
+      await search(page, '/search/sintel')
+      await page.getByRole('button', { name: 'Download', exact: true }).first().click()
+      await dialog(page, 'Download to').getByText('free').first().waitFor()
+      await page.waitForTimeout(800)
+    }),
     shot('search-phone', (page: Page) => search(page, '/search/big+buck+bunny?res=1080p'), { device: DEVICES.phone }),
     shot('search-sources', async (page: Page) => {
       await search(page, '/search/tears+of+steel')

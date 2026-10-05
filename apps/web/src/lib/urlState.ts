@@ -1,4 +1,3 @@
-import { useCallback } from 'react'
 import { useSearchParams } from 'react-router'
 
 /**
@@ -18,14 +17,6 @@ export function withParam(params: URLSearchParams, name: string, value: string, 
 export function pickParam<T extends string>(params: URLSearchParams, name: string, allowed: readonly T[], fallback: T): T {
   const value = params.get(name)
   return value !== null && (allowed as readonly string[]).includes(value) ? (value as T) : fallback
-}
-
-/** One choice kept in the query string: `[value, setValue]`, like useState. Changes replace the history entry. */
-export function useQueryChoice<T extends string>(name: string, allowed: readonly T[], fallback: T): [T, (value: T) => void] {
-  const [params, setParams] = useSearchParams()
-  const value = pickParam(params, name, allowed, fallback)
-  const set = useCallback((next: T) => setParams(current => withParam(current, name, next, fallback), { replace: true }), [name, fallback, setParams])
-  return [value, set]
 }
 
 /**

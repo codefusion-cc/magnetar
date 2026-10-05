@@ -4,12 +4,15 @@ import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { errorMessage } from '../../lib/errors.ts'
 import { useT, type Translate } from '../../lib/i18n.tsx'
 import { magnetsIn } from '../../lib/magnets.ts'
+import { askingWhere, saveAlways } from '../../lib/downloadFlow.ts'
+import { noticeExtra, offersOtherFolder, startedNotice } from '../../lib/recentFolders.ts'
 import { RpcError } from '../../lib/rpcClient.ts'
 import { sendTorrent } from '../../lib/torrentUpload.ts'
 import { Modal } from '../../ui/Modal.tsx'
 import { useToast } from '../../ui/toast.tsx'
 import { useDevice } from '../DeviceContext.tsx'
-import { FolderField } from './folders.tsx'
+import { useFolderChoices } from '../useDownloadFlow.tsx'
+import { FolderBrowser } from './folders.tsx'
 
 const isTorrentFile = (file: File) => file.name.toLowerCase().endsWith('.torrent') || file.type === 'application/x-bittorrent'
 const fileKey = (file: File) => `${file.name}:${file.size}`
@@ -52,10 +55,12 @@ export function AddDownloadDialog({ open, initial, onClose }: { open: boolean; i
   const t = useT()
   const toast = useToast()
   const { connection, settings } = useDevice()
+  const { choices, defaultFolder, remember, alwaysHere } = useFolderChoices()
+  const { ask, canRemember } = askingWhere(settings)
+  const [choosing, setChoosing] = useState(false)
   const [text, setText] = useState('')
   const [files, setFiles] = useState<File[]>([])
   const [paths, setPaths] = useState<string[]>([])
-  const [folder, setFolder] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   /** The file going in pieces right now (fileKey), and the share of it sent (0–1). */
@@ -73,7 +78,7 @@ export function AddDownloadDialog({ open, initial, onClose }: { open: boolean; i
     setText(initial?.magnets.join('\n') ?? '')
     setFiles(files)
     setPaths(initial?.paths ?? [])
-    setFolder(null)
+    setChoosing(false)
     setProgress(null)
     setBusy(false)
     refuse(tooBig)
@@ -87,8 +92,21 @@ export function AddDownloadDialog({ open, initial, onClose }: { open: boolean; i
     refuse(withFiles(files, more).tooBig)
   }
 
-  const submit = async () => {
+  /** What the browser says is being saved: the one item, or how many and, when every one is a file, their size. */
+  const subject = () => {
+    const sizes = files.length === count ? files.reduce((sum, f) => sum + f.size, 0) : null
+    if (count > 1) return { name: t('folderBrowser.items', count), bytes: sizes }
+    const [file] = files
+    const magnet = magnets[0] ? /[?&]dn=([^&]+)/i.exec(magnets[0])?.[1] : undefined
+    let name = file?.name ?? paths[0]?.split(/[\\/]/).pop() ?? magnet ?? t('add.title')
+    try { if (!file && magnet) name = decodeURIComponent(magnet.replace(/\+/g, ' ')) } catch { /* keep it as written */ }
+    return { name, bytes: sizes }
+  }
+
+  /** Download clicked: where it goes is asked first when the setting says so; `folder` is the answer. */
+  const submit = async (folder?: string, always = false) => {
     if (count === 0) return setError(t('add.nothing'))
+    if (folder === undefined && ask) return setChoosing(true)
     const run = opened.current
     const stillOpen = () => opened.current === run
     setBusy(true)
@@ -108,7 +126,7 @@ export function AddDownloadDialog({ open, initial, onClose }: { open: boolean; i
     }
     for (const path of paths) {
       try {
-        await connection.call('downloads.addTorrentPath', { path })
+        await connection.call('downloads.addTorrentPath', { path, folder: target })
         started++
       } catch (e) {
         failures.push(`${path.split(/[\\/]/).pop()}: ${describe(t, e)}`)
@@ -128,7 +146,13 @@ export function AddDownloadDialog({ open, initial, onClose }: { open: boolean; i
         if (stillOpen()) setProgress(null)
       }
     }
-    if (started > 0) toast(started === 1 ? t('add.startedOne') : t('add.started', started), 'success')
+    if (started > 0 && target) remember(target)
+    // "Always save here": only once what was asked for is added, and one patch for both settings.
+    const outcome = always && target && started > 0 && !failures.length ? await saveAlways(() => alwaysHere(target), e => describe(t, e)) : undefined
+    if (started > 0) {
+      const notice = startedNotice(started === 1 ? { plain: 'add.startedOne', inFolder: 'add.startedOneIn' } : { plain: 'add.started', inFolder: 'add.startedIn' }, target, outcome)
+      toast(t(notice.key, started === 1 ? (notice.folder ?? '') : started, notice.folder ?? '') + noticeExtra(t, notice), 'success')
+    }
     // Closed while this ran, and maybe opened again for something else: that is no longer this run's.
     if (!stillOpen()) return
     setBusy(false)
@@ -197,11 +221,11 @@ export function AddDownloadDialog({ open, initial, onClose }: { open: boolean; i
           })}
         </ul>
       )}
-      <div className="mt-4">
-        {folder === null
-          ? <button type="button" className="link link-hover text-sm" onClick={() => setFolder(settings?.downloadFolder ?? '')}>{t('add.otherFolder')}</button>
-          : <FolderField label={t('dialog.folder')} value={folder} help={t('dialog.folderHelp')} onChange={setFolder} />}
-      </div>
+      {offersOtherFolder(ask) && <div className="mt-4">
+        <button type="button" className="link link-hover text-sm" disabled={busy || count === 0} onClick={() => setChoosing(true)}>{t('add.otherFolder')}</button>
+      </div>}
+      <FolderBrowser open={choosing} start={choices[0] ?? defaultFolder} onClose={() => setChoosing(false)}
+        onSelect={(folder, always) => { setChoosing(false); void submit(folder, always) }} save={{ canAlways: canRemember, recent: choices, fallback: defaultFolder, busy: false, error: null, subject: subject() }} />
       {error && <p role="alert" className="mt-3 whitespace-pre-line text-sm text-error">{error}</p>}
     </Modal>
   )

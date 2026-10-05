@@ -238,13 +238,11 @@ export interface SettingsDto {
   emailFrom: string
   emailTo: string
   desktopEnabled: boolean
-  pushEnabled: boolean
-  ntfyServer: string
-  ntfyTopic: string
   telegramEnabled: boolean
   telegramBotTokenSet: boolean
   telegramChatId: string
   errorReportsEnabled: boolean
+  askDownloadFolder: boolean
 }
 
 const emailOrEmpty = z.union([z.literal(''), z.email()])
@@ -278,13 +276,11 @@ export const SettingsPatch = z.strictObject({
   emailFrom: emailOrEmpty.optional(),
   emailTo: emailOrEmpty.optional(),
   desktopEnabled: z.boolean().optional(),
-  pushEnabled: z.boolean().optional(),
-  ntfyServer: z.union([z.literal(''), z.url({ protocol: /^https?$/ })]).optional(),
-  ntfyTopic: z.string().trim().optional(),
   telegramEnabled: z.boolean().optional(),
   telegramBotToken: z.string().trim().optional(),
   telegramChatId: z.string().trim().optional(),
   errorReportsEnabled: z.boolean().optional(),
+  askDownloadFolder: z.boolean().optional(),
 })
 export type SettingsPatch = z.infer<typeof SettingsPatch>
 

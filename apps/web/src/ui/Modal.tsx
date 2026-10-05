@@ -1,5 +1,5 @@
 import { X } from 'lucide-react'
-import { useEffect, useId, useRef, type ReactNode } from 'react'
+import { useEffect, useId, useRef, type ReactNode, type SyntheticEvent } from 'react'
 import { useT } from '../lib/i18n.tsx'
 
 /**
@@ -35,7 +35,9 @@ export function Modal({ open, title, icon, onClose, children, actions, wide = fa
       dialog.close()
     }
   }, [open])
-  const closed = () => {
+  // React passes a "close" up the component tree, so a dialog inside this one closing is not this one closing.
+  const closed = (event: SyntheticEvent<HTMLDialogElement>) => {
+    if (event.target !== event.currentTarget) return
     if (closingItself.current) closingItself.current = false
     else onClose()
   }

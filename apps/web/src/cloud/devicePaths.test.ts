@@ -20,7 +20,7 @@ describe('the same page on another device', () => {
   test("the device's first page stays the first page", () => {
     expect(on('/a', '', 'a', 'b')).toBe('/b')
     expect(on('/a/', '', 'a', 'b')).toBe('/b')
-    expect(on('/a', '?filter=paused', 'a', 'b')).toBe('/b')
+    expect(on('/a', '?view=finished', 'a', 'b')).toBe('/b')
   })
 
   test('names that need encoding, or share a prefix, are matched whole', () => {

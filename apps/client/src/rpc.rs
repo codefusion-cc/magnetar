@@ -290,6 +290,8 @@ struct SeriesUpdate {
 #[serde(deny_unknown_fields)]
 struct PathParams {
     path: Option<String>,
+    /// Where it goes, confined like any chosen folder; the default one when absent.
+    folder: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -668,12 +670,10 @@ async fn dispatch(
         }
 
         "downloads.addTorrentPath" => {
-            let path = parse::<PathParams>(params)?
-                .path
-                .filter(|p| !p.is_empty())
-                .ok_or_else(|| ApiError::bad("path: must not be empty"))?;
+            let PathParams { path, folder } = parse(params)?;
+            let path = path.filter(|p| !p.is_empty()).ok_or_else(|| ApiError::bad("path: must not be empty"))?;
             let bytes = system::handlers::read_torrent_file(std::path::Path::new(&path))?;
-            ok(app.downloads.add_torrent_file(bytes, "Torrent file", None)?)
+            ok(a.add_torrent(bytes, folder.as_deref())?)
         }
         "handlers.status" => {
             parse::<NoParams>(params)?;

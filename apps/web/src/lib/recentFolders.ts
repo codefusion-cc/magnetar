@@ -1,0 +1,125 @@
+import { RECENT_FOLDERS_PREFIX, pageStorage } from './browserStorage.ts'
+import type { AlwaysOutcome } from './downloadFlow.ts'
+
+/** How many folders the browser offers for a quick jump. */
+export const MAX_RECENT_FOLDERS = 5
+
+/** The folders in `list` with `folder` first and no repeats, at most `max` of them. A blank folder changes nothing. */
+export function withRecent(list: readonly string[], folder: string, max = MAX_RECENT_FOLDERS): string[] {
+  const path = folder.trim()
+  if (!path) return [...list]
+  return [path, ...list.filter(f => f !== path)].slice(0, max)
+}
+
+/** Only strings, no blanks or repeats, at most `max`: what a stored value that someone edited may hold. */
+function clean(value: unknown, max: number): string[] {
+  if (!Array.isArray(value)) return []
+  const paths = value.filter((f): f is string => typeof f === 'string').map(f => f.trim()).filter(Boolean)
+  return [...new Set(paths)].slice(0, max)
+}
+
+/** What a device's recent folders are stored under: folders of one device mean nothing on another. */
+const keyFor = (device: string) => RECENT_FOLDERS_PREFIX + device
+
+/** The folders downloads were last saved to on `device`, most recent first. Empty without browser storage. */
+export function readRecentFolders(device: string, storage = pageStorage()): string[] {
+  try {
+    const raw = storage?.getItem(keyFor(device))
+    return raw ? clean(JSON.parse(raw), MAX_RECENT_FOLDERS) : []
+  } catch {
+    return []
+  }
+}
+
+/** Remembers `folder` as the latest on `device`, and returns the list as it is now. Works without browser storage. */
+export function rememberFolder(device: string, folder: string, storage = pageStorage()): string[] {
+  const next = withRecent(readRecentFolders(device, storage), folder)
+  try {
+    storage?.setItem(keyFor(device), JSON.stringify(next))
+  } catch {
+    // Blocked or full: the list lives on in the page until it is reloaded.
+  }
+  return next
+}
+
+const trimEnd = (path: string) => path.trim().replace(/[\\/]+$/, '')
+
+/**
+ * The folders to offer for saving a download, the latest first: where the device's own downloads went (they
+ * follow the owner to every dashboard), then what this browser remembers. The default folder is no choice to
+ * remember, so it is left out.
+ */
+export function folderChoices(
+  downloads: readonly { savePath: string; addedAt: string }[],
+  stored: readonly string[],
+  defaultFolder: string,
+  max = MAX_RECENT_FOLDERS,
+): string[] {
+  // A date nobody can read counts as the oldest, so the order stays one a sort can follow.
+  const added = (d: { addedAt: string }) => Date.parse(d.addedAt) || 0
+  const fromDevice = [...downloads].sort((a, b) => added(b) - added(a)).map(d => d.savePath)
+  const all = [...fromDevice, ...stored].map(f => f.trim()).filter(f => f && trimEnd(f) !== trimEnd(defaultFolder))
+  return [...new Set(all)].slice(0, max)
+}
+
+/** `remembered` when `browsable` says it can still be opened, else the default folder: no error for a folder that went away. */
+export async function usableOrDefault(remembered: string, defaultFolder: string, browsable: (folder: string) => Promise<boolean>): Promise<string> {
+  if (!remembered.trim() || trimEnd(remembered) === trimEnd(defaultFolder)) return defaultFolder
+  try {
+    return (await browsable(remembered)) ? remembered : defaultFolder
+  } catch {
+    return defaultFolder
+  }
+}
+
+const segments = (folder: string) => folder.split(/[\\/]/).filter(Boolean)
+
+/** The last segment of a folder, or the folder itself for a root with none: how a notice names where a download went. */
+export function shortFolder(folder: string): string {
+  return segments(folder).at(-1) ?? folder
+}
+
+/**
+ * A short label for each folder: its last segment, with as many parent segments added (`External › Films`) as it
+ * takes to tell it from another folder that ends the same. Folders with a name of their own stay short.
+ */
+export function chipLabels(folders: readonly string[]): string[] {
+  const parts = folders.map(segments)
+  return parts.map((own, i) => {
+    if (own.length === 0) return folders[i]!
+    const same = (depth: number) => parts.filter(other => other.length > 0 && other.slice(-depth).join('›') === own.slice(-depth).join('›'))
+    let depth = 1
+    while (depth < own.length && same(depth).length > 1) depth++
+    return own.slice(-depth).join(' › ')
+  })
+}
+
+/** Whether a download of `sizeBytes` will not fit in `freeBytes`. Unknown on either side is no warning; equal fits. */
+export function exceedsFreeSpace(sizeBytes: number | null | undefined, freeBytes: number | null | undefined): boolean {
+  return typeof sizeBytes === 'number' && typeof freeBytes === 'number' && sizeBytes > freeBytes
+}
+
+/** Whether a "Save to another folder…" link is offered: only while asking is off, since otherwise Download asks. */
+export const offersOtherFolder = (ask: boolean) => !ask
+
+/**
+ * Which notice says a download was added: it names the folder when one was chosen, and when "always save here" was
+ * ticked says that downloads now go there without asking, or that the choice could not be saved and why.
+ */
+export function startedNotice<K extends string>(
+  keys: { plain: K; inFolder: K },
+  folder?: string,
+  always?: AlwaysOutcome,
+): { key: K; folder?: string; extra?: { key: 'notice.always'; folder: string } | { key: 'notice.alwaysFailed'; error: string } } {
+  const named = folder?.trim()
+  if (!named) return { key: keys.plain }
+  const short = shortFolder(named)
+  if (!always) return { key: keys.inFolder, folder: short }
+  return { key: keys.inFolder, folder: short, extra: always.saved ? { key: 'notice.always', folder: short } : { key: 'notice.alwaysFailed', error: always.error } }
+}
+
+/** The sentence a notice adds after "started in …": what "always save here" came to. Empty when it was not ticked. */
+export function noticeExtra(t: (key: string, ...args: (string | number)[]) => string, notice: ReturnType<typeof startedNotice>): string {
+  if (!notice.extra) return ''
+  return ` ${notice.extra.key === 'notice.always' ? t('notice.always', notice.extra.folder) : t('notice.alwaysFailed', notice.extra.error)}`
+}

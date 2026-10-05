@@ -406,13 +406,11 @@ pub struct SettingsDto {
     pub email_from: String,
     pub email_to: String,
     pub desktop_enabled: bool,
-    pub push_enabled: bool,
-    pub ntfy_server: String,
-    pub ntfy_topic: String,
     pub telegram_enabled: bool,
     pub telegram_bot_token_set: bool,
     pub telegram_chat_id: String,
     pub error_reports_enabled: bool,
+    pub ask_download_folder: bool,
 }
 
 /// Why the dashboard may browse a folder: it is the download folder, or the owner added it on the device itself.
@@ -882,13 +880,11 @@ pub struct SettingsPatch {
     pub email_from: Option<String>,
     pub email_to: Option<String>,
     pub desktop_enabled: Option<bool>,
-    pub push_enabled: Option<bool>,
-    pub ntfy_server: Option<String>,
-    pub ntfy_topic: Option<String>,
     pub telegram_enabled: Option<bool>,
     pub telegram_bot_token: Option<String>,
     pub telegram_chat_id: Option<String>,
     pub error_reports_enabled: Option<bool>,
+    pub ask_download_folder: Option<bool>,
 }
 
 pub fn is_email(text: &str) -> bool {
@@ -913,7 +909,6 @@ impl SettingsPatch {
             &mut self.network_interface,
             &mut self.smtp_host,
             &mut self.smtp_username,
-            &mut self.ntfy_topic,
             &mut self.telegram_bot_token,
             &mut self.telegram_chat_id,
         ] {
@@ -962,12 +957,6 @@ impl SettingsPatch {
         for (name, value) in [("emailFrom", &self.email_from), ("emailTo", &self.email_to)] {
             if value.as_deref().is_some_and(|v| !v.is_empty() && !is_email(v)) {
                 problems.push(format!("{name}: Invalid email address"));
-            }
-        }
-        if let Some(server) = self.ntfy_server.as_deref().filter(|s| !s.is_empty()) {
-            let valid = url::Url::parse(server).is_ok_and(|u| matches!(u.scheme(), "http" | "https"));
-            if !valid {
-                problems.push("ntfyServer: Invalid URL".to_owned());
             }
         }
         if problems.is_empty() { Ok(self) } else { Err(ApiError::bad(problems.join("; "))) }

@@ -1,5 +1,5 @@
 //! Notification channels: desktop (every open dashboard shows it through the browser Notification
-//! API), e-mail, ntfy push, Telegram, and push to linked browsers. One failing channel never stops
+//! API), e-mail, Telegram, and push to linked browsers. One failing channel never stops
 //! the others.
 
 use std::sync::{Arc, OnceLock};
@@ -23,7 +23,6 @@ const TIMEOUT: Duration = Duration::from_secs(30);
 enum Channel {
     Desktop,
     Email,
-    Push,
     Telegram,
     /// Linked browsers that turned notifications on (see `remote::push`).
     Browsers,
@@ -34,7 +33,6 @@ impl Channel {
         match self {
             Self::Desktop => "Desktop",
             Self::Email => "Email",
-            Self::Push => "Push (ntfy)",
             Self::Telegram => "Telegram",
             Self::Browsers => "Browser push",
         }
@@ -65,9 +63,6 @@ impl NotificationDispatcher {
         }
         if s.email_enabled && !s.smtp_host.trim().is_empty() && !s.email_to.trim().is_empty() {
             channels.push(Channel::Email);
-        }
-        if s.push_enabled && !s.ntfy_server.trim().is_empty() && !s.ntfy_topic.trim().is_empty() {
-            channels.push(Channel::Push);
         }
         if s.telegram_enabled && !s.telegram_chat_id.trim().is_empty() && self.settings.secrets.has(SecretName::TelegramBotToken)
         {
@@ -119,7 +114,6 @@ impl NotificationDispatcher {
                 Ok(())
             }
             Channel::Email => self.email(event, s).await,
-            Channel::Push => self.ntfy(event, s).await,
             Channel::Telegram => self.telegram(event, s).await,
             Channel::Browsers => match self.browsers.get() {
                 Some(remote) => remote.push(event).await,
@@ -154,26 +148,6 @@ impl NotificationDispatcher {
             .subject(format!("[Magnetar] {}", event.title))
             .body(event.message.clone())?;
         builder.build().send(message).await?;
-        Ok(())
-    }
-
-    async fn ntfy(&self, event: &NotificationEvent, s: &AppSettings) -> anyhow::Result<()> {
-        let url = format!(
-            "{}/{}",
-            s.ntfy_server.trim_end_matches('/'),
-            crate::protocol::encoding::encode_uri_component(s.ntfy_topic.trim())
-        );
-        let response = self
-            .http
-            .post(url)
-            // Header values must be Latin-1; ntfy decodes RFC 2047 encoded-words.
-            .header("title", format!("=?UTF-8?B?{}?=", crate::protocol::encoding::to_base64(event.title.as_bytes())))
-            .header("tags", if event.kind == "completed" { "white_check_mark" } else { "arrow_down" })
-            .body(event.message.clone())
-            .timeout(TIMEOUT)
-            .send()
-            .await?;
-        anyhow::ensure!(response.status().is_success(), "ntfy answered HTTP {}", response.status().as_u16());
         Ok(())
     }
 

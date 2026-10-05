@@ -1,8 +1,11 @@
 import type { SearchResultDto, SourceOutcomeDto, TorrentDetailsDto } from '@magnetar/protocol'
 import { formatBytes } from '@magnetar/protocol/bytes'
-import { BellRing, Check, CircleAlert, Copy, Download, ExternalLink, FolderOpen, SearchIcon, SearchX, Sprout, Telescope, X } from 'lucide-react'
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { BellRing, Check, CircleAlert, Copy, Download, ExternalLink, SearchIcon, SearchX, Sprout, Telescope } from 'lucide-react'
+import { memo, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
+import { askingWhere } from '../../lib/downloadFlow.ts'
+import { noticeExtra, offersOtherFolder, startedNotice } from '../../lib/recentFolders.ts'
+import { errorMessage } from '../../lib/errors.ts'
 import { useFormatDate, useFormatRelative, useT } from '../../lib/i18n.tsx'
 import { RESOLUTIONS } from '../../lib/quality.ts'
 import { readSearch, searchAddress, searchKey, type SearchChoices } from '../../lib/urlState.ts'
@@ -14,8 +17,8 @@ import { Modal } from '../../ui/Modal.tsx'
 import { PAGE_SIZE, ShowMore } from '../../ui/ShowMore.tsx'
 import { useCopy, useToast } from '../../ui/toast.tsx'
 import { useDevice, useSearch } from '../DeviceContext.tsx'
-import { FolderField } from '../components/folders.tsx'
 import { resolutionOptions } from '../components/qualityFields.tsx'
+import { useDownloadFlow } from '../useDownloadFlow.tsx'
 import { useRun } from '../useRun.ts'
 
 
@@ -30,31 +33,40 @@ const SORTS: Record<Sort, (a: SearchResultDto, b: SearchResultDto) => number> = 
 const SORT_WORDS: SearchChoices<string, Sort>['sorts'] = [['seeders', 'seeders'], ['newest', 'new'], ['largest', 'large'], ['smallest', 'small']]
 const SORT_NAMES = SORT_WORDS.map(([sort]) => sort)
 
-/** Starts a download and says so, with a way to go and watch it. */
-function useStartDownload() {
+/** Starts a download and says so, with a way to go and watch it; or asks where to save it first. */
+function useStartDownload(onStarted: (result: SearchResultDto) => void) {
   const t = useT()
   const toast = useToast()
-  const run = useRun()
   const navigate = useNavigate()
   const { connection, basePath } = useDevice()
-  return async (result: SearchResultDto, folder?: string): Promise<boolean> => {
-    askNotificationPermission()
-    const started = await run(() => connection.call('downloads.start', { resultId: result.resultId, folder: folder?.trim() || undefined }), 'search.startFailed')
-    if (!started) return false
-    toast(t('search.started', result.title), 'success', { label: t('search.viewDownloads'), onClick: () => navigate(basePath || '/') })
-    return true
-  }
+  return useDownloadFlow<SearchResultDto>({
+    start: async (result, folder) => {
+      askNotificationPermission()
+      await connection.call('downloads.start', { resultId: result.resultId, folder: folder?.trim() || undefined })
+    },
+    started: (result, folder, always) => {
+      const notice = startedNotice({ plain: 'search.started', inFolder: 'search.startedIn' }, folder, always)
+      toast(t(notice.key, result.title, notice.folder ?? '') + noticeExtra(t, notice), 'success', { label: t('search.viewDownloads'), onClick: () => navigate(basePath || '/') })
+      onStarted(result)
+    },
+    failed: error => toast(t('search.startFailed', errorMessage(error)), 'error'),
+    subject: result => ({ name: result.title, bytes: result.sizeBytes }),
+  })
 }
 
 export function SearchPage() {
   const t = useT()
-  const { connection, connectionState, sources, basePath } = useDevice()
+  const { connection, connectionState, sources, basePath, settings } = useDevice()
   const { search, setSearch, setSearchAddress } = useSearch()
   const navigate = useNavigate()
   const run = useRun()
-  const startDownload = useStartDownload()
   const [details, setDetails] = useState<SearchResultDto | null>(null)
   const [added, setAdded] = useState<Set<string>>(new Set())
+  const { ask } = askingWhere(settings)
+  const { request, browser } = useStartDownload(result => {
+    setAdded(s => new Set(s).add(result.resultId))
+    setDetails(null)
+  })
   const [shown, setShown] = useState(PAGE_SIZE)
   // The search on screen lives in the address bar (/search/dragon?res=720p&source=tpb&sort=new), so a
   // reload, a bookmark, a shared link or Back shows the same one.
@@ -105,12 +117,7 @@ export function SearchPage() {
   }, [key, proper, address])
 
   const results = useMemo(() => (search.results ? [...search.results].sort(SORTS[sort]) : null), [search.results, sort])
-  // Stable for the memoized rows, so typing a new query doesn't re-render the list below.
-  const latest = useRef(startDownload)
-  latest.current = startDownload
-  const download = useCallback(async (result: SearchResultDto, folder?: string) => {
-    if (await latest.current(result, folder)) setAdded(s => new Set(s).add(result.resultId))
-  }, [])
+  const downloadTo = useCallback((result: SearchResultDto) => request(result, true), [request])
 
   return (
     <>
@@ -157,14 +164,15 @@ export function SearchPage() {
       ) : (
         <>
           <ul className="flex flex-col gap-2">
-            {results.slice(0, shown).map(r => <ResultRow key={r.resultId} result={r} added={added.has(r.resultId)} onOpen={setDetails} onDownload={download} />)}
+            {results.slice(0, shown).map(r => <ResultRow key={r.resultId} result={r} added={added.has(r.resultId)} onOpen={setDetails} onDownload={request} />)}
           </ul>
           {results.length > shown && <ShowMore remaining={results.length - shown} onMore={() => setShown(n => n + PAGE_SIZE)} />}
         </>
       )}
 
       <TorrentInfoDialog result={details} added={details ? added.has(details.resultId) : false} onClose={() => setDetails(null)}
-        onDownload={(r, folder) => { setDetails(null); void download(r, folder) }} />
+        onDownload={request} onDownloadTo={downloadTo} ask={ask} />
+      {browser}
     </>
   )
 }
@@ -201,6 +209,7 @@ const ResultRow = memo(function ResultRow({ result: r, added, onOpen, onDownload
 }) {
   const t = useT()
   const formatRelative = useFormatRelative()
+  const label = added ? t('search.added') : t('common.download')
   return (
     <li className="surface flex items-start gap-3 p-4 transition-colors hover:border-base-content/20">
       <button type="button" className="min-w-0 flex-1 text-left" onClick={() => onOpen(r)}>
@@ -214,9 +223,9 @@ const ResultRow = memo(function ResultRow({ result: r, added, onOpen, onDownload
         </div>
       </button>
       <button type="button" className={`btn btn-sm shrink-0 ${added ? 'btn-ghost text-success' : 'btn-primary btn-soft'}`} disabled={added}
-        onClick={() => onDownload(r)} aria-label={added ? t('search.added') : t('common.download')} title={added ? t('search.added') : t('common.download')}>
+        onClick={() => onDownload(r)} aria-label={label} title={label}>
         {added ? <Check size={16} /> : <Download size={16} />}
-        <span className="hidden sm:inline">{added ? t('search.added') : t('common.download')}</span>
+        <span className="hidden sm:inline">{label}</span>
       </button>
     </li>
   )
@@ -266,23 +275,23 @@ function Outcomes({ outcomes, total, searching, onWatch }: { outcomes: SourceOut
 const isDayOnly = (iso: string | null) => iso !== null && /T00:00:00(\.0+)?(Z|\+00:00)$/.test(iso)
 
 /** Details fetched on demand: the only time a lazy source's detail page is loaded. */
-function TorrentInfoDialog({ result, added, onClose, onDownload }: {
+function TorrentInfoDialog({ result, added, onClose, onDownload, onDownloadTo, ask }: {
   result: SearchResultDto | null
   added: boolean
   onClose: () => void
-  onDownload: (r: SearchResultDto, folder?: string) => void
+  onDownload: (r: SearchResultDto) => void
+  onDownloadTo: (r: SearchResultDto) => void
+  ask: boolean
 }) {
   const t = useT()
   const formatDate = useFormatDate()
   const copy = useCopy(t('info.copied'))
-  const { connection, settings } = useDevice()
+  const { connection } = useDevice()
   const [details, setDetails] = useState<TorrentDetailsDto | null>(null)
   const [loading, setLoading] = useState(false)
-  const [folder, setFolder] = useState<string | null>(null)
 
   useEffect(() => {
     setDetails(null)
-    setFolder(null)
     if (!result) return
     let cancelled = false
     setLoading(true)
@@ -306,12 +315,10 @@ function TorrentInfoDialog({ result, added, onClose, onDownload }: {
     <Modal open title={t('info.title')} onClose={onClose} wide
       actions={<>
         {row.detailsUrl && <a className="btn btn-ghost btn-sm mr-auto" href={row.detailsUrl} target="_blank" rel="noreferrer noopener"><ExternalLink size={14} />{t('info.openPage')}</a>}
-        {folder === null && (
-          <button type="button" className="btn btn-ghost btn-sm" disabled={added} onClick={() => setFolder(settings?.downloadFolder ?? '')}>
-            <FolderOpen size={14} />{t('info.downloadTo')}
-          </button>
+        {offersOtherFolder(ask) && !added && (
+          <button type="button" className="link link-hover mr-1 text-sm" onClick={() => onDownloadTo(result)}>{t('info.saveElsewhere')}</button>
         )}
-        <button type="button" className="btn btn-primary btn-sm" disabled={added || (folder !== null && !folder.trim())} onClick={() => onDownload(result, folder ?? undefined)}>
+        <button type="button" className="btn btn-primary btn-sm" disabled={added} onClick={() => onDownload(result)}>
           {added ? <Check size={14} /> : <Download size={14} />}{added ? t('search.added') : t('common.download')}
         </button>
       </>}>
@@ -325,12 +332,6 @@ function TorrentInfoDialog({ result, added, onClose, onDownload }: {
           </div>
         ))}
       </dl>
-      {folder !== null && (
-        <div className="mb-4 flex items-start gap-2">
-          <div className="flex-1"><FolderField label={t('dialog.folder')} value={folder} help={t('dialog.folderHelp')} onChange={setFolder} /></div>
-          <button type="button" className="btn btn-ghost btn-square" aria-label={t('common.cancel')} onClick={() => setFolder(null)}><X size={16} /></button>
-        </div>
-      )}
       {loading && <p className="muted mb-3 flex items-center gap-2 text-sm"><span className="loading loading-spinner loading-xs" />{t('info.resolving')}</p>}
       {details?.description && (
         <>

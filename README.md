@@ -22,14 +22,17 @@ Every feature with screenshots of the app, in all eight languages: [magnetar.cod
   queries in any script match.
 - **Per-source outcomes** above the results, so a failing site or an over-eager relevance filter never looks like
   "no results". Turn any source off in Settings.
-- **Built-in BitTorrent engine** (librqbit, with DHT and trackers): live progress, speed and peers;
-  pause, resume, retry and delete (optionally with the files). Restarts and pauses resume without re-reading what
+- **Built-in BitTorrent engine** (librqbit, with DHT and trackers): live progress, speed and peers, in Active, Finished and All views you can sort, with when each was
+  added and finished; pause, resume, retry and delete (optionally with the files). Restarts and pauses resume without re-reading what
   is already downloaded, and the peer port is forwarded on your router (UPnP). Torrents that can't find peers fail
   after 3 minutes instead of sitting on "Fetching metadata" forever. Updates pause active downloads only once the new
   version is downloaded and verified, and resume them when it starts; downloaded files are never touched.
 - **Add anything:** magnet links (paste one or many, or click one anywhere once Magnetar is the system's
   handler) and `.torrent` files of up to 4 MB (pick, drop on the Downloads page, or open one), on this computer or
-  through the website. The add dialog always shows what will start and where.
+  through the website. The add dialog shows what will start, and the folder browser where it goes.
+- **Choose where each download goes:** Download opens a folder browser with the item, the folders you used last, the free
+  space (and a warning when it won't fit); "Download here" starts it there. "Always save here, don't ask again" makes
+  that the download folder; **Settings → Downloads** turns the question off and on.
 - **Choose files** of a torrent (skip the extras of a season pack), see each file's progress, and show a download
   in Finder or Explorer.
 - **Play while downloading:** video and audio play in the browser, with the torrent's subtitles, fetching the
@@ -45,7 +48,7 @@ Every feature with screenshots of the app, in all eight languages: [magnetar.cod
 - **Speed limits** with alternative limits switched by hand or on a schedule; **seed** to a ratio, or stop or keep
   seeding when a download finishes; free space shown on the Downloads page.
 - **VPN kill switch** (macOS and Linux): bind torrent traffic to one network interface, and nothing moves without it.
-- **Notifications** by desktop (browser), e-mail (SMTP), push (ntfy), Telegram, and **browser push**: a linked phone
+- **Notifications** by desktop (browser), e-mail (SMTP), Telegram, and **browser push**: a linked phone
   or browser gets them with the website closed, encrypted on the computer for that browser.
 - **Installable website** (a Progressive Web App) with a download button for your system.
 - **Remote access** from any browser: sign in with Google, connect the computer once, link your phone with a QR code.

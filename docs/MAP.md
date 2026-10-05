@@ -15,6 +15,7 @@ Design and security are in [ARCHITECTURE.md](ARCHITECTURE.md), deploy and signin
 
 - Local: browser -> `localhost:47820` (`apps/client/src/http/`) -> WebSocket `/ws` -> `apps/client/src/rpc.rs` -> `downloads/`, `search/`, SQLite.
 - Remote: browser -> Worker `/api/*` and WebSocket -> `DeviceRelay` DO (`apps/worker/src/relay.ts`) -> device WebSocket from `apps/client/src/remote/`. Frames after the handshake are sealed; the Worker never sees plaintext.
+- Saving a download: `device/useDownloadFlow.tsx` and `lib/downloadFlow.ts` open the folder browser (`device/components/folders.tsx`) when the `askDownloadFolder` setting is on; `downloads.start` and `downloads.addTorrentPath` take a `folder`. The Downloads page keeps its view in `?view=active|finished|all` (`lib/downloadViews.ts`) and its sort per device in the browser (`lib/downloadSort.ts`).
 - Pairing and sign-in: `apps/web/src/cloud/` -> `apps/worker/src/auth.ts` and `devices.ts` -> D1 (`DB`).
 - New RPC method: `packages/protocol/src/rpc.ts` -> `apps/client/src/rpc.rs` (+ `api/actions.rs` if agents can do it); the serde mirror is `apps/client/src/protocol/model.rs`.
 - Website pages: any path -> Worker `serveSinglePageApp` -> the one dashboard page; device pages live at `/<device name>/...`.

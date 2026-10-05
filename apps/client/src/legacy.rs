@@ -104,9 +104,6 @@ impl LegacyImporter {
                 let email_from = text("EmailFrom");
                 let email_to = text("EmailTo");
                 let desktop_enabled = flag("DesktopEnabled");
-                let push_enabled = flag("PushEnabled");
-                let ntfy_server = text("NtfyServer");
-                let ntfy_topic = text("NtfyTopic");
                 let telegram_enabled = flag("TelegramEnabled");
                 let telegram_chat_id = text("TelegramChatId");
                 let post_download_action =
@@ -132,9 +129,6 @@ impl LegacyImporter {
                     s.email_from = email_from;
                     s.email_to = email_to;
                     s.desktop_enabled = desktop_enabled;
-                    s.push_enabled = push_enabled;
-                    s.ntfy_server = ntfy_server;
-                    s.ntfy_topic = ntfy_topic;
                     s.telegram_enabled = telegram_enabled;
                     s.telegram_chat_id = telegram_chat_id;
                     s.post_download_action = post_download_action;

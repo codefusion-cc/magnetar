@@ -1,5 +1,6 @@
-import { FolderOpen } from 'lucide-react'
-import { lazy, Suspense, useEffect, useId, useState } from 'react'
+import { Download, FolderOpen } from 'lucide-react'
+import { formatBytes } from '@magnetar/protocol/bytes'
+import { lazy, Suspense, useEffect, useId, useRef, useState } from 'react'
 import { useT } from '../../lib/i18n.tsx'
 import { updates } from '../../lib/updates.ts'
 import { blurOnEnter } from '../../ui/fields.tsx'
@@ -14,27 +15,65 @@ const Chooser = lazy(() => updates.importOrReload(() => import('./folderChooser.
  * Chooses a folder on the device (not this computer, when used through the relay), inside the folders Files may
  * browse. It opens at `start` when that is inside one of them, else at the list of them.
  */
-export function FolderBrowser({ open, start, onClose, onSelect }: {
+export function FolderBrowser({ open, start, onClose, onSelect, save }: {
   open: boolean
   start: string
   onClose: () => void
-  onSelect: (path: string) => void
+  /** `always` is the box "always save here, don't ask again" in save mode. */
+  onSelect: (path: string, always: boolean) => void
+  /**
+   * Saving a download rather than setting a folder: the button reads "Download here" and starts it, the folders
+   * used before are offered to jump to, and a refusal from the device shows in the dialog. `canAlways` says whether the
+   * device can save "always save here" (an older app cannot).
+   */
+  save?: { canAlways: boolean; recent: string[]; fallback: string; busy: boolean; error: string | null; subject?: { name: string; bytes: number | null } }
 }) {
   const t = useT()
   // The folder on screen: null on the list of folders, undefined until the chooser has placed itself.
   const [chosen, setChosen] = useState<string | null | undefined>(undefined)
+  const primary = useRef<HTMLButtonElement>(null)
+  const [always, setAlways] = useState(false)
+  // The first listing of an opening takes focus to Download here, so Enter saves to the folder it opened in;
+  // after that, where the user goes is theirs.
+  const focused = useRef(false)
   useEffect(() => {
-    if (!open) setChosen(undefined)
+    if (!open) {
+      setChosen(undefined)
+      setAlways(false)
+      focused.current = false
+    }
   }, [open])
+  const ready = () => {
+    if (focused.current || !save) return
+    focused.current = true
+    primary.current?.focus()
+  }
   return (
-    <Modal open={open} title={t('dialog.chooseFolder')} icon={<FolderOpen size={20} />} onClose={onClose} wide
+    <Modal open={open} title={t(save ? 'dialog.downloadTo' : 'dialog.chooseFolder')} icon={save ? <Download size={20} /> : <FolderOpen size={20} />} onClose={onClose} wide
       actions={<>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>{t('common.cancel')}</button>
-        <button type="button" className="btn btn-primary btn-sm" disabled={!chosen} onClick={() => chosen && onSelect(chosen)}>
-          {t('folderBrowser.selectFolder')}
-        </button>
+        {save?.canAlways && (
+          <label className="flex min-h-10 w-full cursor-pointer items-center gap-3 text-sm sm:min-h-0 sm:w-auto sm:flex-1">
+            <input type="checkbox" className="checkbox checkbox-sm checkbox-primary" checked={always} disabled={save.busy} onChange={e => setAlways(e.target.checked)} />
+            {t('folderBrowser.always')}
+          </label>
+        )}
+        <div className="flex w-full gap-2 sm:ml-auto sm:w-auto">
+          <button type="button" className="btn btn-ghost btn-sm" disabled={save?.busy} onClick={onClose}>{t('common.cancel')}</button>
+          <button type="button" ref={primary} className="btn btn-primary btn-sm flex-1 sm:flex-none" disabled={!chosen || save?.busy} onClick={() => chosen && onSelect(chosen, always)}>
+            {save?.busy && <span className="loading loading-spinner loading-xs" />}
+            {save && !save.busy && <Download size={14} />}
+            {t(save ? 'folderBrowser.downloadHere' : 'folderBrowser.selectFolder')}
+          </button>
+        </div>
       </>}>
-      {open && <Suspense fallback={<Loading />}><Chooser start={start} path={chosen} onPath={setChosen} /></Suspense>}
+      {save?.subject && (
+        <p className="mb-3 flex items-baseline gap-2 text-sm">
+          <span className="min-w-0 flex-1 truncate font-medium" title={save.subject.name}>{save.subject.name}</span>
+          {save.subject.bytes !== null && <span className="muted shrink-0 tabular-nums">{formatBytes(save.subject.bytes)}</span>}
+        </p>
+      )}
+      {save?.error && <p role="alert" className="mb-3 whitespace-pre-line text-sm text-error">{save.error}</p>}
+      {open && <Suspense fallback={<Loading />}><Chooser start={start} path={chosen} onPath={setChosen} recent={save?.recent} fallback={save?.fallback} needBytes={save?.subject?.bytes} onReady={ready} /></Suspense>}
     </Modal>
   )
 }

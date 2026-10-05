@@ -52,23 +52,31 @@ test('search choices survive a reload, older and unknown ones move to the proper
   await expect(resolution('Any')).toHaveAttribute('aria-checked', 'true')
 })
 
-test('the downloads filter is part of the address', async ({ page }) => {
+test('the downloads view is part of the address', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'Add', exact: true }).click()
   const add = page.locator('dialog[open]')
   await add.getByRole('textbox').fill(`magnet:?xt=urn:btih:${'5'.repeat(40)}&dn=Filtered`)
   await add.getByRole('button', { name: 'Download', exact: true }).click()
+  await page.getByRole('button', { name: 'Download here' }).click()
   const row = page.locator('li').filter({ hasText: 'Filtered' })
   await row.getByRole('button', { name: 'Pause' }).click()
   await expect(row).toContainText('Paused')
 
-  const filter = (name: RegExp) => page.getByRole('radiogroup', { name: 'Show' }).getByRole('radio', { name })
-  await filter(/^Paused/).click()
-  await expect(page).toHaveURL(/\?filter=paused$/)
+  const view = (name: RegExp) => page.getByRole('radiogroup', { name: 'Show' }).getByRole('radio', { name })
+  // A paused download is not finished: it is listed under Active, which the bare address shows.
+  await expect(view(/^Active/)).toHaveAttribute('aria-checked', 'true')
+  await expect(row).toHaveCount(1)
+  await view(/^Finished/).click()
+  await expect(page).toHaveURL(/\?view=finished$/)
+  await expect(row).toHaveCount(0)
   await page.reload()
-  await expect(filter(/^Paused/)).toHaveAttribute('aria-checked', 'true')
-  await expect(page.locator('li').filter({ hasText: 'Filtered' })).toHaveCount(1)
-  await filter(/^All/).click()
+  await expect(view(/^Finished/)).toHaveAttribute('aria-checked', 'true')
+  await expect(row).toHaveCount(0)
+  await view(/^All/).click()
+  await expect(page).toHaveURL(/\?view=all$/)
+  await expect(row).toHaveCount(1)
+  await view(/^Active/).click()
   await expect(page).toHaveURL(/\/$/)
 
   await row.getByRole('button', { name: 'Delete' }).click()

@@ -63,7 +63,7 @@ export const RPC_PARAMS = {
   'push.unsubscribe': z.strictObject({ endpoint: z.string() }),
 
   /** Adds a .torrent file from this computer's disk. Local dashboard only. */
-  'downloads.addTorrentPath': z.strictObject({ path: z.string().min(1) }),
+  'downloads.addTorrentPath': z.strictObject({ path: z.string().min(1), folder: z.string().optional() }),
   /** Whether Magnetar opens magnet links and .torrent files, and making it do so. */
   'handlers.status': none,
   'handlers.register': none,
