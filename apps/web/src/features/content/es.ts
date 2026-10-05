@@ -64,7 +64,7 @@ export const content: FeaturesContent = {
         addresses: {
           title: 'Direcciones que se leen y se comparten',
           gain: 'Una búsqueda es un enlace: guárdala en marcadores, recárgala o envíala, y abre los mismos resultados.',
-          text: 'Las palabras van en la ruta, y en la consulta solo las opciones que cambiaste: /search/big+buck+bunny?res=1080p&sort=new. El filtro de descargas y cada sección de los ajustes también tienen su propia dirección.',
+          text: 'Las palabras van en la ruta, y en la consulta solo las opciones que cambiaste: /search/big+buck+bunny?res=1080p&sort=new. La vista de descargas (Activas, Terminadas, Todas) y cada sección de los ajustes también tienen su propia dirección.',
           points: [
             'Atrás y Adelante pasan de una búsqueda a otra como entre páginas; cambiar un filtro no añade un paso',
             'Los enlaces antiguos se reescriben al formato actual sobre la marcha, así que uno guardado sigue funcionando',
@@ -115,11 +115,22 @@ export const content: FeaturesContent = {
           gain: 'Progreso, velocidad, pares y tiempo restante en directo para cada descarga, sin instalar nada más.',
           text: 'Las descargas se ejecutan dentro de Magnetar con librqbit, con DHT y trackers, y el panel se actualiza una vez por segundo. Pausar, reiniciar o actualizar nunca vuelve a leer las piezas ya terminadas.',
           points: [
-            'Filtra por activas, en pausa, terminadas o con error; pausa, reanuda, reintenta o elimina cada una',
+            'Vistas Activas, Terminadas y Todas con su recuento, y un orden a elegir (recientes, antiguas, nombre, tamaño, progreso), recordado en cada dispositivo; cada descarga muestra cuándo se añadió y cuándo terminó; pausa, reanuda, reintenta o elimina cada una',
             'Al eliminar, pregunta si quieres conservar los archivos',
             'La velocidad total de descarga y subida y el espacio libre, que pasa a ser un aviso por debajo de 5 GB',
             'El puerto del router se abre por UPnP, y un torrent que no encuentra pares en tres minutos lo indica en lugar de esperar para siempre',
             'Un torrent de varios archivos tiene su propia carpeta',
+          ],
+        },
+        destination: {
+          title: 'Elige dónde va cada descarga',
+          gain: 'Escoge la carpeta justo al pulsar Descargar, y Magnetar la recuerda.',
+          text: 'Descargar abre el explorador de carpetas, con el nombre y el tamaño del elemento arriba, las últimas carpetas usadas a un toque y el espacio libre del disco que estás viendo. «Descargar aquí» inicia la descarga ahí. Si no cabe, un aviso lo dice y aun así puedes seguir.',
+          points: [
+            'El explorador se abre en la última carpeta usada, así que guardar dos veces en el mismo sitio son dos toques',
+            'Marca «Guardar siempre aquí, no volver a preguntar» para que esa carpeta sea la de descargas y dejar de recibir la pregunta; Ajustes → Descargas la devuelve',
+            'Sin preguntar, Descargar añade a la carpeta de descargas con un clic, y los detalles mantienen un enlace «Guardar en otra carpeta…»',
+            'Por la web solo se pueden elegir la carpeta de descargas y las añadidas en el ordenador, como en todas partes',
           ],
         },
         files: {
@@ -328,7 +339,8 @@ export const content: FeaturesContent = {
     add: 'El diálogo Añadir con enlaces magnet pegados',
     watchlist: 'El seguimiento: series con su próximo episodio',
     watches: 'Seguimientos de versiones, con la frecuencia con que comprueba cada uno',
-    downloads: 'Descargas en curso, con velocidad, pares y tiempo restante',
+    downloads: 'Descargas en curso y terminadas, con orden y fechas',
+    'save-folder': 'El explorador de carpetas: el elemento, carpetas recientes, espacio libre y Descargar aquí',
     details: 'Los archivos de una descarga, cada uno con su progreso',
     player: 'Una película de licencia libre en el navegador, con sus subtítulos en inglés',
     speed: 'Límites de velocidad, límites alternativos y su horario',

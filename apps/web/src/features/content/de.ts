@@ -64,7 +64,7 @@ export const content: FeaturesContent = {
         addresses: {
           title: 'Adressen zum Lesen und Teilen',
           gain: 'Eine Suche ist ein Link: Setz ein Lesezeichen, lade sie neu oder schick sie weiter, und sie öffnet dieselben Ergebnisse.',
-          text: 'Die Suchwörter stehen im Pfad, in der Query nur die Optionen, die du geändert hast: /search/big+buck+bunny?res=1080p&sort=new. Auch der Downloads-Filter und jeder Einstellungsbereich haben eine eigene Adresse.',
+          text: 'Die Suchwörter stehen im Pfad, in der Query nur die Optionen, die du geändert hast: /search/big+buck+bunny?res=1080p&sort=new. Auch die Downloads-Ansicht (Aktiv, Fertig, Alle) und jeder Einstellungsbereich haben eine eigene Adresse.',
           points: [
             'Zurück und Vor wechseln zwischen Suchen wie zwischen Seiten; ein geänderter Filter fügt keinen Schritt hinzu',
             'Ältere Links werden direkt in die aktuelle Form umgeschrieben, damit gespeicherte weiter funktionieren',
@@ -115,11 +115,22 @@ export const content: FeaturesContent = {
           gain: 'Fortschritt, Tempo, Peers und Restzeit jedes Downloads live, ohne dass du noch etwas installieren musst.',
           text: 'Downloads laufen in Magnetar auf librqbit, mit DHT und Trackern, und das Dashboard aktualisiert sich jede Sekunde. Nach einer Pause, einem Neustart oder einem Update werden fertige Teile nie neu eingelesen.',
           points: [
-            'Nach Aktiv, Pausiert, Fertig oder Fehlgeschlagen filtern; jeden Download pausieren, fortsetzen, erneut versuchen oder löschen',
+            'Ansichten Aktiv, Fertig und Alle mit ihren Zahlen und eine Reihenfolge nach Wahl (neueste, älteste, Name, Größe, Fortschritt), pro Gerät gemerkt; jeder Download zeigt, wann er hinzugefügt und fertig wurde; jeden Download pausieren, fortsetzen, erneut versuchen oder löschen',
             'Beim Löschen fragt Magnetar, ob die Dateien bleiben sollen',
             'Gesamttempo für Download und Upload sowie der freie Speicherplatz, der unter 5 GB zur Warnung wird',
             'Den Port am Router öffnet UPnP, und ein Torrent, der in drei Minuten keine Peers findet, meldet das, statt ewig zu warten',
             'Ein Torrent mit mehreren Dateien bekommt einen eigenen Ordner',
+          ],
+        },
+        destination: {
+          title: 'Entscheide, wohin jeder Download geht',
+          gain: 'Wähle den Ordner genau dann, wenn du auf Herunterladen drückst, und Magnetar merkt ihn sich.',
+          text: 'Herunterladen öffnet den Ordnerbrowser, oben mit Name und Größe des Eintrags, den zuletzt genutzten Ordnern in Reichweite und dem freien Platz des Datenträgers, den du gerade ansiehst. „Hier herunterladen“ startet den Download dort. Passt er nicht, sagt eine Warnung es dir, und du kannst trotzdem weitermachen.',
+          points: [
+            'Der Browser öffnet sich im zuletzt genutzten Ordner, zweimal an denselben Ort zu speichern heißt also zwei Tipps',
+            'Mit „Immer hier speichern, nicht mehr fragen“ wird dieser Ordner zum Download-Ordner und die Nachfrage endet; Einstellungen → Downloads bringt sie zurück',
+            'Ohne Nachfrage lädt Herunterladen mit einem Klick in den Download-Ordner, und die Details bieten „In einem anderen Ordner speichern…“',
+            'Über die Website lassen sich wie überall nur der Download-Ordner und auf dem Computer hinzugefügte Ordner wählen',
           ],
         },
         files: {
@@ -328,7 +339,8 @@ export const content: FeaturesContent = {
     add: 'Der Hinzufügen-Dialog mit eingefügten Magnet-Links',
     watchlist: 'Die Merkliste: Serien mit ihrer nächsten Folge',
     watches: 'Beobachtungen für Releases, jede mit ihrem Prüfintervall',
-    downloads: 'Laufende Downloads mit Tempo, Peers und Restzeit',
+    downloads: 'Laufende und fertige Downloads mit Sortierung und Datum',
+    'save-folder': 'Der Ordnerbrowser: der Eintrag, letzte Ordner, freier Platz und Hier herunterladen',
     details: 'Die Dateien eines Downloads, jede mit ihrem Fortschritt',
     player: 'Ein frei lizenzierter Film im Browser, mit seinen englischen Untertiteln',
     speed: 'Tempolimits, Drosselung und ihr Zeitplan',

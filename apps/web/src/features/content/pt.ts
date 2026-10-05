@@ -64,7 +64,7 @@ export const content: FeaturesContent = {
         addresses: {
           title: 'Endereços que se leem e partilham',
           gain: 'Uma pesquisa é uma ligação: guarde-a nos favoritos, recarregue-a ou envie-a, e abre os mesmos resultados.',
-          text: 'As palavras vão no caminho e, nos parâmetros, só as opções que alterou: /search/big+buck+bunny?res=1080p&sort=new. O filtro das transferências e cada secção das definições também têm o seu próprio endereço.',
+          text: 'As palavras vão no caminho e, nos parâmetros, só as opções que alterou: /search/big+buck+bunny?res=1080p&sort=new. A vista das transferências (Ativas, Concluídas, Todas) e cada secção das definições também têm o seu próprio endereço.',
           points: [
             'Recuar e Avançar passam de uma pesquisa para outra como entre páginas; mudar um filtro não acrescenta um passo',
             'As ligações antigas passam ao formato atual sem sair da página, por isso uma ligação guardada continua a funcionar',
@@ -115,11 +115,22 @@ export const content: FeaturesContent = {
           gain: 'Progresso, velocidade, pares e tempo restante de cada transferência em tempo real, sem mais nada para instalar.',
           text: 'As transferências correm dentro do Magnetar, com o librqbit, DHT e trackers, e o painel atualiza-se a cada segundo. Pausar, reiniciar ou atualizar nunca volta a ler as partes já concluídas.',
           points: [
-            'Filtre por ativas, em pausa, concluídas ou com erro; pause, retome, tente novamente ou elimine cada uma',
+            'Vistas Ativas, Concluídas e Todas com a respetiva contagem, e uma ordem à escolha (recentes, antigas, nome, tamanho, progresso), guardada em cada dispositivo; cada transferência mostra quando foi adicionada e concluída; pause, retome, tente novamente ou elimine cada uma',
             'Ao eliminar, pergunta se quer manter os ficheiros',
             'Velocidade total de receção e envio e o espaço livre, que passa a aviso abaixo de 5 GB',
             'A porta do router é aberta por UPnP, e um torrent que não encontra pares em três minutos avisa em vez de esperar para sempre',
             'Um torrent com vários ficheiros fica numa pasta própria',
+          ],
+        },
+        destination: {
+          title: 'Escolha para onde vai cada transferência',
+          gain: 'Escolha a pasta no momento em que carrega em Transferir, e o Magnetar lembra-se dela.',
+          text: 'Transferir abre o navegador de pastas, com o nome e o tamanho do item no topo, as últimas pastas usadas a um toque e o espaço livre do disco que está a ver. «Transferir aqui» inicia a transferência nesse local. Se não couber, um aviso di-lo e pode continuar na mesma.',
+          points: [
+            'O navegador abre na última pasta usada, por isso guardar duas vezes no mesmo sítio são dois toques',
+            'Marque «Guardar sempre aqui, não perguntar mais» para tornar essa pasta a das transferências e deixar de ser questionado; Definições → Transferências repõe a pergunta',
+            'Sem perguntar, Transferir adiciona à pasta de transferências com um clique, e os detalhes mantêm a ligação «Guardar noutra pasta…»',
+            'Pelo site só se podem escolher a pasta de transferências e as adicionadas no computador, como em todo o lado',
           ],
         },
         files: {
@@ -328,7 +339,8 @@ export const content: FeaturesContent = {
     add: 'A janela Adicionar com ligações magnet coladas',
     watchlist: 'A lista A seguir: séries com o próximo episódio',
     watches: 'Seguimentos de versões, com a frequência de cada um',
-    downloads: 'Transferências em curso, com velocidade, pares e tempo restante',
+    downloads: 'Transferências em curso e concluídas, com ordenação e datas',
+    'save-folder': 'O navegador de pastas: o item, pastas recentes, espaço livre e Transferir aqui',
     details: 'Os ficheiros de uma transferência, cada um com o seu progresso',
     player: 'Um filme de licença livre a ser reproduzido no navegador, com as suas legendas em inglês',
     speed: 'Limites de velocidade, limites alternativos e o seu horário',

@@ -64,7 +64,7 @@ export const content: FeaturesContent = {
         addresses: {
           title: 'Des adresses lisibles et partageables',
           gain: 'Une recherche est un lien : ajoutez-la aux favoris, rechargez-la ou envoyez-la, elle rouvre les mêmes résultats.',
-          text: 'Les mots vont dans le chemin, et seuls les choix que vous avez modifiés dans la requête : /search/big+buck+bunny?res=1080p&sort=new. Le filtre des téléchargements et chaque section des paramètres ont aussi leur propre adresse.',
+          text: 'Les mots vont dans le chemin, et seuls les choix que vous avez modifiés dans la requête : /search/big+buck+bunny?res=1080p&sort=new. La vue des téléchargements (Actifs, Terminés, Tous) et chaque section des paramètres ont aussi leur propre adresse.',
           points: [
             'Précédent et Suivant passent d’une recherche à l’autre comme d’une page à l’autre ; changer un filtre n’ajoute pas d’étape',
             'Les anciens liens sont réécrits sur place dans la forme actuelle : un lien enregistré continue de fonctionner',
@@ -115,11 +115,22 @@ export const content: FeaturesContent = {
           gain: 'Progression, vitesse, pairs et temps restant en direct pour chaque téléchargement, sans rien d’autre à installer.',
           text: 'Les téléchargements tournent dans Magnetar sur librqbit, avec DHT et trackers, et le tableau de bord se met à jour chaque seconde. Une pause, un redémarrage ou une mise à jour ne relit jamais les pièces déjà terminées.',
           points: [
-            'Filtrez par Actifs, En pause, Terminés ou En échec ; mettez en pause, reprenez, réessayez ou supprimez chacun',
+            'Vues Actifs, Terminés et Tous avec leur nombre, et un ordre au choix (récents, anciens, nom, taille, progression), retenu pour chaque appareil ; chaque téléchargement indique quand il a été ajouté et terminé ; mettez en pause, reprenez, réessayez ou supprimez chacun',
             'La suppression demande s’il faut garder les fichiers',
             'Vitesses totales de réception et d’envoi, et espace libre restant, signalé en avertissement sous 5 Go',
             'Le port du routeur est ouvert par UPnP, et un torrent qui ne trouve aucun pair en trois minutes le signale au lieu d’attendre indéfiniment',
             'Un torrent de plusieurs fichiers a son propre dossier',
+          ],
+        },
+        destination: {
+          title: 'Choisissez où va chaque téléchargement',
+          gain: 'Choisissez le dossier au moment d’appuyer sur Télécharger, et Magnetar s’en souvient.',
+          text: 'Télécharger ouvre l’explorateur de dossiers, avec en haut le nom et la taille de l’élément, les derniers dossiers utilisés à portée d’un clic et l’espace libre du disque affiché. « Télécharger ici » lance le téléchargement à cet endroit. S’il ne tient pas, un avertissement le dit, et vous pouvez continuer.',
+          points: [
+            'L’explorateur s’ouvre dans le dernier dossier utilisé : enregistrer deux fois au même endroit, c’est deux clics',
+            'Cochez « Toujours enregistrer ici, ne plus demander » pour en faire le dossier de téléchargement et ne plus être interrogé ; Paramètres → Téléchargements rétablit la question',
+            'Sans question, Télécharger ajoute dans le dossier de téléchargement en un clic, et les détails gardent un lien « Enregistrer dans un autre dossier… »',
+            'Par le site, seuls le dossier de téléchargement et les dossiers ajoutés sur l’ordinateur peuvent être choisis, comme partout',
           ],
         },
         files: {
@@ -328,7 +339,8 @@ export const content: FeaturesContent = {
     add: 'La fenêtre Ajouter avec des liens magnet collés',
     watchlist: 'La liste À suivre : les séries et leur prochain épisode',
     watches: 'Les suivis de versions, avec la fréquence de vérification de chacun',
-    downloads: 'Téléchargements en cours, avec vitesse, pairs et temps restant',
+    downloads: 'Téléchargements en cours et terminés, avec tri et dates',
+    'save-folder': 'L’explorateur de dossiers : l’élément, les dossiers récents, l’espace libre et Télécharger ici',
     details: 'Les fichiers d’un téléchargement, chacun avec sa progression',
     player: 'Un film sous licence libre dans le navigateur, avec ses sous-titres anglais',
     speed: 'Limites de vitesse, mode ralenti et son horaire',

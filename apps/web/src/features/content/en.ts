@@ -64,7 +64,7 @@ export const en: FeaturesContent = {
         addresses: {
           title: 'Addresses you can read and share',
           gain: 'A search is a link: bookmark it, reload it or send it, and it opens the same results.',
-          text: 'The words go in the path and only the choices you changed in the query: /search/big+buck+bunny?res=1080p&sort=new. The downloads filter and each settings section have their own address too.',
+          text: 'The words go in the path and only the choices you changed in the query: /search/big+buck+bunny?res=1080p&sort=new. The Downloads view (Active, Finished, All) and each settings section have their own address too.',
           points: [
             'Back and Forward move between searches as between pages; changing a filter doesn\'t add a step',
             'Older links are rewritten to the current form in place, so a saved one keeps working',
@@ -115,11 +115,22 @@ export const en: FeaturesContent = {
           gain: 'Live progress, speed, peers and time left for every download, with nothing else to install.',
           text: 'Downloads run inside Magnetar on librqbit, with DHT and trackers, and the dashboard updates once a second. Pausing, restarting or an update never reads finished pieces again.',
           points: [
-            'Filter by active, paused, finished or failed; pause, resume, retry or delete each one',
+            'Active, Finished and All views with their counts, and an order of your choice (newest, oldest, name, size, progress), remembered on that device; each download shows when it was added and finished; pause, resume, retry or delete each one',
             'Deleting asks whether to keep the files',
             'Total download and upload speed and the free space left, which turns to a warning below 5 GB',
             'The router\'s port is opened by UPnP, and a torrent that finds no peers in three minutes says so instead of waiting forever',
             'A torrent of several files gets its own folder',
+          ],
+        },
+        destination: {
+          title: 'Choose where each download goes',
+          gain: 'Pick the folder at the moment you press Download, and let Magnetar remember it.',
+          text: 'Download opens the folder browser, with the item\'s name and size on top, the folders you used last one tap away, and the free space of the disk you are looking at. "Download here" starts the download there. If it would not fit, a warning says so, and you can still go on.',
+          points: [
+            'The browser opens in the folder you used last, so saving to the same place twice is two taps',
+            'Tick "Always save here, don\'t ask again" to make that folder the download folder and stop being asked; Settings → Downloads brings the question back',
+            'With asking off, Download adds to the download folder in one click, and the details dialog keeps a "Save to another folder…" link',
+            'Through the website only the download folder and folders added on the computer can be chosen, as everywhere else',
           ],
         },
         files: {
@@ -328,7 +339,8 @@ export const en: FeaturesContent = {
     add: 'The Add dialog with magnet links pasted in',
     watchlist: 'The watchlist: series with their next episode',
     watches: 'Watches for releases, with how often each checks',
-    downloads: 'Downloads in progress, with speed, peers and time left',
+    downloads: 'Downloads in progress, finished ones and sorting, with dates',
+    'save-folder': 'The folder browser: the item, recent folders, free space and Download here',
     details: 'A download\'s files, each with its progress',
     player: 'A freely licensed film playing in the browser, with its English subtitles',
     speed: 'Speed limits, slow mode and its schedule',

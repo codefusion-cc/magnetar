@@ -64,7 +64,7 @@ export const content: FeaturesContent = {
         addresses: {
           title: 'Indirizzi da leggere e condividere',
           gain: 'Una ricerca è un link: salvalo nei preferiti, ricaricalo o invialo, e si apre con gli stessi risultati.',
-          text: 'Le parole vanno nel percorso e nella query solo le scelte che hai cambiato: /search/big+buck+bunny?res=1080p&sort=new. Anche il filtro dei download e ogni sezione delle impostazioni hanno un proprio indirizzo.',
+          text: 'Le parole vanno nel percorso e nella query solo le scelte che hai cambiato: /search/big+buck+bunny?res=1080p&sort=new. Anche la vista dei download (Attivi, Completati, Tutti) e ogni sezione delle impostazioni hanno un proprio indirizzo.',
           points: [
             'Indietro e Avanti passano da una ricerca all’altra come tra pagine; cambiare un filtro non aggiunge un passo',
             'I link più vecchi vengono riscritti sul posto nella forma attuale, quindi quelli salvati continuano a funzionare',
@@ -115,11 +115,22 @@ export const content: FeaturesContent = {
           gain: 'Avanzamento, velocità, peer e tempo rimanente in tempo reale per ogni download, senza installare nient’altro.',
           text: 'I download girano dentro Magnetar su librqbit, con DHT e tracker, e la dashboard si aggiorna una volta al secondo. Mettere in pausa, riavviare o aggiornare non fa mai rileggere i pezzi già completati.',
           points: [
-            'Filtra per attivi, in pausa, completati o non riusciti; metti in pausa, riprendi, riprova o elimina ciascuno',
+            'Viste Attivi, Completati e Tutti con i loro conteggi e un ordine a scelta (recenti, vecchi, nome, dimensione, avanzamento), ricordato per dispositivo; ogni download mostra quando è stato aggiunto e completato; metti in pausa, riprendi, riprova o elimina ciascuno',
             'Quando elimini, ti chiede se tenere i file',
             'Velocità totale di download e upload e lo spazio libero rimasto, che diventa un avviso sotto i 5 GB',
             'La porta del router viene aperta via UPnP, e un torrent che non trova peer in tre minuti lo segnala invece di aspettare all’infinito',
             'Un torrent con più file ha una propria cartella',
+          ],
+        },
+        destination: {
+          title: 'Scegli dove va ogni download',
+          gain: 'Scegli la cartella nel momento in cui premi Scarica, e Magnetar se la ricorda.',
+          text: 'Scarica apre il browser delle cartelle, con in alto nome e dimensione dell\'elemento, le ultime cartelle usate a un tocco e lo spazio libero del disco che stai guardando. «Scarica qui» avvia il download in quel punto. Se non ci sta, un avviso lo dice e puoi comunque continuare.',
+          points: [
+            'Il browser si apre nell\'ultima cartella usata: salvare due volte nello stesso posto sono due tocchi',
+            'Spunta «Salva sempre qui, non chiedere più» per rendere quella cartella la cartella di download e non ricevere più la domanda; Impostazioni → Download la riporta',
+            'Senza domanda, Scarica aggiunge nella cartella di download con un clic, e i dettagli tengono un link «Salva in un\'altra cartella…»',
+            'Dal sito si possono scegliere solo la cartella di download e quelle aggiunte sul computer, come ovunque',
           ],
         },
         files: {
@@ -327,7 +338,8 @@ export const content: FeaturesContent = {
     add: 'La finestra Aggiungi con dei link magnet incollati',
     watchlist: 'La lista Da seguire: serie con il prossimo episodio',
     watches: 'Attese di release, con la frequenza dei controlli di ciascuna',
-    downloads: 'Download in corso, con velocità, peer e tempo rimanente',
+    downloads: 'Download in corso e completati, con ordinamento e date',
+    'save-folder': 'Il browser delle cartelle: l\'elemento, cartelle recenti, spazio libero e Scarica qui',
     'search-phone': 'La ricerca su un telefono, con i filtri di risoluzione',
     details: 'I file di un download, ciascuno con il suo avanzamento',
     player: 'Un film con licenza libera nel browser, con i suoi sottotitoli in inglese',

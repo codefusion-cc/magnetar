@@ -64,7 +64,7 @@ export const content: FeaturesContent = {
         addresses: {
           title: 'Adresy, które da się przeczytać i udostępnić',
           gain: 'Wyszukiwanie to link: dodaj go do zakładek, odśwież albo wyślij, a otworzy te same wyniki.',
-          text: 'Słowa trafiają do ścieżki, a do zapytania tylko te opcje, które zmienisz: /search/big+buck+bunny?res=1080p&sort=new. Filtr pobierania i każda sekcja ustawień też mają własny adres.',
+          text: 'Słowa trafiają do ścieżki, a do zapytania tylko te opcje, które zmienisz: /search/big+buck+bunny?res=1080p&sort=new. Widok pobrań (Aktywne, Ukończone, Wszystkie) i każda sekcja ustawień też mają własny adres.',
           points: [
             'Wstecz i Dalej przechodzą między wyszukiwaniami jak między stronami; zmiana filtra nie dodaje kroku',
             'Starsze linki są od razu przepisywane na obecną postać, więc zapisany link nadal działa',
@@ -115,11 +115,22 @@ export const content: FeaturesContent = {
           gain: 'Postęp, prędkość, peery i pozostały czas każdego pobierania na żywo, bez instalowania czegokolwiek więcej.',
           text: 'Pobieranie działa wewnątrz Magnetara na librqbit, z DHT i trackerami, a panel odświeża się co sekundę. Wstrzymanie, ponowne uruchomienie ani aktualizacja nigdy nie każą ponownie odczytywać ukończonych fragmentów.',
           points: [
-            'Filtr: aktywne, wstrzymane, ukończone lub nieudane; każde pobieranie możesz wstrzymać, wznowić, ponowić albo usunąć',
+            'Widoki Aktywne, Ukończone i Wszystkie z licznikami oraz wybrana kolejność (najnowsze, najstarsze, nazwa, rozmiar, postęp), zapamiętana na urządzeniu; każde pobranie pokazuje, kiedy je dodano i ukończono; każde pobieranie możesz wstrzymać, wznowić, ponowić albo usunąć',
             'Przy usuwaniu pojawia się pytanie, czy zachować pliki',
             'Łączna prędkość pobierania i wysyłania oraz wolne miejsce, które poniżej 5 GB zmienia się w ostrzeżenie',
             'Port na routerze otwiera UPnP, a torrent, który przez trzy minuty nie znajdzie peerów, mówi o tym, zamiast czekać w nieskończoność',
             'Torrent z kilkoma plikami dostaje własny folder',
+          ],
+        },
+        destination: {
+          title: 'Wybierz, dokąd trafia każde pobranie',
+          gain: 'Wskaż folder w chwili naciśnięcia Pobierz, a Magnetar go zapamięta.',
+          text: 'Pobierz otwiera przeglądarkę folderów: u góry nazwa i rozmiar pozycji, ostatnio używane foldery pod ręką i wolne miejsce na dysku, który właśnie oglądasz. „Pobierz tutaj” zaczyna pobieranie w tym miejscu. Jeśli się nie zmieści, ostrzeżenie o tym mówi, a i tak możesz kontynuować.',
+          points: [
+            'Przeglądarka otwiera się w ostatnio używanym folderze, więc zapis w to samo miejsce to dwa stuknięcia',
+            'Zaznacz „Zawsze zapisuj tutaj, nie pytaj więcej”, by ten folder stał się folderem pobierania i pytanie zniknęło; Ustawienia → Pobieranie je przywracają',
+            'Gdy pytanie jest wyłączone, Pobierz dodaje do folderu pobierania jednym kliknięciem, a szczegóły mają link „Zapisz w innym folderze…”',
+            'Przez stronę można wybrać tylko folder pobierania i foldery dodane na komputerze, jak wszędzie',
           ],
         },
         files: {
@@ -328,7 +339,8 @@ export const content: FeaturesContent = {
     add: 'Okno „Dodaj” z wklejonymi linkami magnet',
     watchlist: 'Obserwowane: seriale z następnym odcinkiem',
     watches: 'Obserwacje wydań i to, jak często każda sprawdza',
-    downloads: 'Trwające pobierania z prędkością, peerami i pozostałym czasem',
+    downloads: 'Pobierania w toku i ukończone, z sortowaniem i datami',
+    'save-folder': 'Przeglądarka folderów: pozycja, ostatnie foldery, wolne miejsce i Pobierz tutaj',
     details: 'Pliki pobierania, każdy z własnym postępem',
     player: 'Film na wolnej licencji odtwarzany w przeglądarce, z angielskimi napisami',
     speed: 'Limity prędkości, limity alternatywne i ich harmonogram',
