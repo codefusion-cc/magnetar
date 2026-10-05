@@ -2,11 +2,12 @@ import type { ThemeMode } from '@codefusion-cc/theme'
 import { useTheme } from '@codefusion-cc/theme/react'
 import type { AgentStatusDto, HandlerStatus, LoginStartupStatus, SettingsDto, SettingsPatch, UpdateStatusDto } from '@magnetar/protocol'
 import {
-  Bell, Bot, Cloud, Copy, Download, Eye, EyeOff, Info, Mail, RefreshCw, Send, Server, SlidersHorizontal, Upload,
+  Bell, Bot, Cloud, Copy, Download, Eye, EyeOff, Info, Mail, RefreshCw, Send, Sparkles, Server, SlidersHorizontal, Upload,
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, Navigate, useParams } from 'react-router'
-import { LANGUAGES, useFormatDate, useT } from '../../lib/i18n.tsx'
+import { featuresUrl } from '../../lib/featuresLink.ts'
+import { LANGUAGES, useFormatDate, useLanguage, useT } from '../../lib/i18n.tsx'
 import { askNotificationPermission } from '../../lib/notifications.ts'
 import { PageHeader, Segmented, SettingGroup, SettingRow, Switch } from '../../ui/controls.tsx'
 import { CopyInput, Field, SaveOnBlurInput, blurOnEnter } from '../../ui/fields.tsx'
@@ -414,6 +415,7 @@ function AboutSection() {
   const toast = useToast()
   const run = useRun()
   const formatDate = useFormatDate()
+  const language = useLanguage()
   const { connection, updates, info } = useDevice()
   // Through the website its own cached list, which an app from before the changelog can't answer either.
   const loadReleases = useCallback(() => (connection.kind === 'remote' ? cloud.releases() : connection.call('updates.releases')), [connection])
@@ -465,6 +467,11 @@ function AboutSection() {
             <span className="muted text-sm">{info.platform} · {info.arch}</span>
           </SettingRow>
         )}
+      </SettingGroup>
+      <SettingGroup>
+        <SettingRow layout="wide" title={t('settings.features')} description={t('settings.featuresHint')}>
+          <a className="btn btn-sm" href={featuresUrl(language)} target="_blank" rel="noreferrer noopener"><Sparkles size={14} />{t('settings.openFeatures')}</a>
+        </SettingRow>
       </SettingGroup>
       <SettingGroup title={t('changelog.title')} description={t('changelog.hint')}>
         <div className="pt-1"><Changelog load={loadReleases} running={updates.currentVersion} /></div>

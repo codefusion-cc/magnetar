@@ -1,7 +1,8 @@
 import { Check, ChevronsUpDown, CloudOff, Download, ExternalLink, FolderOpen, Loader, Search, Settings, ShieldAlert, Tv, WifiOff } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, NavLink, Outlet } from 'react-router'
-import { useT } from '../lib/i18n.tsx'
+import { featuresUrl } from '../lib/featuresLink.ts'
+import { useLanguage, useT } from '../lib/i18n.tsx'
 import { Loading } from '../ui/Loading.tsx'
 import { useDevice, useDownloads, useSearchLink } from './DeviceContext.tsx'
 import { isActive } from './components/downloads.tsx'
@@ -91,6 +92,7 @@ export function Shell({ headerStart, headerEnd, deviceMenu }: { headerStart?: Re
 function Builds() {
   const t = useT()
   const { info, basePath, connection } = useDevice()
+  const language = useLanguage()
   if (!info) return null
   return (
     <div className="muted flex flex-col gap-0.5 px-3 text-xs">
@@ -98,6 +100,7 @@ function Builds() {
         <Link to={`${basePath}/settings/about`} className="link link-hover" title={t('settings.section.about')}>Magnetar</Link>
         {' '}<BuildVersion repo={MAGNETAR_REPO} className="tabular-nums" commitClassName="link link-hover font-mono" version={info.version} commit={info.commit} />
       </span>
+      <a href={featuresUrl(language)} className="link link-hover self-start" target="_blank" rel="noreferrer noopener">{t('footer.features')}</a>
       {connection.kind === 'remote' && <span>{t('shell.website')} <BuildVersion repo={MAGNETAR_REPO} className="tabular-nums" commitClassName="link link-hover font-mono" version={BUILD.version} commit={BUILD.commit} /></span>}
     </div>
   )
