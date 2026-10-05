@@ -126,8 +126,13 @@ impl SettingsService {
         }
         let row: Option<String> =
             self.db.lock().query_row("SELECT json FROM settings WHERE id = 1", [], |r| r.get(0)).optional()?;
-        let settings = match row.map(|json| serde_json::from_str::<AppSettings>(&json)) {
-            Some(Ok(settings)) => settings,
+        let settings = match row.as_deref().map(serde_json::from_str::<AppSettings>) {
+            Some(Ok(settings)) => {
+                if let Some(stored) = row.as_deref() {
+                    self.drop_removed_fields(stored, &settings);
+                }
+                settings
+            }
             Some(Err(error)) => {
                 tracing::warn!("The saved settings could not be read, so the defaults apply: {error}");
                 AppSettings::default()
@@ -135,6 +140,26 @@ impl SettingsService {
             None => AppSettings::default(),
         };
         Ok(self.cached().get_or_insert(settings).clone())
+    }
+
+    /// Rewrites a row that still holds settings the app no longer has (a removed notification channel's topic, say),
+    /// which would otherwise stay in the database in the clear until the next change. Replaces only the row it was
+    /// given, so a change saved meanwhile is never overwritten; a failure is left for the next start.
+    fn drop_removed_fields(&self, stored: &str, settings: &AppSettings) {
+        let (Ok(serde_json::Value::Object(old)), Ok(serde_json::Value::Object(current))) =
+            (serde_json::from_str(stored), serde_json::to_value(settings))
+        else {
+            return;
+        };
+        if old.keys().all(|key| current.contains_key(key)) {
+            return;
+        }
+        let json = serde_json::to_string(settings).expect("settings serialize");
+        let written =
+            self.db.lock().execute("UPDATE settings SET json = ?1 WHERE id = 1 AND json = ?2", rusqlite::params![json, stored]);
+        if let Err(error) = written {
+            tracing::warn!("Could not remove the settings the app no longer has from the saved ones: {error}");
+        }
     }
 
     /// The settings; the defaults while the database can't be read (not remembered: the next call reads again).
@@ -430,16 +455,49 @@ mod tests {
         assert_eq!(store.reopened().get().language, "de");
     }
 
+    fn stored_row(store: &Store) -> String {
+        store.db.lock().query_row("SELECT json FROM settings WHERE id = 1", [], |r| r.get(0)).unwrap()
+    }
+
     #[test]
-    fn settings_saved_with_the_removed_ntfy_fields_load_and_keep_everything_else() {
+    fn loading_a_row_with_removed_settings_rewrites_it_without_them_and_keeps_every_other_value() {
         let store = Store::new();
-        let saved = r#"{"language":"de","downloadLimit":7,"telegramEnabled":true,"pushEnabled":true,"ntfyServer":"https://ntfy.sh","ntfyTopic":"mine"}"#;
+        let saved = r#"{"language":"de","downloadLimit":7,"telegramEnabled":true,"pushEnabled":true,"ntfyServer":"https://ntfy.sh","ntfyTopic":"my-secret-topic"}"#;
         store.db.lock().execute("INSERT INTO settings (id, json) VALUES (1, ?1)", [saved]).unwrap();
         let loaded = store.reopened().get();
         assert_eq!((loaded.language.as_str(), loaded.download_limit, loaded.telegram_enabled), ("de", 7, true));
-        // Saving writes the row again without them.
-        store.reopened().update(|s| s.download_limit = 8).unwrap();
-        let row: String = store.db.lock().query_row("SELECT json FROM settings WHERE id = 1", [], |r| r.get(0)).unwrap();
-        assert!(!row.to_lowercase().contains("ntfy") && row.contains("\"downloadLimit\":8"), "{row}");
+        let row = stored_row(&store);
+        assert!(!row.contains("ntfy") && !row.contains("my-secret-topic") && !row.contains("pushEnabled"), "{row}");
+        let again = store.reopened().get();
+        assert_eq!((again.language.as_str(), again.download_limit, again.telegram_enabled), ("de", 7, true));
+        assert_eq!(stored_row(&store), row, "a second load changes nothing");
+    }
+
+    #[test]
+    fn loading_a_row_with_nothing_removed_does_not_rewrite_it() {
+        let store = Store::new();
+        // Spelled with spaces, which a rewrite would not keep, and without the settings added since.
+        let saved = r#"{ "language": "de", "downloadLimit": 7 }"#;
+        store.db.lock().execute("INSERT INTO settings (id, json) VALUES (1, ?1)", [saved]).unwrap();
+        assert_eq!(store.reopened().get().download_limit, 7);
+        assert_eq!(stored_row(&store), saved);
+    }
+
+    #[test]
+    fn cleaning_a_row_never_overwrites_a_change_saved_in_the_meantime() {
+        let store = Store::new();
+        let stale = r#"{"downloadLimit":7,"ntfyTopic":"mine"}"#;
+        store.db.lock().execute("INSERT INTO settings (id, json) VALUES (1, ?1)", [r#"{"downloadLimit":9}"#]).unwrap();
+        store.settings.drop_removed_fields(stale, &AppSettings::default());
+        assert_eq!(stored_row(&store), r#"{"downloadLimit":9}"#);
+    }
+
+    #[test]
+    fn a_failing_write_while_cleaning_is_no_error() {
+        let store = Store::new();
+        let saved = r#"{"language":"de","ntfyTopic":"mine"}"#;
+        store.db.lock().execute("INSERT INTO settings (id, json) VALUES (1, ?1)", [saved]).unwrap();
+        store.read_only();
+        assert_eq!(store.reopened().get().language, "de");
     }
 }
