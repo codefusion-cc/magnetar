@@ -51,17 +51,19 @@ export function FolderBrowser({ open, start, onClose, onSelect, save }: {
     <Modal open={open} title={t(save ? 'dialog.downloadTo' : 'dialog.chooseFolder')} icon={save ? <Download size={20} /> : <FolderOpen size={20} />} onClose={onClose} wide
       actions={<>
         {save && (
-          <label className="mr-auto flex cursor-pointer items-center gap-2 text-sm">
-            <input type="checkbox" className="checkbox checkbox-sm" checked={always} disabled={save.busy} onChange={e => setAlways(e.target.checked)} />
+          <label className="flex min-h-10 w-full cursor-pointer items-center gap-3 text-sm sm:min-h-0 sm:w-auto sm:flex-1">
+            <input type="checkbox" className="checkbox checkbox-sm checkbox-primary" checked={always} disabled={save.busy} onChange={e => setAlways(e.target.checked)} />
             {t('folderBrowser.always')}
           </label>
         )}
-        <button type="button" className="btn btn-ghost btn-sm" disabled={save?.busy} onClick={onClose}>{t('common.cancel')}</button>
-        <button type="button" ref={primary} className="btn btn-primary btn-sm" disabled={!chosen || save?.busy} onClick={() => chosen && onSelect(chosen, always)}>
-          {save?.busy && <span className="loading loading-spinner loading-xs" />}
-          {save && !save.busy && <Download size={14} />}
-          {t(save ? 'folderBrowser.downloadHere' : 'folderBrowser.selectFolder')}
-        </button>
+        <div className="flex w-full gap-2 sm:ml-auto sm:w-auto">
+          <button type="button" className="btn btn-ghost btn-sm" disabled={save?.busy} onClick={onClose}>{t('common.cancel')}</button>
+          <button type="button" ref={primary} className="btn btn-primary btn-sm flex-1 sm:flex-none" disabled={!chosen || save?.busy} onClick={() => chosen && onSelect(chosen, always)}>
+            {save?.busy && <span className="loading loading-spinner loading-xs" />}
+            {save && !save.busy && <Download size={14} />}
+            {t(save ? 'folderBrowser.downloadHere' : 'folderBrowser.selectFolder')}
+          </button>
+        </div>
       </>}>
       {save?.subject && (
         <p className="mb-3 flex items-baseline gap-2 text-sm">
