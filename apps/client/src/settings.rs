@@ -57,6 +57,8 @@ pub struct AppSettings {
     pub agent_api_allow_remote: bool,
     /// Scrubbed error reports to CodeFusion Console (see telemetry.rs).
     pub error_reports_enabled: bool,
+    /// Every Download click opens the folder browser first, to choose where that one goes.
+    pub ask_download_folder: bool,
 }
 
 impl Default for AppSettings {
@@ -95,6 +97,7 @@ impl Default for AppSettings {
             agent_api_enabled: false,
             agent_api_allow_remote: false,
             error_reports_enabled: true,
+            ask_download_folder: false,
         }
     }
 }
@@ -215,7 +218,8 @@ impl SettingsService {
                 ntfy_topic,
                 telegram_enabled,
                 telegram_chat_id,
-                error_reports_enabled
+                error_reports_enabled,
+                ask_download_folder
             );
             if let Some(port) = patch.smtp_port {
                 s.smtp_port = port as u16;
@@ -264,6 +268,7 @@ impl SettingsService {
             telegram_bot_token_set: self.secrets.has(SecretName::TelegramBotToken),
             telegram_chat_id: s.telegram_chat_id,
             error_reports_enabled: s.error_reports_enabled,
+            ask_download_folder: s.ask_download_folder,
         }
     }
 }
@@ -409,6 +414,15 @@ mod tests {
         store.db.lock().execute_batch("ALTER TABLE settings_away RENAME TO settings").unwrap();
         assert_eq!(fresh.get().seed_ratio, 3.0);
         assert_eq!(fresh.get().download_limit, 0);
+    }
+
+    #[test]
+    fn asking_where_to_save_is_off_until_turned_on_and_stays_through_a_restart() {
+        let store = Store::new();
+        assert!(!store.settings.to_dto().ask_download_folder);
+        let patch = SettingsPatch { ask_download_folder: Some(true), ..Default::default() };
+        assert!(store.settings.apply_patch(patch).unwrap().ask_download_folder);
+        assert!(store.reopened().to_dto().ask_download_folder);
     }
 
     #[test]

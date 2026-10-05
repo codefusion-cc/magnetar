@@ -245,6 +245,7 @@ export interface SettingsDto {
   telegramBotTokenSet: boolean
   telegramChatId: string
   errorReportsEnabled: boolean
+  askDownloadFolder: boolean
 }
 
 const emailOrEmpty = z.union([z.literal(''), z.email()])
@@ -285,6 +286,7 @@ export const SettingsPatch = z.strictObject({
   telegramBotToken: z.string().trim().optional(),
   telegramChatId: z.string().trim().optional(),
   errorReportsEnabled: z.boolean().optional(),
+  askDownloadFolder: z.boolean().optional(),
 })
 export type SettingsPatch = z.infer<typeof SettingsPatch>
 

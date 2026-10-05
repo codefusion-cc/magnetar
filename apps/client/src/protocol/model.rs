@@ -413,6 +413,7 @@ pub struct SettingsDto {
     pub telegram_bot_token_set: bool,
     pub telegram_chat_id: String,
     pub error_reports_enabled: bool,
+    pub ask_download_folder: bool,
 }
 
 /// Why the dashboard may browse a folder: it is the download folder, or the owner added it on the device itself.
@@ -889,6 +890,7 @@ pub struct SettingsPatch {
     pub telegram_bot_token: Option<String>,
     pub telegram_chat_id: Option<String>,
     pub error_reports_enabled: Option<bool>,
+    pub ask_download_folder: Option<bool>,
 }
 
 pub fn is_email(text: &str) -> bool {

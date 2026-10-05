@@ -1,4 +1,4 @@
-import { FolderOpen } from 'lucide-react'
+import { Download, FolderOpen } from 'lucide-react'
 import { lazy, Suspense, useEffect, useId, useState } from 'react'
 import { useT } from '../../lib/i18n.tsx'
 import { updates } from '../../lib/updates.ts'
@@ -14,11 +14,16 @@ const Chooser = lazy(() => updates.importOrReload(() => import('./folderChooser.
  * Chooses a folder on the device (not this computer, when used through the relay), inside the folders Files may
  * browse. It opens at `start` when that is inside one of them, else at the list of them.
  */
-export function FolderBrowser({ open, start, onClose, onSelect }: {
+export function FolderBrowser({ open, start, onClose, onSelect, save }: {
   open: boolean
   start: string
   onClose: () => void
   onSelect: (path: string) => void
+  /**
+   * Saving a download rather than setting a folder: the button reads "Download here" and starts it, the folders
+   * used before are offered to jump to, and a refusal from the device shows in the dialog.
+   */
+  save?: { recent: string[]; fallback: string; busy: boolean; error: string | null }
 }) {
   const t = useT()
   // The folder on screen: null on the list of folders, undefined until the chooser has placed itself.
@@ -27,14 +32,17 @@ export function FolderBrowser({ open, start, onClose, onSelect }: {
     if (!open) setChosen(undefined)
   }, [open])
   return (
-    <Modal open={open} title={t('dialog.chooseFolder')} icon={<FolderOpen size={20} />} onClose={onClose} wide
+    <Modal open={open} title={t(save ? 'dialog.downloadTo' : 'dialog.chooseFolder')} icon={save ? <Download size={20} /> : <FolderOpen size={20} />} onClose={onClose} wide
       actions={<>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>{t('common.cancel')}</button>
-        <button type="button" className="btn btn-primary btn-sm" disabled={!chosen} onClick={() => chosen && onSelect(chosen)}>
-          {t('folderBrowser.selectFolder')}
+        <button type="button" className="btn btn-ghost btn-sm" disabled={save?.busy} onClick={onClose}>{t('common.cancel')}</button>
+        <button type="button" className="btn btn-primary btn-sm" disabled={!chosen || save?.busy} onClick={() => chosen && onSelect(chosen)}>
+          {save?.busy && <span className="loading loading-spinner loading-xs" />}
+          {save && !save.busy && <Download size={14} />}
+          {t(save ? 'folderBrowser.downloadHere' : 'folderBrowser.selectFolder')}
         </button>
       </>}>
-      {open && <Suspense fallback={<Loading />}><Chooser start={start} path={chosen} onPath={setChosen} /></Suspense>}
+      {save?.error && <p role="alert" className="mb-3 whitespace-pre-line text-sm text-error">{save.error}</p>}
+      {open && <Suspense fallback={<Loading />}><Chooser start={start} path={chosen} onPath={setChosen} recent={save?.recent} fallback={save?.fallback} /></Suspense>}
     </Modal>
   )
 }
