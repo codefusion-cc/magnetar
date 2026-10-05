@@ -1,3 +1,5 @@
+import { DOWNLOAD_SORT_PREFIX, pageStorage } from './browserStorage.ts'
+
 /** The orders the Downloads page offers. */
 export const DOWNLOAD_SORTS = ['newest', 'oldest', 'name', 'size', 'progress'] as const
 export type DownloadSort = (typeof DOWNLOAD_SORTS)[number]
@@ -51,15 +53,7 @@ export function parseDownloadSort(value: unknown): DownloadSort {
   return DOWNLOAD_SORTS.find(s => s === value) ?? DEFAULT_DOWNLOAD_SORT
 }
 
-const keyFor = (device: string) => `magnetar.downloadSort.${device}`
-
-const pageStorage = (): Pick<Storage, 'getItem' | 'setItem'> | undefined => {
-  try {
-    return globalThis.localStorage
-  } catch {
-    return undefined
-  }
-}
+const keyFor = (device: string) => DOWNLOAD_SORT_PREFIX + device
 
 /** The order this browser chose for `device`, or the default. Works without browser storage. */
 export function readDownloadSort(device: string, storage = pageStorage()): DownloadSort {

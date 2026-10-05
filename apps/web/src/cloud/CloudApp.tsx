@@ -4,6 +4,7 @@ import { consolePage } from '@magnetar/protocol/console-pages'
 import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router'
 import type { AppConfig } from '../lib/cloudApi.ts'
+import { forgetDevicePreferences } from '../lib/browserStorage.ts'
 import { cloud } from '../lib/cloudApi.ts'
 import { reporting } from '../lib/console.ts'
 import { updates, UpdatesOnNavigation } from '../lib/updates.ts'
@@ -76,6 +77,7 @@ export default function CloudApp({ config }: { config: AppConfig }) {
       await cloud.signOut()
       // A sign-in still at Google must not complete into the account just signed out of.
       cancelGoogleSignIn()
+      forgetDevicePreferences()
       setAccount(null)
     } catch (e) {
       toast(errorMessage(e), 'error')

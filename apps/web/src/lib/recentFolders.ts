@@ -1,3 +1,6 @@
+import { RECENT_FOLDERS_PREFIX, pageStorage } from './browserStorage.ts'
+import type { AlwaysOutcome } from './downloadFlow.ts'
+
 /** How many folders the browser offers for a quick jump. */
 export const MAX_RECENT_FOLDERS = 5
 
@@ -16,16 +19,7 @@ function clean(value: unknown, max: number): string[] {
 }
 
 /** What a device's recent folders are stored under: folders of one device mean nothing on another. */
-const keyFor = (device: string) => `magnetar.recentFolders.${device}`
-
-/** The storage a page has, or undefined where the browser blocks it (the getter itself can throw). */
-function pageStorage(): Pick<Storage, 'getItem' | 'setItem'> | undefined {
-  try {
-    return globalThis.localStorage
-  } catch {
-    return undefined
-  }
-}
+const keyFor = (device: string) => RECENT_FOLDERS_PREFIX + device
 
 /** The folders downloads were last saved to on `device`, most recent first. Empty without browser storage. */
 export function readRecentFolders(device: string, storage = pageStorage()): string[] {
@@ -61,7 +55,9 @@ export function folderChoices(
   defaultFolder: string,
   max = MAX_RECENT_FOLDERS,
 ): string[] {
-  const fromDevice = [...downloads].sort((a, b) => Date.parse(b.addedAt) - Date.parse(a.addedAt)).map(d => d.savePath)
+  // A date nobody can read counts as the oldest, so the order stays one a sort can follow.
+  const added = (d: { addedAt: string }) => Date.parse(d.addedAt) || 0
+  const fromDevice = [...downloads].sort((a, b) => added(b) - added(a)).map(d => d.savePath)
   const all = [...fromDevice, ...stored].map(f => f.trim()).filter(f => f && trimEnd(f) !== trimEnd(defaultFolder))
   return [...new Set(all)].slice(0, max)
 }
@@ -113,7 +109,7 @@ export const offersOtherFolder = (ask: boolean) => !ask
 export function startedNotice<K extends string>(
   keys: { plain: K; inFolder: K },
   folder?: string,
-  always?: { saved: true } | { saved: false; error: string },
+  always?: AlwaysOutcome,
 ): { key: K; folder?: string; extra?: { key: 'notice.always'; folder: string } | { key: 'notice.alwaysFailed'; error: string } } {
   const named = folder?.trim()
   if (!named) return { key: keys.plain }

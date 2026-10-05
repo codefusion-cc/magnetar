@@ -5,6 +5,7 @@ import { Link } from 'react-router'
 import { cloud } from '../lib/cloudApi.ts'
 import { errorMessage } from '../lib/errors.ts'
 import { useFormatRelative, useT } from '../lib/i18n.tsx'
+import { forgetDevicePreferences } from '../lib/browserStorage.ts'
 import { forgetDeviceKey, listDeviceKeys } from '../lib/keyStore.ts'
 import { isOutdated } from '@codefusion-cc/app-update'
 import { latestRelease } from '../lib/releases.ts'
@@ -111,6 +112,7 @@ export function DevicesPage() {
           try {
             await cloud.removeDevice(device.id)
             await forgetDeviceKey(device.id).catch(() => {})
+            forgetDevicePreferences(device.name)
             await load()
           } catch (e) {
             toast(errorMessage(e), 'error')
