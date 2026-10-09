@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "tsc -p . && vite build",
+    "build": "tsc -p . && vite build && node ../../scripts/guard-preview.ts",
     "preview": "vite preview",
     "typecheck": "tsc -p ."
   },

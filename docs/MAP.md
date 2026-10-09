@@ -28,6 +28,7 @@ Design and security are in [ARCHITECTURE.md](ARCHITECTURE.md), deploy and signin
 
 - Everything: `npm run check` (lint + typecheck + tests). Parts: `npm run lint` (oxlint, clippy `-D warnings`, `cargo fmt --check`), `npm run typecheck` (every workspace).
 - Unit (Node: `packages/*`, `apps/web`): `npx vitest run --project node --maxWorkers=2`. Worker (workerd, local D1 and real relay): `npx vitest run apps/worker`.
+- `npm run build:web` ends with `scripts/guard-preview.ts` (tested by `scripts/guard-preview.test.ts`): link-preview tags in `apps/web/index.html`, `og-v1.jpg` and `robots.txt` in `dist/`. A new preview image gets a new file name.
 - Rust: `export PATH="/opt/homebrew/opt/rustup/bin:$PATH" && cargo test --locked -j4`.
 - E2E: `npm run e2e` (Playwright drives the real app; needs `npm run build:web` and `npx playwright install chromium`).
 
