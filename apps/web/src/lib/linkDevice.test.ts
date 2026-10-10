@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { linkWithKey, type Probe } from './linkDevice.ts'
+import { bytesToBase64Url } from '@codefusion-cc/workers-crypto'
+import { linkWithCode, linkWithKey, type Probe } from './linkDevice.ts'
 import { saveDeviceKey } from './keyStore.ts'
 import type { ConnectionState } from './rpcClient.ts'
 
@@ -140,5 +141,36 @@ describe('linking with a key', () => {
 
   test('a connection that cannot be made is a failure, not a throw', async () => {
     await expect(linkWithKey('dev1', 'key1', raw, { connect: () => { throw new Error('no WebSocket') } })).resolves.toBe('failed')
+  })
+})
+
+describe('linking with a typed code', () => {
+  test('connects with the key the code stands for and stores that one', async () => {
+    // The first of the vectors the device's derivation is checked against (link-code-vector.json).
+    const result = linkWithCode('dev1', '00000000000000000000', { connect: (deviceId, key) => {
+      expect([deviceId, key.keyId]).toEqual(['dev1', 'oL8HlP_J3807'])
+      return connect()
+    } })
+    await vi.waitFor(() => expect(probes).toHaveLength(1))
+    probes[0]!.move({ status: 'open' })
+    await expect(result).resolves.toBe('linked')
+    expect(saveDeviceKey).toHaveBeenCalledOnce()
+    const [deviceId, keyId, key] = vi.mocked(saveDeviceKey).mock.calls[0]!
+    expect([deviceId, keyId, bytesToBase64Url(key)]).toEqual(['dev1', 'oL8HlP_J3807', 'b_ou7b_LQ5n6lLM_OM_2dPsq5d8QtHt0bk0yzQI2maY'])
+  })
+
+  test('a code the device refuses stores nothing', async () => {
+    const result = linkWithCode('dev1', '00000000000000000000', { connect })
+    await vi.waitFor(() => expect(probes).toHaveLength(1))
+    probes[0]!.move({ status: 'rejected', reason: 'remote.rejectedKey' } as ConnectionState)
+    await expect(result).resolves.toBe('wrong')
+    expect(saveDeviceKey).not.toHaveBeenCalled()
+  })
+
+  test('a browser that cannot derive the key fails without connecting, and does not throw', async () => {
+    const importKey = vi.spyOn(crypto.subtle, 'importKey').mockRejectedValueOnce(new DOMException('no', 'NotSupportedError'))
+    await expect(linkWithCode('dev1', '00000000000000000000', { connect })).resolves.toBe('failed')
+    expect(probes).toHaveLength(0)
+    importKey.mockRestore()
   })
 })

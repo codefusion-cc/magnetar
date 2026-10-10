@@ -43,13 +43,14 @@ let decoder: Promise<(frame: Frame) => string | null> | undefined
 
 /** The text of the QR code in `frame`, or null. The decoder is fetched the first time. */
 export async function decodeQr(frame: Frame): Promise<string | null> {
-  decoder ??= import('jsqr').then(({ default: jsQR }) => (f: Frame) => jsQR(f.data, f.width, f.height, { inversionAttempts: 'dontInvert' })?.data ?? null)
-  // A chunk that failed to load (a dropped connection) is fetched again with the next frame, not kept as the answer.
-  const decode = await decoder.catch(error => {
-    decoder = undefined
-    throw error
-  })
-  return decode(frame)
+  decoder ??= import('jsqr')
+    .then(({ default: jsQR }) => (f: Frame) => jsQR(f.data, f.width, f.height, { inversionAttempts: 'dontInvert' })?.data ?? null)
+    // A chunk that failed to load (a dropped connection) is fetched again with the next frame, not kept as the answer.
+    .catch(error => {
+      decoder = undefined
+      throw error
+    })
+  return (await decoder)(frame)
 }
 
 function browserDeps(): ScannerDeps {
@@ -59,8 +60,11 @@ function browserDeps(): ScannerDeps {
     grab(video) {
       if (video.readyState < 2 || !video.videoWidth) return null
       const scale = Math.min(1, MAX_WIDTH / video.videoWidth)
-      canvas.width = Math.round(video.videoWidth * scale)
-      canvas.height = Math.round(video.videoHeight * scale)
+      const width = Math.round(video.videoWidth * scale)
+      const height = Math.round(video.videoHeight * scale)
+      // Setting a canvas's size clears and reallocates it, even to the size it has.
+      if (canvas.width !== width) canvas.width = width
+      if (canvas.height !== height) canvas.height = height
       const context = canvas.getContext('2d', { willReadFrequently: true })
       if (!context) return null
       context.drawImage(video, 0, 0, canvas.width, canvas.height)

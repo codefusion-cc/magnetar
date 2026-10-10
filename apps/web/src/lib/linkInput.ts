@@ -12,7 +12,7 @@ export type LinkInputProblem =
   | { problem: 'characters'; character: string }
 
 /** A link is long, but not this long: anything bigger is neither a link nor a code, and is not parsed. */
-const MAX_INPUT = 2048
+export const MAX_LINK_INPUT = 2048
 
 const ADDRESS = /^[a-z][a-z\d+.-]*:/i
 
@@ -23,7 +23,7 @@ const ADDRESS = /^[a-z][a-z\d+.-]*:/i
 export function readLinkInput(text: string, origin: string): LinkInput | LinkInputProblem {
   const trimmed = text.trim()
   const address = ADDRESS.test(trimmed)
-  if (trimmed.length > MAX_INPUT) return { problem: address ? 'not-a-link' : 'too-long' }
+  if (trimmed.length > MAX_LINK_INPUT) return { problem: address ? 'not-a-link' : 'too-long' }
   if (address) {
     let url: URL
     try {

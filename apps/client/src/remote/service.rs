@@ -18,7 +18,7 @@ use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
 use tokio_tungstenite::tungstenite::{Bytes, Message};
 use tokio_util::sync::CancellationToken;
 
-use super::browser_keys::BrowserKeyStore;
+use super::browser_keys::{BrowserKeyStore, MintedLink};
 use super::push::{PushPayload, PushSubscriptions};
 use crate::app::App;
 use crate::config::{CLOUD_URL, PLATFORM, USER_AGENT, VERSION};
@@ -417,7 +417,7 @@ impl RemoteService {
         let device_id = self.device_id().ok_or_else(|| ApiError::bad("Connect this device to your account first."))?;
         let label = label.map(str::trim).filter(|l| !l.is_empty()).unwrap_or("Linked browser");
         let expires_at = iso(chrono::Utc::now() + LINK_TTL);
-        let ((key_id, key), code, code_key_id) = self.keys.mint_link(label, &expires_at)?;
+        let MintedLink { key_id, key, code, code_key_id } = self.keys.mint_link(label, &expires_at)?;
         self.changed();
         self.sweep_links();
         let url = format!("{}/link#{}", self.cloud_url, link_fragment(&device_id, &key_id, &key));

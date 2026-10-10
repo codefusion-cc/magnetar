@@ -94,7 +94,9 @@ The dashboard is at <http://localhost:47820> (the next free port if that one is 
 1. On the computer running Magnetar, open **Settings → Remote access** and choose **Connect to your account**.
 2. A tab opens on magnetar.codefusion.cc. Sign in with Google and approve the device.
 3. That browser is now linked. To add your phone, choose **Link a phone or another browser** (from the local
-   dashboard or any linked browser) and scan the QR code while signed in to the same account.
+   dashboard or any linked browser) and scan the QR code while signed in to the same account. The app installed
+   on a phone's home screen is linked from inside it: open it, then scan the code there or type the code shown
+   under the QR code.
 
 One account holds up to 20 computers. Each has a name of letters, digits and hyphens, unique on the account, which is
 its address on the website: `magnetar.codefusion.cc/MacBook-Pro/search/dragon`. Renaming moves an open page to the new

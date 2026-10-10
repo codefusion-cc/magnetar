@@ -1,4 +1,5 @@
 import { importBrowserKey } from '@magnetar/protocol/e2e'
+import { linkCodeKey } from '@magnetar/protocol/link-code'
 import { saveDeviceKey, type StoredDeviceKey } from './keyStore.ts'
 import { RelayConnection } from './relayConnection.ts'
 import type { ConnectionState } from './rpcClient.ts'
@@ -57,6 +58,20 @@ export function linkWithKey(deviceId: string, keyId: string, raw: Uint8Array<Arr
   const attempt = attemptLink(deviceId, keyId, raw, options).finally(() => inFlight.delete(id))
   inFlight.set(id, attempt)
   return attempt
+}
+
+/**
+ * Links this browser with the key a typed code stands for, as `linkWithKey` does. `code` is 20 symbols as
+ * `readLinkCode` returns them. Never throws: a browser that cannot derive the key has `failed`.
+ */
+export async function linkWithCode(deviceId: string, code: string, options: Options = {}): Promise<LinkResult> {
+  let derived: Awaited<ReturnType<typeof linkCodeKey>>
+  try {
+    derived = await linkCodeKey(code)
+  } catch {
+    return 'failed'
+  }
+  return linkWithKey(deviceId, derived.keyId, derived.key, options)
 }
 
 async function attemptLink(deviceId: string, keyId: string, raw: Uint8Array<ArrayBuffer>, options: Options): Promise<LinkResult> {

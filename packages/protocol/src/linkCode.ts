@@ -14,12 +14,10 @@ import { bytesToBase64Url } from '@codefusion-cc/workers-crypto'
 /** Crockford's base 32: no I, L, O or U. */
 export const LINK_CODE_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'
 export const LINK_CODE_LENGTH = 20
-const GROUP = 5
+const GROUPS = /.{1,5}/g
 const SALT = 'magnetar-link-code-v1'
 const KEY_BYTES = 32
 const KEY_ID_BYTES = 9
-
-export type LinkCodeProblem = 'incomplete' | 'too-long' | 'characters'
 
 /** What separates the groups of a written code: any white space and any dash. */
 const SEPARATORS = /[\s\-\u2010-\u2015\u2212]/g
@@ -46,7 +44,7 @@ export function readLinkCode(text: string): { code: string } | { problem: 'incom
 
 /** `XXXXX-XXXXX-XXXXX-XXXXX` for the symbols typed so far. */
 export function formatLinkCode(symbols: string): string {
-  return symbols.match(new RegExp(`.{1,${GROUP}}`, 'g'))?.join('-') ?? ''
+  return symbols.match(GROUPS)?.join('-') ?? ''
 }
 
 /** The 100 bits of a code as 13 bytes, the last four bits zero. */

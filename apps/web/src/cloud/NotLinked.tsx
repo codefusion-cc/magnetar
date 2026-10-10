@@ -1,13 +1,13 @@
 import type { CloudDeviceDto } from '@magnetar/protocol/cloud'
-import { linkCodeKey, linkCodeSymbols } from '@magnetar/protocol/link-code'
+import { linkCodeSymbols } from '@magnetar/protocol/link-code'
 import { Camera, Keyboard, LoaderCircle } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { useNavigate } from 'react-router'
 import { cloud } from '../lib/cloudApi.ts'
 import { useT } from '../lib/i18n.tsx'
 import { isInstalledApp } from '../lib/installedApp.ts'
-import { linkWithKey, type LinkResult } from '../lib/linkDevice.ts'
-import { readLinkInput, shapeCodeField, type LinkInput, type LinkInputProblem } from '../lib/linkInput.ts'
+import { linkWithCode, linkWithKey, type LinkResult } from '../lib/linkDevice.ts'
+import { MAX_LINK_INPUT, readLinkInput, shapeCodeField, type LinkInput, type LinkInputProblem } from '../lib/linkInput.ts'
 import { startScanner, type Scanner, type ScannerProblem } from '../lib/qrScanner.ts'
 import { useToast } from '../ui/toast.tsx'
 import { devicePath } from './devicePaths.ts'
@@ -68,40 +68,29 @@ export function NotLinked({ device, onLinked }: { device: CloudDeviceDto; onLink
     setBusy(true)
     setError(null)
     let target = device
-    let result: LinkResult | 'other-account' | 'list-failed'
+    let problem: string | null = null
     if (input.kind === 'link' && input.deviceId !== device.id) {
       // A code made for another of the account's devices: link that one instead.
       const devices = await cloud.devices().catch(() => null)
       const found = devices?.find(d => d.id === input.deviceId)
       if (found) target = found
-      result = devices ? (found ? 'linked' : 'other-account') : 'list-failed'
-    } else {
-      result = 'linked'
+      else problem = t(devices ? 'link.otherAccount' : 'link.network')
     }
-    if (result === 'linked') {
-      result = input.kind === 'link'
-        ? await linkWithKey(target.id, input.keyId, input.key)
-        : await (async (): Promise<LinkResult> => {
-          try {
-            const { keyId, key } = await linkCodeKey(input.code)
-            return linkWithKey(target.id, keyId, key)
-          } catch {
-            // No WebCrypto here: nothing was tried, and the form must not stay busy.
-            return 'failed'
-          }
-        })()
+    if (!problem) {
+      const result = await (input.kind === 'link' ? linkWithKey(target.id, input.keyId, input.key) : linkWithCode(target.id, input.code))
+      if (result !== 'linked') problem = t(RESULT_TEXT[result], target.name)
     }
-    if (!alive.current) return result === 'linked'
-    if (result !== 'linked' && failMode) setMode(failMode)
+    if (!alive.current) return !problem
+    if (problem && failMode) setMode(failMode)
     setBusy(false)
-    if (result === 'linked') {
-      toast(t('link.linked', target.name), 'success')
-      if (target.id === device.id) onLinked()
-      else navigate(devicePath(target.name))
-      return true
+    if (problem) {
+      setError(problem)
+      return false
     }
-    setError(result === 'other-account' ? t('link.otherAccount') : result === 'list-failed' ? t('link.network') : t(RESULT_TEXT[result], target.name))
-    return false
+    toast(t('link.linked', target.name), 'success')
+    if (target.id === device.id) onLinked()
+    else navigate(devicePath(target.name))
+    return true
   }, [device, navigate, onLinked, t, toast])
 
   // The camera runs while the scanner is open, and only then.
@@ -218,7 +207,7 @@ export function NotLinked({ device, onLinked }: { device: CloudDeviceDto; onLink
               onBlur={settle}
               readOnly={busy}
               placeholder="XXXXX-XXXXX-XXXXX-XXXXX"
-              maxLength={2048}
+              maxLength={MAX_LINK_INPUT}
               autoFocus
               inputMode="text"
               autoCapitalize="characters"
