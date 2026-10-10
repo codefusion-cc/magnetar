@@ -9,3 +9,4 @@ playwright-report/
 dist/
 node_modules/
 target/
+.review/

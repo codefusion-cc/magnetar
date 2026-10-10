@@ -239,7 +239,10 @@ builds (debug builds read `apps/web/dist` from disk). `src/app.rs` wires the ser
   NSUserNotification for an ad-hoc signed build, a toast on Windows, `notify-send` on Linux). The releases' notes
   answer `updates.releases`, the dashboard's changelog. Installs require `SHA256SUMS.txt.sig`, an Ed25519 signature checked
   against the public key compiled into the app. macOS swaps the `.app` bundle after exit with rollback
-  (`updates/mac-install.sh`); Windows and Linux rename the running executable aside. The new version is downloaded
+  (`updates/mac-install.sh`), and starts the app again until the system does: LaunchServices refuses with -600 for a
+  moment after the old one exits; Windows and Linux rename the running executable aside. The dashboard follows an
+  update to its end (`apps/web/src/lib/updateInstall.ts`): the app being away is expected for three minutes, also
+  across a reload, then it says the update did not finish. The new version is downloaded
   and verified first; only then are active downloads paused (their ids kept under `downloads.pausedForUpdate`) and
   the app swapped. The next start resumes exactly those, or this one does if the swap fails.
 - **Telemetry**: logged errors are scrubbed (quoted text, paths, URLs, addresses, hashes, tokens) and sent, at most

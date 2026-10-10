@@ -34,6 +34,16 @@ if kill -0 "$pid" 2>/dev/null; then
     exit 1
 fi
 
+# Starts the app at "$1". For a moment after an app exits, LaunchServices still lists it as running and answers
+# `open` with error -600 instead of starting it (longer on a busy Mac), so one refusal is not the answer.
+start_app() {
+    for ((i=0; i<60; i++)); do
+        /usr/bin/open "$1" && return 0
+        /bin/sleep 0.5
+    done
+    return 1
+}
+
 moved_old=0
 installed_new=0
 rollback() {
@@ -44,8 +54,8 @@ rollback() {
             /bin/mv "$bundle" "$work/Failed.app" || exit "$result"
         fi
         /bin/mv "$backup" "$bundle" || exit "$result"
-        /usr/bin/open "$bundle" || true
         echo "Update failed; restored the previous application."
+        start_app "$bundle" || echo "The previous application could not be started."
     fi
     exit "$result"
 }
@@ -58,5 +68,5 @@ fi
 moved_old=1
 /bin/mv "$replacement" "$bundle"
 installed_new=1
-/usr/bin/open "$bundle"
+start_app "$bundle"
 echo "Update installed. Previous application retained at $backup"

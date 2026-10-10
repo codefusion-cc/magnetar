@@ -2,6 +2,7 @@ import { Check, ChevronsUpDown, CloudOff, Download, ExternalLink, FolderOpen, Lo
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, NavLink, Outlet } from 'react-router'
 import { featuresUrl } from '../lib/featuresLink.ts'
+import { expectsAway } from '../lib/updateInstall.ts'
 import { useLanguage, useT } from '../lib/i18n.tsx'
 import { Loading } from '../ui/Loading.tsx'
 import { useDevice, useDownloads, useSearchLink } from './DeviceContext.tsx'
@@ -139,15 +140,16 @@ function localDeviceMenu(cloudUrl: string, t: ReturnType<typeof useT>): DeviceMe
 /** Which device this is and whether it is reachable; with a menu, also the way to the others. */
 function DeviceStatus({ compact = false, end, menu }: { compact?: boolean; end?: ReactNode; menu?: DeviceMenu }) {
   const t = useT()
-  const { deviceName, connection, connectionState } = useDevice()
+  const { deviceName, connection, connectionState, installPhase } = useDevice()
   const online = connectionState.status === 'open'
+  const away = expectsAway(installPhase) ? t('settings.installing') : t('connection.reconnecting')
   const where = connection.kind === 'remote' ? t('remote.viaRelay') : t('shell.thisComputer')
   const dot = <span className={`inline-block size-2 shrink-0 rounded-full ${online ? 'bg-success' : 'bg-warning'}`} />
   const label = (
     <span className={`flex min-w-0 items-center gap-2 ${menu ? 'rounded-field -m-1.5 p-1.5 transition-colors hover:bg-base-200' : ''}`}>
       <span className={`min-w-0 flex-1 ${compact ? 'leading-tight' : ''}`}>
         <span className="block truncate text-sm font-semibold">{deviceName}</span>
-        <span className={`muted flex items-center gap-1.5 text-xs ${compact ? '' : 'mt-0.5'}`}>{dot}<span className="truncate">{online ? where : t('connection.reconnecting')}</span></span>
+        <span className={`muted flex items-center gap-1.5 text-xs ${compact ? '' : 'mt-0.5'}`}>{dot}<span className="truncate">{online ? where : away}</span></span>
       </span>
       {menu && <ChevronsUpDown size={16} className="muted shrink-0" aria-hidden />}
     </span>
@@ -159,7 +161,7 @@ function DeviceStatus({ compact = false, end, menu }: { compact?: boolean; end?:
 
 function ConnectionBanner() {
   const t = useT()
-  const { connectionState } = useDevice()
+  const { connectionState, installPhase } = useDevice()
   const [visible, setVisible] = useState(false)
   // Brief reconnects are normal; only mention them if they last.
   useEffect(() => {
@@ -167,7 +169,8 @@ function ConnectionBanner() {
     const timer = setTimeout(() => setVisible(true), connectionState.status === 'connecting' ? 1500 : 400)
     return () => clearTimeout(timer)
   }, [connectionState])
-  if (!visible || connectionState.status === 'open' || connectionState.status === 'closed') return null
+  // An app that restarts to update is away on purpose: the update's own notice says so, until it has waited too long.
+  if (!visible || connectionState.status === 'open' || connectionState.status === 'closed' || expectsAway(installPhase)) return null
 
   const [tone, icon, text] =
     connectionState.status === 'device-offline' ? ['alert-warning', <CloudOff key="i" size={18} />, t('remote.deviceOffline')]

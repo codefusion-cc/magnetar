@@ -1084,6 +1084,135 @@ mod tests {
         confirm_started(&mut shell("exit 0"), Duration::from_secs(5)).unwrap();
     }
 
+    /// The bundle swap of `mac-install.sh` in a scratch folder (the app's folder has a space in its name), with a stand-in for `/usr/bin/open`: it refuses a
+    /// bundle `refusals` says to (`<version>=<times>`, `always` for every time), and otherwise records the version
+    /// it started in `started`.
+    #[cfg(unix)]
+    struct BundleSwap {
+        dir: tempfile::TempDir,
+    }
+
+    #[cfg(unix)]
+    impl BundleSwap {
+        fn new(refusals: &[(&str, &str)]) -> Self {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path();
+            for (bundle, version) in [("Mac Apps/Magnetar.app", "old"), ("work/Replacement.app", "new")] {
+                std::fs::create_dir_all(path.join(bundle)).unwrap();
+                std::fs::write(path.join(bundle).join("version"), version).unwrap();
+            }
+            for (version, times) in refusals {
+                std::fs::write(path.join(format!("refuse-{version}")), times).unwrap();
+            }
+            let open = r#"#!/bin/bash
+here="$(dirname "$0")"
+version="$(cat "$1/version")"
+left="$(cat "$here/refuse-$version" 2>/dev/null || echo 0)"
+if [ "$left" = always ]; then echo "open failed with error -600." >&2; exit 1; fi
+if [ "$left" -gt 0 ]; then
+    echo $((left - 1)) > "$here/refuse-$version"
+    echo "open failed with error -600." >&2
+    exit 1
+fi
+echo "$version" >> "$here/started"
+"#;
+            std::fs::write(path.join("open"), open).unwrap();
+            std::fs::set_permissions(path.join("open"), std::os::unix::fs::PermissionsExt::from_mode(0o700)).unwrap();
+            let script = MAC_INSTALL_SCRIPT
+                .replace("/usr/bin/open", path.join("open").to_str().unwrap())
+                .replace("/bin/sleep 0.5", "/bin/sleep 0.01");
+            assert_ne!(script, MAC_INSTALL_SCRIPT);
+            std::fs::write(path.join("install.sh"), script).unwrap();
+            Self { dir }
+        }
+
+        /// Runs the helper for an app with process id `pid`, and says whether it succeeded.
+        fn install(&self, pid: u32) -> bool {
+            let path = self.dir.path();
+            std::process::Command::new("/bin/bash")
+                .arg(path.join("install.sh"))
+                .args([
+                    "install".as_ref(),
+                    path.join("Mac Apps/Magnetar.app").as_os_str(),
+                    "".as_ref(),
+                    path.join("work").as_os_str(),
+                ])
+                .arg(pid.to_string())
+                .status()
+                .unwrap()
+                .success()
+        }
+
+        fn read(&self, file: &str) -> String {
+            std::fs::read_to_string(self.dir.path().join(file)).unwrap_or_default()
+        }
+    }
+
+    /// The process id of an app that has exited.
+    #[cfg(unix)]
+    fn exited() -> u32 {
+        let mut child = shell("exit 0");
+        child.wait().unwrap();
+        child.id()
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_new_version_the_system_refuses_to_start_right_after_the_old_one_exits_is_started_again() {
+        // What a busy Mac did: both `open` calls within 130 ms of the app's exit were answered with -600.
+        let swap = BundleSwap::new(&[("new", "2")]);
+        assert!(swap.install(exited()));
+        assert_eq!(swap.read("started"), "new\n");
+        assert_eq!(swap.read("Mac Apps/Magnetar.app/version"), "new");
+        assert_eq!(swap.read("work/Previous.app/version"), "old");
+        assert!(swap.read("work/install.log").contains("Update installed."), "{}", swap.read("work/install.log"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn the_start_is_tried_for_thirty_seconds_and_not_a_moment_less() {
+        // 60 tries, half a second apart: the 60th still counts, a 61st never comes.
+        let last = BundleSwap::new(&[("new", "59")]);
+        assert!(last.install(exited()));
+        assert_eq!(last.read("started"), "new\n");
+        let over = BundleSwap::new(&[("new", "60")]);
+        assert!(!over.install(exited()));
+        assert_eq!(over.read("started"), "old\n");
+        assert_eq!(over.read("Mac Apps/Magnetar.app/version"), "old");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_new_version_that_never_starts_is_put_aside_and_the_old_one_runs_again() {
+        let swap = BundleSwap::new(&[("new", "always"), ("old", "2")]);
+        assert!(!swap.install(exited()));
+        assert_eq!(swap.read("started"), "old\n");
+        assert_eq!(swap.read("Mac Apps/Magnetar.app/version"), "old");
+        assert_eq!(swap.read("work/Failed.app/version"), "new");
+        assert!(!swap.dir.path().join("work/Previous.app").exists());
+        assert!(swap.read("work/install.log").contains("Update failed; restored the previous application."));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn when_no_version_can_be_started_the_old_one_stays_installed_and_the_log_says_so() {
+        let swap = BundleSwap::new(&[("new", "always"), ("old", "always")]);
+        assert!(!swap.install(exited()));
+        assert_eq!(swap.read("started"), "");
+        assert_eq!(swap.read("Mac Apps/Magnetar.app/version"), "old");
+        assert!(swap.read("work/install.log").contains("The previous application could not be started."));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn an_app_that_never_exits_is_left_untouched() {
+        let swap = BundleSwap::new(&[]);
+        assert!(!swap.install(std::process::id()));
+        assert_eq!(swap.read("started"), "");
+        assert_eq!(swap.read("Mac Apps/Magnetar.app/version"), "old");
+        assert_eq!(swap.read("work/Replacement.app/version"), "new");
+    }
+
     #[test]
     fn manifest_signatures_must_match_the_release_key() {
         let signing = SigningKey::from_bytes(&[7; 32]);
