@@ -18,6 +18,7 @@
     "@codefusion-cc/web-push": "^0.1.0",
     "@codefusion-cc/workers-crypto": "^0.1.0",
     "@magnetar/protocol": "*",
+    "jsqr": "1.4.0",
     "lucide-react": "^1.48.0",
     "qrcode": "^1.5.4",
     "react": "^19.3.0",

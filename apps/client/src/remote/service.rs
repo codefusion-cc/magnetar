@@ -18,7 +18,7 @@ use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
 use tokio_tungstenite::tungstenite::{Bytes, Message};
 use tokio_util::sync::CancellationToken;
 
-use super::browser_keys::BrowserKeyStore;
+use super::browser_keys::{BrowserKeyStore, MintedLink};
 use super::push::{PushPayload, PushSubscriptions};
 use crate::app::App;
 use crate::config::{CLOUD_URL, PLATFORM, USER_AGENT, VERSION};
@@ -31,6 +31,7 @@ use crate::protocol::e2e::{
     link_fragment,
 };
 use crate::protocol::encoding::{encode_uri_component, iso, parse_iso, to_base64url};
+use crate::protocol::link_code;
 use crate::protocol::relay::{
     CLOSE_DEVICE_REMOVED, DeviceToRelay, RELAY_PING, RelayToDevice, unwrap_from_device, wrap_for_device,
 };
@@ -409,17 +410,20 @@ impl RemoteService {
         Ok(self.status())
     }
 
-    /// Mints a key for another browser and returns the link that carries it. Unless a browser connects with it
-    /// within `LINK_TTL`, the key is deleted and the dashboards see it leave the list.
+    /// Mints a link for another browser: a key carried by the link (and its QR code) and one a typed code stands for.
+    /// Unless a browser connects with one of them within `LINK_TTL`, both are deleted and the dashboards see the link
+    /// leave the list; the first use deletes the other.
     pub fn link_browser(self: &Arc<Self>, label: Option<&str>) -> ApiResult<Value> {
         let device_id = self.device_id().ok_or_else(|| ApiError::bad("Connect this device to your account first."))?;
         let label = label.map(str::trim).filter(|l| !l.is_empty()).unwrap_or("Linked browser");
         let expires_at = iso(chrono::Utc::now() + LINK_TTL);
-        let (key_id, key) = self.keys.mint(label, true, Some(&expires_at))?;
+        let MintedLink { key_id, key, code, code_key_id } = self.keys.mint_link(label, &expires_at)?;
         self.changed();
         self.sweep_links();
         let url = format!("{}/link#{}", self.cloud_url, link_fragment(&device_id, &key_id, &key));
-        Ok(json!({ "url": url, "keyId": key_id, "expiresIn": LINK_TTL.as_secs() }))
+        Ok(
+            json!({ "url": url, "keyId": key_id, "code": link_code::format(&code), "codeKeyId": code_key_id, "expiresIn": LINK_TTL.as_secs() }),
+        )
     }
 
     /// Deletes each link nobody used in time when it expires, telling the dashboards, while any is pending. One
@@ -452,9 +456,11 @@ impl RemoteService {
         });
     }
 
-    /// Admits a browser that proved it holds `key_id`: false when the key was revoked or expired since its lookup.
-    /// A link it came from is used now and no longer expires; on the key's first use the dashboards are told, and
-    /// the one showing the link closes it.
+    /// Admits a browser whose hello named `key_id`: false when the key was revoked, expired or spent by the other key
+    /// of its link since its lookup. A link it came from is used now and no longer expires; on the key's first use the
+    /// dashboards are told, and the one showing the link closes it. The hello alone proves no key (only the browser's
+    /// first sealed frame does), so a link counts as used by whoever names its key id first; the id is as secret as the
+    /// key until then (docs/ARCHITECTURE.md, "Linking from inside the installed app").
     fn browser_connected(&self, key_id: &str) -> bool {
         let Some(first_use) = self.keys.touch(key_id) else { return false };
         if first_use {
@@ -1117,6 +1123,83 @@ mod tests {
         assert!(service.keys.lookup(&other).is_none());
         let names: Vec<_> = service.status().browsers.into_iter().map(|b| (b.key_id, b.label)).collect();
         assert_eq!(names, [(key_id, "My phone".to_owned())]);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_link_carries_a_code_and_a_browser_that_types_it_is_the_one_linked() {
+        let (service, _dir) = linked_service();
+        let link = service.link_browser(Some("My phone")).unwrap();
+        let (qr_id, code_id) = (link["keyId"].as_str().unwrap().to_owned(), link["codeKeyId"].as_str().unwrap().to_owned());
+        let code = link["code"].as_str().unwrap();
+        assert_eq!(code.len(), 23, "XXXXX-XXXXX-XXXXX-XXXXX");
+        assert_eq!(crate::protocol::link_code::derive(&code.replace('-', "")).unwrap().0, code_id);
+        assert!(!link["url"].as_str().unwrap().contains(&code.replace('-', "")), "the QR code carries its own key, not the code");
+        let mut events = service.events.subscribe();
+
+        assert!(service.browser_connected(&code_id));
+        let listed = last_listed(&mut events).expect("the dashboards are told");
+        assert_eq!(listed.len(), 1, "the QR key is spent with it");
+        assert_eq!(listed[0].0, code_id);
+        assert!(listed[0].1.is_some());
+        assert!(!service.browser_connected(&qr_id), "the QR code cannot link a second browser");
+    }
+
+    /// What the device answers a browser's handshake frame with, the frame arriving as the relay sends it.
+    fn answer_to(service: &Arc<RemoteService>, payload: &[u8]) -> Handshake {
+        let connection = to_base64url(&[7; crate::protocol::relay::CONNECTION_ID_BYTES]);
+        service.state().connections.insert(connection.clone(), Connection::default());
+        let (writer, mut sent) = mpsc::unbounded_channel();
+        service.on_frame(&Bytes::from(wrap_for_device(&connection, payload).unwrap()), &writer);
+        let Message::Binary(frame) = sent.try_recv().expect("the device answers") else { panic!("not a frame") };
+        assert!(sent.try_recv().is_err(), "one answer");
+        decode_handshake(unwrap_from_device(&frame).unwrap().1).unwrap()
+    }
+
+    fn hello(kid: &str) -> Vec<u8> {
+        let own = p256::SecretKey::random(&mut rand::rngs::OsRng);
+        let epk = p256::elliptic_curve::sec1::ToEncodedPoint::to_encoded_point(&own.public_key(), false);
+        let n = to_base64url(&crate::protocol::encoding::random_bytes(16));
+        encode_handshake(&Handshake::Hello { v: 1, kid: kid.into(), epk: to_base64url(epk.as_bytes()), n })
+    }
+
+    /// Someone who reaches the device through the relay but holds no key of the link cannot spend it: the offer
+    /// stays open for the person it was made for, and the dashboards hear nothing.
+    #[tokio::test(start_paused = true)]
+    async fn a_handshake_that_fails_spends_no_link() {
+        let (service, _dir) = linked_service();
+        let link = service.link_browser(None).unwrap();
+        let (qr_id, code_id) = (link["keyId"].as_str().unwrap().to_owned(), link["codeKeyId"].as_str().unwrap().to_owned());
+        let mut events = service.events.subscribe();
+        let refused = |reason: &str| Handshake::Reject { reason: reason.into() };
+
+        assert_eq!(answer_to(&service, &hello("a-key-id-nobody-made")), refused("unknown-key"));
+        assert_eq!(answer_to(&service, &hello("")), refused("unknown-key"));
+        assert_eq!(answer_to(&service, &[FRAME_HANDSHAKE, b'{']), refused("bad-hello"));
+        // The right key id with a public key that is no point on the curve.
+        let bad_point =
+            encode_handshake(&Handshake::Hello { v: 1, kid: code_id.clone(), epk: "AAAA".into(), n: to_base64url(&[0; 16]) });
+        assert_eq!(answer_to(&service, &bad_point), refused("bad-hello"));
+
+        assert!(
+            service.keys.lookup(&qr_id).is_some() && service.keys.lookup(&code_id).is_some(),
+            "both keys still open the link"
+        );
+        assert_eq!(last_listed(&mut events), None, "no dashboard is told a browser linked");
+
+        // Once the QR code linked a browser, the typed code is refused like a key that never was.
+        assert!(service.browser_connected(&qr_id));
+        assert_eq!(answer_to(&service, &hello(&code_id)), refused("unknown-key"));
+        assert!(service.keys.lookup(&qr_id).is_some());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn revoking_a_link_nobody_used_stops_its_typed_code_too() {
+        let (service, _dir) = linked_service();
+        let link = service.link_browser(Some("My phone")).unwrap();
+        let (qr_id, code_id) = (link["keyId"].as_str().unwrap().to_owned(), link["codeKeyId"].as_str().unwrap().to_owned());
+        assert!(service.revoke_browser(&qr_id).browsers.is_empty());
+        assert_eq!(answer_to(&service, &hello(&code_id)), Handshake::Reject { reason: "unknown-key".into() });
+        assert!(!service.browser_connected(&code_id));
     }
 
     #[test]

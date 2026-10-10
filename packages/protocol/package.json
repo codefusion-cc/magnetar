@@ -5,6 +5,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./e2e": "./src/e2e.ts",
+    "./link-code": "./src/linkCode.ts",
     "./relay": "./src/relay.ts",
     "./cloud": "./src/cloud.ts",
     "./bytes": "./src/bytes.ts",

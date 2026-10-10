@@ -1,17 +1,29 @@
 use std::sync::Arc;
 
-use rusqlite::{OptionalExtension, params};
+use rusqlite::{Connection, OptionalExtension, params};
 
 use crate::db::{Db, SecretBox};
 use crate::protocol::LinkedBrowserDto;
 use crate::protocol::e2e::KEY_BYTES;
 use crate::protocol::encoding::{from_base64url, now_iso, random_bytes, random_id, to_base64url};
+use crate::protocol::link_code;
 
 /// The condition on a key's expiry, `now` (ISO) being the statement's last parameter.
 const UNEXPIRED: &str = "(expires_at IS NULL OR expires_at > ?)";
 
+/// Deletes the other key of the link that key `?1` belongs to, if nobody has used it.
+const DELETE_UNUSED_SIBLING: &str = "DELETE FROM browser_keys WHERE last_seen_at IS NULL AND key_id <> ?1 AND (pair_of = ?1 OR key_id = (SELECT pair_of FROM browser_keys WHERE key_id = ?1))";
+
 /// The keys of browsers allowed to reach this device through the relay, sealed at rest. A key is
 /// minted here and leaves only inside a link fragment, so the relay never holds one.
+/// A link's two ways in: the key its QR code carries, and the code a person types with the id of the key it stands for.
+pub struct MintedLink {
+    pub key_id: String,
+    pub key: Vec<u8>,
+    pub code: String,
+    pub code_key_id: String,
+}
+
 pub struct BrowserKeyStore {
     db: Db,
     sealer: Arc<SecretBox>,
@@ -31,11 +43,44 @@ impl BrowserKeyStore {
     pub fn mint(&self, label: &str, active: bool, expires_at: Option<&str>) -> anyhow::Result<(String, Vec<u8>)> {
         let key_id = random_id(9);
         let key = random_bytes(KEY_BYTES);
-        self.db.lock().execute(
-            "INSERT INTO browser_keys (key_id, key, label, created_at, active, expires_at) VALUES (?, ?, ?, ?, ?, ?)",
-            params![key_id, self.sealer.seal(&to_base64url(&key)), label, now_iso(), active, expires_at],
-        )?;
+        self.insert(&self.db.lock(), &key_id, &key, label, active, expires_at, None)?;
         Ok((key_id, key))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn insert(
+        &self,
+        db: &Connection,
+        key_id: &str,
+        key: &[u8],
+        label: &str,
+        active: bool,
+        expires_at: Option<&str>,
+        pair_of: Option<&str>,
+    ) -> anyhow::Result<()> {
+        db.execute(
+            "INSERT INTO browser_keys (key_id, key, label, created_at, active, expires_at, pair_of) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            params![key_id, self.sealer.seal(&to_base64url(key)), label, now_iso(), active, expires_at, pair_of],
+        )?;
+        Ok(())
+    }
+
+    /// Mints the two keys of one link, both expiring at `expires_at`: a random one for the QR code and the one a typed
+    /// code stands for. Whichever a browser connects with first stays, the other is deleted. The code's key is not in
+    /// `list` until it is used.
+    pub fn mint_link(&self, label: &str, expires_at: &str) -> anyhow::Result<MintedLink> {
+        let key_id = random_id(9);
+        let key = random_bytes(KEY_BYTES);
+        let code = link_code::generate();
+        let (code_key_id, code_key) =
+            link_code::derive(&code).ok_or_else(|| anyhow::anyhow!("a generated code is always valid"))?;
+        let db = self.db.lock();
+        // Both keys or neither: half a link is not handed out, so it must not stay behind either.
+        let tx = db.unchecked_transaction()?;
+        self.insert(&tx, &key_id, &key, label, true, Some(expires_at), None)?;
+        self.insert(&tx, &code_key_id, &code_key, label, true, Some(expires_at), Some(&key_id))?;
+        tx.commit()?;
+        Ok(MintedLink { key_id, key, code, code_key_id })
     }
 
     pub fn activate(&self, key_id: &str) {
@@ -64,7 +109,9 @@ impl BrowserKeyStore {
     pub fn touch(&self, key_id: &str) -> Option<bool> {
         let now = now_iso();
         let db = self.db.lock();
-        let first_use: bool = db
+        // One transaction: a first use that cannot delete the link's other key is no use at all, or both would link.
+        let tx = db.unchecked_transaction().ok()?;
+        let first_use: bool = tx
             .query_row(
                 &format!("SELECT last_seen_at IS NULL FROM browser_keys WHERE key_id = ? AND active = 1 AND {UNEXPIRED}"),
                 params![key_id, now],
@@ -72,12 +119,27 @@ impl BrowserKeyStore {
             )
             .optional()
             .ok()??;
-        db.execute("UPDATE browser_keys SET last_seen_at = ?, expires_at = NULL WHERE key_id = ?", params![now, key_id]).ok()?;
+        tx.execute("UPDATE browser_keys SET last_seen_at = ?, expires_at = NULL WHERE key_id = ?", params![now, key_id]).ok()?;
+        if first_use {
+            // The link is spent.
+            tx.execute(DELETE_UNUSED_SIBLING, [key_id]).ok()?;
+        }
+        tx.commit().ok()?;
         Some(first_use)
     }
 
+    /// Deletes a key. For a link nobody has used yet that is both of its keys, whichever one is named: a revoked
+    /// link's typed code must not go on working until it expires.
     pub fn revoke(&self, key_id: &str) {
-        let _ = self.db.lock().execute("DELETE FROM browser_keys WHERE key_id = ?", [key_id]);
+        let db = self.db.lock();
+        // Both or neither, so a link never leaves the list while its code still works.
+        let Ok(tx) = db.unchecked_transaction() else { return };
+        let deleted = tx
+            .execute(DELETE_UNUSED_SIBLING, [key_id])
+            .and_then(|_| tx.execute("DELETE FROM browser_keys WHERE key_id = ?", [key_id]));
+        if deleted.is_ok() {
+            let _ = tx.commit();
+        }
     }
 
     pub fn revoke_inactive(&self) {
@@ -102,7 +164,7 @@ impl BrowserKeyStore {
         let db = self.db.lock();
         let Ok(mut statement) =
             db.prepare(&format!(
-                "SELECT key_id, label, created_at, last_seen_at FROM browser_keys WHERE active = 1 AND {UNEXPIRED} ORDER BY created_at"
+                "SELECT key_id, label, created_at, last_seen_at FROM browser_keys WHERE active = 1 AND {UNEXPIRED} AND (pair_of IS NULL OR last_seen_at IS NOT NULL) ORDER BY created_at"
             ))
         else {
             return Vec::new();
@@ -189,5 +251,168 @@ mod tests {
         assert_eq!(store.next_expiry(), Some(later));
         store.revoke(&first);
         assert_eq!(store.next_expiry(), None);
+    }
+
+    #[test]
+    fn a_link_has_a_qr_key_and_a_typed_code_and_the_first_used_wins() {
+        let (store, _dir) = store();
+        let MintedLink { key_id: qr, key: qr_key, code, .. } = store.mint_link("Phone", &at(10)).unwrap();
+        let (code_id, code_key) = link_code::derive(&code).unwrap();
+        assert_eq!(store.lookup(&qr).unwrap(), qr_key);
+        assert_eq!(store.lookup(&code_id).unwrap(), code_key, "the device finds the key the typed code stands for");
+        assert_ne!(qr_key, code_key, "the QR code keeps a key of its own, all random");
+        assert_eq!(listed(&store), vec![qr.clone()], "an unused code is not another pending browser");
+
+        assert_eq!(store.touch(&code_id), Some(true));
+        assert!(store.lookup(&qr).is_none(), "the QR key is spent once the code was used");
+        assert_eq!(listed(&store), vec![code_id.clone()]);
+        assert_eq!(store.touch(&code_id), Some(false));
+        store.db.lock().execute("UPDATE browser_keys SET expires_at = ? WHERE expires_at IS NOT NULL", [at(-1)]).unwrap();
+        assert!(store.lookup(&code_id).is_some(), "a used key does not expire");
+    }
+
+    #[test]
+    fn using_the_qr_key_spends_the_typed_code() {
+        let (store, _dir) = store();
+        let MintedLink { key_id: qr, code, .. } = store.mint_link("Phone", &at(10)).unwrap();
+        let (code_id, _) = link_code::derive(&code).unwrap();
+        assert_eq!(store.touch(&qr), Some(true));
+        assert!(store.lookup(&code_id).is_none(), "a code cannot link a second browser after the QR code linked one");
+        assert_eq!(listed(&store), vec![qr]);
+    }
+
+    #[test]
+    fn a_link_nobody_used_leaves_neither_key_behind() {
+        let (store, _dir) = store();
+        let MintedLink { key_id: qr, code, .. } = store.mint_link("Phone", &at(-1)).unwrap();
+        let (code_id, _) = link_code::derive(&code).unwrap();
+        assert!(store.lookup(&qr).is_none() && store.lookup(&code_id).is_none(), "expired keys open nothing");
+        assert_eq!(store.revoke_expired(), 2);
+        let rows: i64 = store.db.lock().query_row("SELECT COUNT(*) FROM browser_keys", [], |r| r.get(0)).unwrap();
+        assert_eq!(rows, 0);
+    }
+
+    #[test]
+    fn revoking_a_link_nobody_used_kills_its_qr_key_and_its_code() {
+        let (store, _dir) = store();
+        let MintedLink { key_id: qr, code, .. } = store.mint_link("Phone", &at(10)).unwrap();
+        let (code_id, _) = link_code::derive(&code).unwrap();
+        let MintedLink { key_id: other, code: other_code, .. } = store.mint_link("Tablet", &at(10)).unwrap();
+        let (other_code_id, _) = link_code::derive(&other_code).unwrap();
+
+        // The list shows only the QR key, so that is the id a dashboard revokes.
+        store.revoke(&qr);
+        assert!(store.lookup(&qr).is_none());
+        assert!(store.lookup(&code_id).is_none(), "the code shown beside a revoked QR code opens nothing");
+        assert_eq!(store.touch(&code_id), None);
+        assert!(store.lookup(&other).is_some() && store.lookup(&other_code_id).is_some(), "another link is untouched");
+
+        // By the code's id, as the dashboard that made the link could.
+        store.revoke(&other_code_id);
+        assert!(store.lookup(&other).is_none() && store.lookup(&other_code_id).is_none());
+        let rows: i64 = store.db.lock().query_row("SELECT COUNT(*) FROM browser_keys", [], |r| r.get(0)).unwrap();
+        assert_eq!(rows, 0);
+    }
+
+    #[test]
+    fn revoking_a_linked_browser_leaves_other_browsers_linked() {
+        let (store, _dir) = store();
+        let MintedLink { code, .. } = store.mint_link("Phone", &at(10)).unwrap();
+        let (code_id, _) = link_code::derive(&code).unwrap();
+        let MintedLink { key_id: tablet, .. } = store.mint_link("Tablet", &at(10)).unwrap();
+        store.touch(&code_id);
+        store.touch(&tablet);
+        store.revoke(&code_id);
+        assert!(store.lookup(&code_id).is_none());
+        assert_eq!(listed(&store), vec![tablet]);
+    }
+
+    /// Two browsers at once, one with the QR code and one with the typed code: handshakes reach the store one at a
+    /// time, so the second finds its key gone, whichever it is.
+    #[test]
+    fn of_a_qr_code_and_a_typed_code_used_together_exactly_one_links() {
+        for code_first in [true, false] {
+            let (store, _dir) = store();
+            let MintedLink { key_id: qr, code, .. } = store.mint_link("Phone", &at(10)).unwrap();
+            let (code_id, _) = link_code::derive(&code).unwrap();
+            let (winner, loser) = if code_first { (code_id, qr) } else { (qr, code_id) };
+            // Both looked their key up before either was counted as used.
+            assert!(store.lookup(&winner).is_some() && store.lookup(&loser).is_some());
+            assert_eq!(store.touch(&winner), Some(true));
+            assert_eq!(store.touch(&loser), None, "the other key is refused, not counted as a second browser");
+            assert!(store.lookup(&loser).is_none());
+            assert_eq!(listed(&store), vec![winner.clone()]);
+            assert_eq!(store.touch(&winner), Some(false), "the winner connects again");
+        }
+    }
+
+    #[test]
+    fn a_code_past_its_time_is_refused_before_the_sweep_runs_and_spends_nothing() {
+        let (store, _dir) = store();
+        let MintedLink { key_id: qr, code, .. } = store.mint_link("Phone", &at(10)).unwrap();
+        let (code_id, _) = link_code::derive(&code).unwrap();
+        store.db.lock().execute("UPDATE browser_keys SET expires_at = ?", [at(-1)]).unwrap();
+        assert!(store.lookup(&code_id).is_none());
+        assert_eq!(store.touch(&code_id), None);
+        let rows: i64 = store.db.lock().query_row("SELECT COUNT(*) FROM browser_keys", [], |r| r.get(0)).unwrap();
+        assert_eq!(rows, 2, "a refused try deletes nothing: the sweep does");
+        assert_eq!(store.touch(&qr), None);
+    }
+
+    #[test]
+    fn a_first_use_that_cannot_delete_the_other_key_is_no_use() {
+        let (store, _dir) = store();
+        let MintedLink { key_id: qr, code_key_id: code_id, .. } = store.mint_link("Phone", &at(10)).unwrap();
+        fail(&store, "BEFORE DELETE ON browser_keys");
+        assert_eq!(store.touch(&code_id), None);
+        let used: i64 = store
+            .db
+            .lock()
+            .query_row("SELECT COUNT(*) FROM browser_keys WHERE last_seen_at IS NOT NULL", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(used, 0, "the code is not marked used while the QR key still works");
+        store.db.lock().execute_batch("DROP TRIGGER disk").unwrap();
+        assert_eq!(store.touch(&qr), Some(true));
+        assert_eq!(store.touch(&code_id), None);
+    }
+
+    fn fail(store: &BrowserKeyStore, when: &str) {
+        let trigger = format!("CREATE TRIGGER disk {when} BEGIN SELECT RAISE(ABORT, 'disk'); END");
+        store.db.lock().execute_batch(&trigger).unwrap();
+    }
+
+    fn rows(store: &BrowserKeyStore) -> i64 {
+        store.db.lock().query_row("SELECT COUNT(*) FROM browser_keys", [], |r| r.get(0)).unwrap()
+    }
+
+    #[test]
+    fn a_link_whose_code_cannot_be_stored_leaves_no_qr_key_behind() {
+        let (store, _dir) = store();
+        fail(&store, "BEFORE INSERT ON browser_keys WHEN NEW.pair_of IS NOT NULL");
+        assert!(store.mint_link("Phone", &at(10)).is_err());
+        assert_eq!(rows(&store), 0);
+    }
+
+    #[test]
+    fn a_revoke_that_cannot_delete_the_code_keeps_the_link_listed() {
+        let (store, _dir) = store();
+        let MintedLink { key_id: qr, code_key_id: code_id, .. } = store.mint_link("Phone", &at(10)).unwrap();
+        fail(&store, "BEFORE DELETE ON browser_keys WHEN OLD.pair_of IS NOT NULL");
+        store.revoke(&qr);
+        assert!(store.lookup(&code_id).is_some(), "the code could not be deleted");
+        assert_eq!(listed(&store), vec![qr.clone()], "so the link is still there to revoke");
+        store.db.lock().execute_batch("DROP TRIGGER disk").unwrap();
+        store.revoke(&qr);
+        assert_eq!(rows(&store), 0);
+    }
+
+    #[test]
+    fn using_one_link_leaves_the_keys_of_other_links_alone() {
+        let (store, _dir) = store();
+        let MintedLink { key_id: first, .. } = store.mint_link("One", &at(10)).unwrap();
+        let MintedLink { key_id: second, code: second_code, .. } = store.mint_link("Two", &at(10)).unwrap();
+        let (second_code_id, _) = link_code::derive(&second_code).unwrap();
+        store.touch(&first);
+        assert!(store.lookup(&second).is_some() && store.lookup(&second_code_id).is_some());
     }
 }

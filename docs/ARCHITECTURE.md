@@ -62,6 +62,31 @@ IndexedDB, so page script can use it but not read it back. The device keeps ever
 each one. A K made for a link stops working if no browser connects with it within 10 minutes; a browser's first
 connection tells every dashboard (`remote.changed`), which is how the dialog showing the link knows to close.
 
+**Linking from inside the installed app.** A phone's camera app opens a scanned link in the browser, and an installed web
+app's storage is not the browser's (on iOS links never open the app), so the browser would be linked and the app not.
+The app links itself: its "not linked" screen (`apps/web/src/cloud/NotLinked.tsx`) either reads the QR code with the
+page's own camera (`lib/qrScanner.ts`, jsQR loaded when the scanner opens; frames stay in memory) or takes a typed code.
+Both are checked by connecting once with the key (`lib/linkDevice.ts`): the key is stored only if the device accepted it.
+`remote.linkBrowser` mints two keys for one link: the random one the QR code carries, and the one the code stands for.
+The code is 20 symbols of Crockford's base 32 (100 random bits, `XXXXX-XXXXX-XXXXX-XXXXX`); the key and its id are
+HKDF-SHA256 of it (`packages/protocol/src/linkCode.ts`, `apps/client/src/protocol/link_code.rs`, one shared vector), so
+nothing but the code crosses. 100 bits because the relay sees the code's key id and the handshake its key salts once the
+code is used, and could test guesses against them offline. Online there is no attempt limit and none is needed: a hello
+reaches the device only from a browser signed in to the owner's account, a guess is a hello naming a key id the device
+does not hold, and a hello that is refused (unknown id, malformed, expired) changes nothing. Both keys expire after 10
+minutes unless used, on the device's clock; the code's is not listed until it is used; the first one used deletes the
+other; and revoking a link nobody used deletes both (`pair_of` in `browser_keys`). Handshakes reach the key store one at
+a time, so of two browsers arriving together with the QR code and the typed code exactly one is linked. The typed field
+also takes a pasted link of this site's `/link` page, nothing else, and a scanned code is read the same way: text that is
+not such a link or a code is refused and never opened. The camera runs only while the scanner is open and the page can be
+seen.
+
+A link counts as used when a hello names its key id: the hello proves no key (only the browser's first sealed frame
+does), but the id is as secret as the key until then, travelling beside it in the fragment or derived from the same code.
+A key is not replaced after its first connection, so whoever holds a used link or code and is signed in to the account
+can still connect with it, as the same listed browser, until that browser is revoked. Replacing the key on first use
+would close that; it needs a step in the protocol that both ends confirm.
+
 **Handshake** (per connection; the browser side is `packages/protocol/src/e2e.ts`, the device side
 `apps/client/src/protocol/e2e.rs`, and both are checked against the same fixed vector,
 `packages/protocol/src/e2e-vector.json`):

@@ -17,6 +17,8 @@ interface ShownLink extends LinkWatch {
   label: string
   url: string
   qr: string
+  /** What to type instead of scanning; absent when the app is from before codes. */
+  code?: string
   ended?: 'expired' | 'revoked'
 }
 
@@ -100,7 +102,7 @@ export function RemoteAccessSection() {
       const qr = await QRCode.toDataURL(minted.url, { margin: 1, width: 280, errorCorrectionLevel: 'M' })
       // Closed while the link was on its way: nobody will see it, so it should not linger in the list.
       if (request.current !== mine) return void connection.call('remote.revokeBrowser', { keyId: minted.keyId }).catch(() => {})
-      setLink({ keyId: minted.keyId, listed: false, deadline, label: forLabel, url: minted.url, qr })
+      setLink({ keyId: minted.keyId, codeKeyId: minted.codeKeyId, listed: false, deadline, label: forLabel, url: minted.url, qr, code: minted.code })
       setLabel('')
     } finally {
       if (request.current === mine) setMinting(false)
@@ -193,6 +195,12 @@ export function RemoteAccessSection() {
           <div className="flex flex-col items-center gap-3 text-center">
             <p className="text-sm">{t('remote.linkHint')}</p>
             <img src={link.qr} alt={t('remote.linkTitle')} className="size-64 rounded-box bg-white p-2" />
+            {link.code && (
+              <div className="flex flex-col items-center gap-1">
+                <span className="muted text-xs">{t('remote.linkCode')}</span>
+                <code className="select-all font-mono text-xl font-semibold tracking-wider" aria-label={t('remote.linkCode')}>{link.code}</code>
+              </div>
+            )}
             <CopyInput small label={t('remote.linkTitle')} value={link.url} copyLabel={t('common.copy')} onCopy={value => void copy(value)} />
             {link.deadline !== undefined && <LinkExpiry deadline={link.deadline} />}
             <p className="text-xs text-warning">{t('remote.linkWarning')}</p>
