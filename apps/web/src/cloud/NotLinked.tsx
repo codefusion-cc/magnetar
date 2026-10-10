@@ -63,7 +63,8 @@ export function NotLinked({ device, onLinked }: { device: CloudDeviceDto; onLink
   const [wording] = useState(() => linkWording(isInstalledApp()))
   useEffect(() => () => { alive.current = false }, [])
 
-  const complete = useCallback(async (input: LinkInput): Promise<boolean> => {
+  /** `failMode` is the mode to go back to if it fails, set in the same render that ends `busy`. */
+  const complete = useCallback(async (input: LinkInput, failMode?: Mode): Promise<boolean> => {
     setBusy(true)
     setError(null)
     let target = device
@@ -80,12 +81,18 @@ export function NotLinked({ device, onLinked }: { device: CloudDeviceDto; onLink
     if (result === 'linked') {
       result = input.kind === 'link'
         ? await linkWithKey(target.id, input.keyId, input.key)
-        : await (async () => {
-          const { keyId, key } = await linkCodeKey(input.code)
-          return linkWithKey(target.id, keyId, key)
+        : await (async (): Promise<LinkResult> => {
+          try {
+            const { keyId, key } = await linkCodeKey(input.code)
+            return linkWithKey(target.id, keyId, key)
+          } catch {
+            // No WebCrypto here: nothing was tried, and the form must not stay busy.
+            return 'failed'
+          }
         })()
     }
     if (!alive.current) return result === 'linked'
+    if (result !== 'linked' && failMode) setMode(failMode)
     setBusy(false)
     if (result === 'linked') {
       toast(t('link.linked', target.name), 'success')
@@ -110,9 +117,7 @@ export function NotLinked({ device, onLinked }: { device: CloudDeviceDto; onLink
       const read = readLinkInput(scanned, location.origin)
       if ('problem' in read) return setSeen(read.problem === 'other-site' ? 'link.otherSite' : 'link.notMagnetar')
       scanner?.stop()
-      void complete(read).then(linked => {
-        if (!linked && alive.current) setMode('choose')
-      })
+      void complete(read, 'choose')
     }, problem => !cancelled && setCamera(problem)).then(started => {
       if (cancelled) return 'stop' in started ? started.stop() : undefined
       if ('problem' in started) return setCamera(started.problem)

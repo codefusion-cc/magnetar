@@ -103,7 +103,7 @@ describe('opening the camera', () => {
     const env = setup([])
     env.deps.getUserMedia = () => { throw new TypeError('mediaDevices is undefined') }
     // The real dependency throws synchronously when there is no navigator.mediaDevices; the scanner awaits it.
-    await expect(startScanner(fakeVideo(), () => {}, () => {}, env.deps)).resolves.toEqual({ problem: 'busy' })
+    await expect(startScanner(fakeVideo(), () => {}, () => {}, env.deps)).resolves.toEqual({ problem: 'unsupported' })
   })
 })
 
@@ -276,6 +276,15 @@ describe('the decoder', () => {
     const noise = new Uint8ClampedArray(200 * 200 * 4)
     for (let i = 0; i < noise.length; i++) noise[i] = (i * 2654435761) % 256
     expect(await decodeQr({ data: noise, width: 200, height: 200 })).toBeNull()
+  })
+
+  test('fetches the decoder again after a load that failed', async () => {
+    vi.resetModules()
+    vi.doMock('jsqr', () => { throw new Error('offline') })
+    const fresh = await import('./qrScanner.ts')
+    await expect(fresh.decodeQr(picture(link, 5))).rejects.toThrow()
+    vi.doUnmock('jsqr')
+    expect(await fresh.decodeQr(picture(link, 5))).toBe(link)
   })
 })
 

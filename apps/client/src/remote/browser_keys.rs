@@ -57,8 +57,8 @@ impl BrowserKeyStore {
 
     /// Mints the two keys of one link, both expiring at `expires_at`: a random one for the QR code and the one a typed
     /// code stands for. Whichever a browser connects with first stays, the other is deleted. The code's key is not in
-    /// `list` until it is used. Returns the QR key (id, key) and the code.
-    pub fn mint_link(&self, label: &str, expires_at: &str) -> anyhow::Result<((String, Vec<u8>), String)> {
+    /// `list` until it is used. Returns the QR key (id, key), the code and the id of the code's key.
+    pub fn mint_link(&self, label: &str, expires_at: &str) -> anyhow::Result<((String, Vec<u8>), String, String)> {
         let qr = self.mint(label, true, Some(expires_at))?;
         let code = link_code::generate();
         let (code_key_id, code_key) =
@@ -68,7 +68,7 @@ impl BrowserKeyStore {
             self.revoke(&qr.0);
             return Err(error);
         }
-        Ok((qr, code))
+        Ok((qr, code, code_key_id))
     }
 
     pub fn activate(&self, key_id: &str) {
@@ -97,7 +97,9 @@ impl BrowserKeyStore {
     pub fn touch(&self, key_id: &str) -> Option<bool> {
         let now = now_iso();
         let db = self.db.lock();
-        let first_use: bool = db
+        // One transaction: a first use that cannot delete the link's other key is no use at all, or both would link.
+        let tx = db.unchecked_transaction().ok()?;
+        let first_use: bool = tx
             .query_row(
                 &format!("SELECT last_seen_at IS NULL FROM browser_keys WHERE key_id = ? AND active = 1 AND {UNEXPIRED}"),
                 params![key_id, now],
@@ -105,11 +107,12 @@ impl BrowserKeyStore {
             )
             .optional()
             .ok()??;
-        db.execute("UPDATE browser_keys SET last_seen_at = ?, expires_at = NULL WHERE key_id = ?", params![now, key_id]).ok()?;
+        tx.execute("UPDATE browser_keys SET last_seen_at = ?, expires_at = NULL WHERE key_id = ?", params![now, key_id]).ok()?;
         if first_use {
             // The link is spent.
-            let _ = db.execute(DELETE_UNUSED_SIBLING, [key_id]);
+            tx.execute(DELETE_UNUSED_SIBLING, [key_id]).ok()?;
         }
+        tx.commit().ok()?;
         Some(first_use)
     }
 
@@ -235,7 +238,7 @@ mod tests {
     #[test]
     fn a_link_has_a_qr_key_and_a_typed_code_and_the_first_used_wins() {
         let (store, _dir) = store();
-        let ((qr, qr_key), code) = store.mint_link("Phone", &at(10)).unwrap();
+        let ((qr, qr_key), code, _) = store.mint_link("Phone", &at(10)).unwrap();
         let (code_id, code_key) = link_code::derive(&code).unwrap();
         assert_eq!(store.lookup(&qr).unwrap(), qr_key);
         assert_eq!(store.lookup(&code_id).unwrap(), code_key, "the device finds the key the typed code stands for");
@@ -253,7 +256,7 @@ mod tests {
     #[test]
     fn using_the_qr_key_spends_the_typed_code() {
         let (store, _dir) = store();
-        let ((qr, _), code) = store.mint_link("Phone", &at(10)).unwrap();
+        let ((qr, _), code, _) = store.mint_link("Phone", &at(10)).unwrap();
         let (code_id, _) = link_code::derive(&code).unwrap();
         assert_eq!(store.touch(&qr), Some(true));
         assert!(store.lookup(&code_id).is_none(), "a code cannot link a second browser after the QR code linked one");
@@ -263,7 +266,7 @@ mod tests {
     #[test]
     fn a_link_nobody_used_leaves_neither_key_behind() {
         let (store, _dir) = store();
-        let ((qr, _), code) = store.mint_link("Phone", &at(-1)).unwrap();
+        let ((qr, _), code, _) = store.mint_link("Phone", &at(-1)).unwrap();
         let (code_id, _) = link_code::derive(&code).unwrap();
         assert!(store.lookup(&qr).is_none() && store.lookup(&code_id).is_none(), "expired keys open nothing");
         assert_eq!(store.revoke_expired(), 2);
@@ -274,9 +277,9 @@ mod tests {
     #[test]
     fn revoking_a_link_nobody_used_kills_its_qr_key_and_its_code() {
         let (store, _dir) = store();
-        let ((qr, _), code) = store.mint_link("Phone", &at(10)).unwrap();
+        let ((qr, _), code, _) = store.mint_link("Phone", &at(10)).unwrap();
         let (code_id, _) = link_code::derive(&code).unwrap();
-        let ((other, _), other_code) = store.mint_link("Tablet", &at(10)).unwrap();
+        let ((other, _), other_code, _) = store.mint_link("Tablet", &at(10)).unwrap();
         let (other_code_id, _) = link_code::derive(&other_code).unwrap();
 
         // The list shows only the QR key, so that is the id a dashboard revokes.
@@ -296,9 +299,9 @@ mod tests {
     #[test]
     fn revoking_a_linked_browser_leaves_other_browsers_linked() {
         let (store, _dir) = store();
-        let ((_, _), code) = store.mint_link("Phone", &at(10)).unwrap();
+        let ((_, _), code, _) = store.mint_link("Phone", &at(10)).unwrap();
         let (code_id, _) = link_code::derive(&code).unwrap();
-        let ((tablet, _), _) = store.mint_link("Tablet", &at(10)).unwrap();
+        let ((tablet, _), _, _) = store.mint_link("Tablet", &at(10)).unwrap();
         store.touch(&code_id);
         store.touch(&tablet);
         store.revoke(&code_id);
@@ -312,7 +315,7 @@ mod tests {
     fn of_a_qr_code_and_a_typed_code_used_together_exactly_one_links() {
         for code_first in [true, false] {
             let (store, _dir) = store();
-            let ((qr, _), code) = store.mint_link("Phone", &at(10)).unwrap();
+            let ((qr, _), code, _) = store.mint_link("Phone", &at(10)).unwrap();
             let (code_id, _) = link_code::derive(&code).unwrap();
             let (winner, loser) = if code_first { (code_id, qr) } else { (qr, code_id) };
             // Both looked their key up before either was counted as used.
@@ -328,7 +331,7 @@ mod tests {
     #[test]
     fn a_code_past_its_time_is_refused_before_the_sweep_runs_and_spends_nothing() {
         let (store, _dir) = store();
-        let ((qr, _), code) = store.mint_link("Phone", &at(10)).unwrap();
+        let ((qr, _), code, _) = store.mint_link("Phone", &at(10)).unwrap();
         let (code_id, _) = link_code::derive(&code).unwrap();
         store.db.lock().execute("UPDATE browser_keys SET expires_at = ?", [at(-1)]).unwrap();
         assert!(store.lookup(&code_id).is_none());
@@ -339,10 +342,31 @@ mod tests {
     }
 
     #[test]
+    fn a_first_use_that_cannot_delete_the_other_key_is_no_use() {
+        let (store, _dir) = store();
+        let ((qr, _), _, code_id) = store.mint_link("Phone", &at(10)).unwrap();
+        store
+            .db
+            .lock()
+            .execute_batch("CREATE TRIGGER no_delete BEFORE DELETE ON browser_keys BEGIN SELECT RAISE(ABORT, 'disk'); END")
+            .unwrap();
+        assert_eq!(store.touch(&code_id), None);
+        let used: i64 = store
+            .db
+            .lock()
+            .query_row("SELECT COUNT(*) FROM browser_keys WHERE last_seen_at IS NOT NULL", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(used, 0, "the code is not marked used while the QR key still works");
+        store.db.lock().execute_batch("DROP TRIGGER no_delete").unwrap();
+        assert_eq!(store.touch(&qr), Some(true));
+        assert_eq!(store.touch(&code_id), None);
+    }
+
+    #[test]
     fn using_one_link_leaves_the_keys_of_other_links_alone() {
         let (store, _dir) = store();
-        let ((first, _), _) = store.mint_link("One", &at(10)).unwrap();
-        let ((second, _), second_code) = store.mint_link("Two", &at(10)).unwrap();
+        let ((first, _), _, _) = store.mint_link("One", &at(10)).unwrap();
+        let ((second, _), second_code, _) = store.mint_link("Two", &at(10)).unwrap();
         let (second_code_id, _) = link_code::derive(&second_code).unwrap();
         store.touch(&first);
         assert!(store.lookup(&second).is_some() && store.lookup(&second_code_id).is_some());

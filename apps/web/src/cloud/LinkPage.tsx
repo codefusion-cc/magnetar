@@ -1,5 +1,5 @@
 import { CircleCheck, KeyRound } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router'
 import { cloud } from '../lib/cloudApi.ts'
 import { errorMessage } from '../lib/errors.ts'
@@ -39,12 +39,16 @@ export function LinkPage() {
   const [error, setError] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
   const [linked, setLinked] = useState<string | null>(null)
+  // The parked key is gone once stored, so a run started while another is still asking the device would call a
+  // good link invalid.
+  const working = useRef(false)
 
   useEffect(() => {
-    if (!account || !deviceId) return
+    if (!account || !deviceId || working.current) return
     setError(null)
     const parked = parkedKey('link', deviceId)
     if (!parked) return setError(t('link.invalid'))
+    working.current = true
     cloud.devices().then(async devices => {
       const device = devices.find(d => d.id === deviceId)
       if (!device) throw new Error(t('link.otherAccount'))
@@ -56,7 +60,7 @@ export function LinkPage() {
       // Whatever else happens shows on the device's page, as it does without the note about the app.
       if (inBrowserTabOnATouchScreen() && await linkWithKey(deviceId, parked.keyId, parked.key) === 'linked') setLinked(devicePath(device.name))
       else navigate(devicePath(device.name), { replace: true })
-    }).catch(e => setError(errorMessage(e)))
+    }).catch(e => setError(errorMessage(e))).finally(() => { working.current = false })
   }, [account, deviceId, navigate, t, attempt])
 
   if (!account) return <Navigate to="/login?next=%2Flink" replace />

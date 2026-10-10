@@ -44,7 +44,12 @@ let decoder: Promise<(frame: Frame) => string | null> | undefined
 /** The text of the QR code in `frame`, or null. The decoder is fetched the first time. */
 export async function decodeQr(frame: Frame): Promise<string | null> {
   decoder ??= import('jsqr').then(({ default: jsQR }) => (f: Frame) => jsQR(f.data, f.width, f.height, { inversionAttempts: 'dontInvert' })?.data ?? null)
-  return (await decoder)(frame)
+  // A chunk that failed to load (a dropped connection) is fetched again with the next frame, not kept as the answer.
+  const decode = await decoder.catch(error => {
+    decoder = undefined
+    throw error
+  })
+  return decode(frame)
 }
 
 function browserDeps(): ScannerDeps {
@@ -79,6 +84,8 @@ function problemOf(error: unknown): ScannerProblem {
   const name = error instanceof Error || error instanceof DOMException ? error.name : ''
   if (name === 'NotAllowedError' || name === 'SecurityError') return 'denied'
   if (name === 'NotFoundError' || name === 'OverconstrainedError') return 'no-camera'
+  // `navigator.mediaDevices` is missing on an insecure page and in browsers without a camera API.
+  if (name === 'TypeError' || name === 'NotSupportedError') return 'unsupported'
   return 'busy'
 }
 
