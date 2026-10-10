@@ -29,6 +29,7 @@ import { CommitLink } from '@codefusion-cc/app-update/react'
 import { MAGNETAR_REPO } from '@magnetar/protocol/cloud'
 import { Changelog } from '../../ui/Changelog.tsx'
 import { releasesProblemText } from '../../lib/releases.ts'
+import { expectsAway, installTrouble } from '../../lib/updateInstall.ts'
 import { cloud } from '../../lib/cloudApi.ts'
 
 const SECTIONS = [
@@ -419,7 +420,7 @@ function AboutSection() {
   const run = useRun()
   const formatDate = useFormatDate()
   const language = useLanguage()
-  const { connection, updates, info } = useDevice()
+  const { connection, updates, info, installPhase, installUpdate, deviceName } = useDevice()
   // Through the website its own cached list, which an app from before the changelog can't answer either.
   const loadReleases = useCallback(() => (connection.kind === 'remote' ? cloud.releases() : connection.call('updates.releases')), [connection])
   if (!updates) return null
@@ -428,7 +429,8 @@ function AboutSection() {
     ? releasesProblemText(t, status.lastCheckProblem, status.retryAt, formatDate, status.lastCheckError)
     // An app from before problems had names says only what went wrong.
     : status.lastCheckError ? t('settings.lastCheckFailed', status.lastCheckError) : null
-  const problem = problemText(updates)
+  const waiting = expectsAway(installPhase)
+  const problem = installTrouble(t, installPhase, updates, connection.kind === 'remote' ? deviceName : null, formatDate) ?? problemText(updates)
   const check = async () => {
     const status = await run(() => connection.call('updates.check'))
     if (!status) return
@@ -452,10 +454,10 @@ function AboutSection() {
           </>}>
           <div className="flex flex-wrap gap-2">
             {updates.available && (updates.canSelfInstall ? (
-              <button type="button" className="btn btn-primary btn-sm" disabled={updates.installing}
-                onClick={() => { toast(t('settings.installNote'), 'info'); void run(() => connection.call('updates.install')) }}>
-                {updates.installing && <span className="loading loading-spinner loading-xs" />}
-                {updates.installing ? t('settings.installing') : t('settings.install', updates.available.version)}
+              <button type="button" className="btn btn-primary btn-sm" disabled={waiting || installPhase === 'lost'}
+                onClick={() => void run(installUpdate)}>
+                {waiting && <span className="loading loading-spinner loading-xs" />}
+                {waiting ? t('settings.installing') : t('settings.install', updates.available.version)}
               </button>
             ) : (
               <a className="btn btn-primary btn-sm" href={updates.available.releaseUrl} target="_blank" rel="noreferrer noopener">{t('settings.openRelease')}</a>

@@ -3,9 +3,13 @@ import type {
   TransferStatusDto, UpdateStatusDto, WatchDto,
 } from '@magnetar/protocol'
 import { mergeByInfoHash } from '@magnetar/protocol/merge'
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { pushEnabledFor } from '../lib/push.ts'
 import type { ConnectionState, RpcClient } from '../lib/rpcClient.ts'
+import {
+  answeredAttempt, attemptKey, installPhase, observedAttempt, RESTART_WITHIN_MS, restoredAttempt, startedAttempt, type AppView, type InstallAttempt,
+  type InstallPhase,
+} from '../lib/updateInstall.ts'
 
 /** What the Search page keeps while you browse other pages, like the legacy app did. */
 export interface SearchState {
@@ -30,6 +34,14 @@ interface DeviceState {
   settings: SettingsDto | null
   sources: SourceDto[]
   updates: UpdateStatusDto | null
+  /** Where an update of the app stands: followed until the app is back, with a limit on how long it may be away. */
+  installPhase: InstallPhase
+  /** The version an update followed here ended on, once the app is back with it. */
+  installedVersion: string | null
+  /** Has the app install the update it found. Resolves once the app answered or went away to restart. */
+  installUpdate: () => Promise<void>
+  /** Stops following an update that did not end well, once the person has read so. */
+  forgetInstall: () => void
   remote: RemoteStatusDto | null
   transfer: TransferStatusDto | null
   /** Base path of this device's pages: '' locally, '/<device name>' through the relay. */
@@ -52,6 +64,32 @@ export function mergeRows(list: DownloadDto[], rows: DownloadDto[]): DownloadDto
     return update
   })
   return changed ? next : list
+}
+
+/** The tab's own storage, which a reload keeps; undefined where it is blocked. */
+function tabStorage(): Storage | undefined {
+  try {
+    return globalThis.sessionStorage
+  } catch {
+    return undefined
+  }
+}
+
+function readAttempt(key: string): InstallAttempt | null {
+  try {
+    return restoredAttempt(tabStorage()?.getItem(key) ?? null, Date.now())
+  } catch {
+    return null
+  }
+}
+
+function keepAttempt(key: string, attempt: InstallAttempt | null) {
+  try {
+    if (attempt) tabStorage()?.setItem(key, JSON.stringify(attempt))
+    else tabStorage()?.removeItem(key)
+  } catch {
+    // Followed until the page is reloaded only.
+  }
 }
 
 /** An app older than source ids names its sources only by name; that name stands in for the id. */
@@ -91,8 +129,25 @@ export function DeviceProvider({ connection, basePath, deviceName, children }: {
   const [transfer, setTransfer] = useState<TransferStatusDto | null>(null)
   const [search, setSearch] = useState<SearchState>(EMPTY_SEARCH)
   const [searchAddress, setSearchAddress] = useState('')
+  const [appView, setAppView] = useState<AppView>({ online: false })
+  const installKey = attemptKey(connection.keyId)
+  const [install, setInstall] = useState<{ attempt: InstallAttempt | null; installed: string | null }>(() => ({ attempt: readAttempt(installKey), installed: null }))
+  useEffect(() => keepAttempt(installKey, install.attempt), [installKey, install.attempt])
+  const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
+    const observe = (view: AppView) => {
+      setAppView(view)
+      setNow(Date.now())
+      setInstall(({ attempt, installed }) => {
+        const next = observedAttempt(attempt, view, Date.now())
+        return { attempt: next, installed: attempt && !next && view.online ? view.running : installed }
+      })
+    }
+    const report = (status: UpdateStatusDto) => {
+      setUpdates(status)
+      observe({ online: true, running: status.currentVersion, installing: status.installing })
+    }
     const refresh = async () => {
       try {
         // The website can be newer than the device's app: what an older app lacks is left out.
@@ -108,7 +163,7 @@ export function DeviceProvider({ connection, basePath, deviceName, children }: {
         setSeries(s)
         setSettings(st)
         setSources(withIds(src))
-        setUpdates(u)
+        report(u)
         setRemote(r)
         setTransfer(tr)
       } catch {
@@ -117,8 +172,10 @@ export function DeviceProvider({ connection, basePath, deviceName, children }: {
     }
     const offState = connection.onState(state => {
       setConnectionState(state)
-      if (state.status === 'open') void refresh()
-      else setSearch(s => (s.searching ? { ...s, searching: false } : s))
+      if (state.status === 'open') return void refresh()
+      setSearch(s => (s.searching ? { ...s, searching: false } : s))
+      // What the app last said of an update is no longer known: it reports again once it is back.
+      observe({ online: false })
     })
     if (connection.state.status === 'open') void refresh()
 
@@ -133,7 +190,7 @@ export function DeviceProvider({ connection, basePath, deviceName, children }: {
         setSettings(next)
         void connection.call('sources.list').then(list => setSources(withIds(list))).catch(() => {})
       }),
-      connection.on('updates.changed', setUpdates),
+      connection.on('updates.changed', report),
       connection.on('remote.changed', setRemote),
       connection.on('search.results', ({ searchId, results }) =>
         setSearch(s => (s.searchId === searchId ? { ...s, results: mergeByInfoHash([...(s.results ?? []), ...results]) } : s))),
@@ -154,9 +211,34 @@ export function DeviceProvider({ connection, basePath, deviceName, children }: {
     return () => off.forEach(fn => fn())
   }, [connection])
 
+  const awaySince = install.attempt?.offlineSince ?? null
+  useEffect(() => {
+    if (awaySince === null) return
+    const timer = setTimeout(() => setNow(Date.now()), Math.max(0, awaySince + RESTART_WITHIN_MS - Date.now()))
+    return () => clearTimeout(timer)
+  }, [awaySince])
+
+  const running = appView.online ? appView.running : null
+  const installUpdate = useCallback(async () => {
+    setInstall(({ attempt, installed }) => ({ attempt: attempt ?? startedAttempt(running), installed }))
+    const sent = connection.state.status === 'open'
+    try {
+      await connection.call('updates.install')
+    } catch (error) {
+      // The app going away to restart ends the call too; anything else is for the caller to show.
+      if (!sent || connection.state.status === 'open') throw error
+    } finally {
+      setInstall(({ attempt, installed }) => ({ attempt: answeredAttempt(attempt), installed }))
+    }
+  }, [connection, running])
+
+  const forgetInstall = useCallback(() => setInstall(({ installed }) => ({ attempt: null, installed })), [])
+  const phase = installPhase(install.attempt, appView, now)
+  const installedVersion = install.installed
   const value = useMemo<DeviceState>(() => ({
-    connection, connectionState, info, series, watches, settings, sources, updates, remote, transfer, basePath, deviceName,
-  }), [connection, connectionState, info, series, watches, settings, sources, updates, remote, transfer, basePath, deviceName])
+    connection, connectionState, info, series, watches, settings, sources, updates, installPhase: phase, installedVersion, installUpdate, forgetInstall,
+    remote, transfer, basePath, deviceName,
+  }), [connection, connectionState, info, series, watches, settings, sources, updates, phase, installedVersion, installUpdate, forgetInstall, remote, transfer, basePath, deviceName])
   const searchValue = useMemo(() => ({ search, setSearch, setSearchAddress }), [search])
 
   return (
