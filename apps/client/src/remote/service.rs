@@ -1122,6 +1122,25 @@ mod tests {
         assert_eq!(names, [(key_id, "My phone".to_owned())]);
     }
 
+    #[tokio::test(start_paused = true)]
+    async fn a_link_carries_a_code_and_a_browser_that_types_it_is_the_one_linked() {
+        let (service, _dir) = linked_service();
+        let link = service.link_browser(Some("My phone")).unwrap();
+        let (qr_id, code_id) = (link["keyId"].as_str().unwrap().to_owned(), link["codeKeyId"].as_str().unwrap().to_owned());
+        let code = link["code"].as_str().unwrap();
+        assert_eq!(code.len(), 23, "XXXXX-XXXXX-XXXXX-XXXXX");
+        assert_eq!(crate::protocol::link_code::derive(&code.replace('-', "")).unwrap().0, code_id);
+        assert!(!link["url"].as_str().unwrap().contains(&code.replace('-', "")), "the QR code carries its own key, not the code");
+        let mut events = service.events.subscribe();
+
+        assert!(service.browser_connected(&code_id));
+        let listed = last_listed(&mut events).expect("the dashboards are told");
+        assert_eq!(listed.len(), 1, "the QR key is spent with it");
+        assert_eq!(listed[0].0, code_id);
+        assert!(listed[0].1.is_some());
+        assert!(!service.browser_connected(&qr_id), "the QR code cannot link a second browser");
+    }
+
     #[test]
     fn an_approval_names_the_device_when_the_worker_does() {
         let approved = |body: Value| match serde_json::from_value::<PairPollResponse>(body).unwrap() {

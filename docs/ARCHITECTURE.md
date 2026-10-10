@@ -62,6 +62,19 @@ IndexedDB, so page script can use it but not read it back. The device keeps ever
 each one. A K made for a link stops working if no browser connects with it within 10 minutes; a browser's first
 connection tells every dashboard (`remote.changed`), which is how the dialog showing the link knows to close.
 
+**Linking from inside the installed app.** A phone's camera app opens a scanned link in the browser, and an installed web
+app's storage is not the browser's (on iOS links never open the app), so the browser would be linked and the app not.
+The app links itself: its "not linked" screen (`apps/web/src/cloud/NotLinked.tsx`) either reads the QR code with the
+page's own camera (`lib/qrScanner.ts`, jsQR loaded when the scanner opens; frames stay in memory) or takes a typed code.
+Both are checked by connecting once with the key (`lib/linkDevice.ts`): the key is stored only if the device accepted it.
+`remote.linkBrowser` mints two keys for one link: the random one the QR code carries, and the one the code stands for.
+The code is 20 symbols of Crockford's base 32 (100 random bits, `XXXXX-XXXXX-XXXXX-XXXXX`); the key and its id are
+HKDF-SHA256 of it (`packages/protocol/src/linkCode.ts`, `apps/client/src/protocol/link_code.rs`, one shared vector), so
+nothing but the code crosses. 100 bits because the relay sees the handshake the key salts and could test guesses against
+it offline; an online guess meets an unknown key id behind the relay's rate limits. Both keys expire after 10 minutes
+unless used, the code's is not listed until it is used, and the first one used deletes the other (`pair_of` in
+`browser_keys`). The typed field also takes a pasted link of this site's `/link` page, nothing else.
+
 **Handshake** (per connection; the browser side is `packages/protocol/src/e2e.ts`, the device side
 `apps/client/src/protocol/e2e.rs`, and both are checked against the same fixed vector,
 `packages/protocol/src/e2e-vector.json`):

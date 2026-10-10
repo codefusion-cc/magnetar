@@ -37,6 +37,12 @@ const REPEAT_MS = 2_000
 
 let decoder: Promise<(frame: Frame) => string | null> | undefined
 
+/** The text of the QR code in `frame`, or null. The decoder is fetched the first time. */
+export async function decodeQr(frame: Frame): Promise<string | null> {
+  decoder ??= import('jsqr').then(({ default: jsQR }) => (f: Frame) => jsQR(f.data, f.width, f.height, { inversionAttempts: 'dontInvert' })?.data ?? null)
+  return (await decoder)(frame)
+}
+
 function browserDeps(): ScannerDeps {
   const canvas = document.createElement('canvas')
   return {
@@ -51,10 +57,7 @@ function browserDeps(): ScannerDeps {
       context.drawImage(video, 0, 0, canvas.width, canvas.height)
       return context.getImageData(0, 0, canvas.width, canvas.height)
     },
-    async decode(frame) {
-      decoder ??= import('jsqr').then(({ default: jsQR }) => (f: Frame) => jsQR(f.data, f.width, f.height, { inversionAttempts: 'dontInvert' })?.data ?? null)
-      return (await decoder)(frame)
-    },
+    decode: decodeQr,
     later: (run, ms) => {
       const timer = setTimeout(run, ms)
       return () => clearTimeout(timer)
