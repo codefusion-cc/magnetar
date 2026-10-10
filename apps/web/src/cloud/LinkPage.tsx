@@ -4,7 +4,9 @@ import { Link, Navigate, useNavigate } from 'react-router'
 import { cloud } from '../lib/cloudApi.ts'
 import { errorMessage } from '../lib/errors.ts'
 import { useT } from '../lib/i18n.tsx'
+import { isInstalledApp } from '../lib/installedApp.ts'
 import { adoptParkedKey, parkedKey } from '../lib/keyStore.ts'
+import { linkWithKey } from '../lib/linkDevice.ts'
 import { useAccount } from './CloudApp.tsx'
 import { CloudFrame } from './CloudFrame.tsx'
 import { captureFragmentKey } from './PairPage.tsx'
@@ -18,9 +20,7 @@ const TARGET = 'magnetar-link-device'
  * inside it (see NotLinked). Only there the person is told so.
  */
 function inBrowserTabOnATouchScreen(): boolean {
-  if (typeof matchMedia !== 'function') return false
-  const installed = matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true
-  return !installed && matchMedia('(pointer: coarse)').matches
+  return typeof matchMedia === 'function' && !isInstalledApp() && matchMedia('(pointer: coarse)').matches
 }
 
 /** Opened from a QR code shown by the device or a linked browser: stores the key it carries. */
@@ -43,14 +43,18 @@ export function LinkPage() {
   useEffect(() => {
     if (!account || !deviceId) return
     setError(null)
-    if (!parkedKey('link', deviceId)) return setError(t('link.invalid'))
+    const parked = parkedKey('link', deviceId)
+    if (!parked) return setError(t('link.invalid'))
     cloud.devices().then(async devices => {
       const device = devices.find(d => d.id === deviceId)
       if (!device) throw new Error(t('link.otherAccount'))
       // The parked key goes only once it is stored: a reload then tries again.
       await adoptParkedKey('link', deviceId, deviceId)
       sessionStorage.removeItem(TARGET)
-      if (inBrowserTabOnATouchScreen()) setLinked(devicePath(device.name))
+      // "Linked" is said only once the device has accepted the key, which is also what spends the link: said
+      // before, a code typed into the app meanwhile would take the link and leave this tab with a dead key.
+      // Whatever else happens shows on the device's page, as it does without the note about the app.
+      if (inBrowserTabOnATouchScreen() && await linkWithKey(deviceId, parked.keyId, parked.key) === 'linked') setLinked(devicePath(device.name))
       else navigate(devicePath(device.name), { replace: true })
     }).catch(e => setError(errorMessage(e)))
   }, [account, deviceId, navigate, t, attempt])

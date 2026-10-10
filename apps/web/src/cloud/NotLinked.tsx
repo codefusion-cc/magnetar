@@ -1,15 +1,17 @@
 import type { CloudDeviceDto } from '@magnetar/protocol/cloud'
-import { linkCodeKey } from '@magnetar/protocol/link-code'
+import { linkCodeKey, linkCodeSymbols } from '@magnetar/protocol/link-code'
 import { Camera, Keyboard, LoaderCircle } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { useNavigate } from 'react-router'
 import { cloud } from '../lib/cloudApi.ts'
 import { useT } from '../lib/i18n.tsx'
+import { isInstalledApp } from '../lib/installedApp.ts'
 import { linkWithKey, type LinkResult } from '../lib/linkDevice.ts'
-import { readLinkInput, type LinkInput, type LinkInputProblem } from '../lib/linkInput.ts'
+import { readLinkInput, shapeCodeField, type LinkInput, type LinkInputProblem } from '../lib/linkInput.ts'
 import { startScanner, type Scanner, type ScannerProblem } from '../lib/qrScanner.ts'
 import { useToast } from '../ui/toast.tsx'
 import { devicePath } from './devicePaths.ts'
+import { linkWording } from './linkWording.ts'
 
 type Mode = 'choose' | 'scan' | 'type'
 
@@ -31,7 +33,7 @@ const CAMERA_TEXT: Record<ScannerProblem, string> = {
   unsupported: 'link.cameraUnsupported',
 }
 
-const INPUT_TEXT: Record<LinkInputProblem, string> = {
+const INPUT_TEXT: Record<LinkInputProblem['problem'], string> = {
   incomplete: 'link.codeIncomplete',
   'too-long': 'link.codeTooLong',
   characters: 'link.codeCharacters',
@@ -58,6 +60,7 @@ export function NotLinked({ device, onLinked }: { device: CloudDeviceDto; onLink
   const panel = useRef<HTMLDivElement>(null)
   const video = useRef<HTMLVideoElement>(null)
   const [attempt, setAttempt] = useState(0)
+  const [wording] = useState(() => linkWording(isInstalledApp()))
   useEffect(() => () => { alive.current = false }, [])
 
   const complete = useCallback(async (input: LinkInput): Promise<boolean> => {
@@ -90,7 +93,7 @@ export function NotLinked({ device, onLinked }: { device: CloudDeviceDto; onLink
       else navigate(devicePath(target.name))
       return true
     }
-    setError(result === 'other-account' ? t('link.otherAccount') : result === 'list-failed' ? t('link.network') : t(RESULT_TEXT[result], device.name))
+    setError(result === 'other-account' ? t('link.otherAccount') : result === 'list-failed' ? t('link.network') : t(RESULT_TEXT[result], target.name))
     return false
   }, [device, navigate, onLinked, t, toast])
 
@@ -136,15 +139,31 @@ export function NotLinked({ device, onLinked }: { device: CloudDeviceDto; onLink
     if (busy) return
     const read = readLinkInput(text, location.origin)
     if ('problem' in read) {
-      const count = text.replace(/[\s-]/g, '').length
-      return setError(t(INPUT_TEXT[read.problem], count))
+      return setError(t(INPUT_TEXT[read.problem], read.problem === 'characters' ? read.character : linkCodeSymbols(text).length))
     }
     void complete(read)
   }
 
+  const typed = (event: ChangeEvent<HTMLInputElement>) => {
+    const field = event.target
+    const native = event.nativeEvent as InputEvent
+    setError(null)
+    // A keyboard that is still composing a word loses its place when the text changes under it: it is shaped after.
+    if (native.isComposing) return setText(field.value)
+    const shaped = shapeCodeField(field.value, field.selectionStart ?? field.value.length, text, native.inputType === 'deleteContentForward')
+    // Written to the field at once, so the caret can be put where it belongs before React renders the same text.
+    field.value = shaped.text
+    field.setSelectionRange(shaped.caret, shaped.caret)
+    setText(shaped.text)
+  }
+  const settle = () => setText(current => shapeCodeField(current, current.length).text)
+
+  // The name stays in one piece: a hyphen in it is no place to break the title.
+  const [beforeName, afterName = ''] = t(wording.title, '{0}').split('{0}')
+
   return (
     <div ref={panel} tabIndex={-1} className="surface mx-auto flex w-full max-w-md flex-col gap-4 p-6 outline-none">
-      <h1 className="text-xl font-bold">{t('link.notLinkedTitle', device.name)}</h1>
+      <h1 className="text-xl font-bold">{beforeName}<span className="inline-block max-w-full break-words">{device.name}</span>{afterName}</h1>
 
       {mode === 'choose' && (
         <>
@@ -187,11 +206,16 @@ export function NotLinked({ device, onLinked }: { device: CloudDeviceDto; onLink
           <label className="flex flex-col gap-1.5">
             <span className="text-sm font-medium">{t('link.codeLabel')}</span>
             <input
-              className={`input input-lg w-full font-mono uppercase tracking-wider ${error ? 'input-error' : ''}`}
+              className={`input input-lg w-full font-mono tracking-wider ${error ? 'input-error' : ''}`}
               value={text}
-              onChange={e => { setText(e.target.value); setError(null) }}
-              disabled={busy}
+              onChange={typed}
+              onCompositionEnd={settle}
+              onBlur={settle}
+              readOnly={busy}
+              placeholder="XXXXX-XXXXX-XXXXX-XXXXX"
+              maxLength={2048}
               autoFocus
+              inputMode="text"
               autoCapitalize="characters"
               autoComplete="off"
               autoCorrect="off"
@@ -204,7 +228,7 @@ export function NotLinked({ device, onLinked }: { device: CloudDeviceDto; onLink
           </label>
           {error && <p role="alert" className="alert alert-error alert-soft text-sm">{error}</p>}
           {busy && <p role="status" className="flex items-center gap-2 text-sm text-base-content/70"><LoaderCircle size={16} className="animate-spin" />{t('link.linking')}</p>}
-          <button type="submit" className="btn btn-primary btn-lg w-full" disabled={busy || !text.trim()}>{t('link.submit')}</button>
+          <button type="submit" className="btn btn-primary btn-lg w-full" disabled={busy || !text.trim()}>{t(wording.submit)}</button>
           <div className="flex gap-2">
             <button type="button" className="btn flex-none whitespace-nowrap" onClick={() => open('choose')} disabled={busy}>{t('link.back')}</button>
             <button type="button" className="btn flex-1 whitespace-nowrap" onClick={() => open('scan')} disabled={busy}><Camera size={16} />{t('link.scan')}</button>

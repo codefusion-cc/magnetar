@@ -3,9 +3,10 @@
  *
  * It is 20 symbols of a 32-symbol alphabet, 100 random bits, written `XXXXX-XXXXX-XXXXX-XXXXX`. The browser key
  * and its id are derived from it with HKDF, on the device when it makes the code and in the browser when the code is
- * typed, so nothing but the code has to cross. The relay sees the handshake this key salts, and a code that short of
- * 128 bits would let it guess the code offline from that transcript; 100 bits put that out of reach, and an online
- * guess meets an unknown key id and a rate limit. The QR code carries a separate, fully random key (e2e.ts).
+ * typed, so nothing but the code has to cross. The relay sees the key id and the handshake this key salts once the
+ * code is used, and a code much shorter than 128 bits would let it guess the code offline from them; 100 bits put that
+ * out of reach. An online guess is a hello naming a key id the device does not hold, which changes nothing there, so
+ * there is no attempt limit. The QR code carries a separate, fully random key (e2e.ts).
  * The device side is apps/client/src/protocol/link_code.rs; link-code-vector.json is checked by both.
  */
 import { bytesToBase64Url } from '@codefusion-cc/workers-crypto'
@@ -20,13 +21,25 @@ const KEY_ID_BYTES = 9
 
 export type LinkCodeProblem = 'incomplete' | 'too-long' | 'characters'
 
+/** What separates the groups of a written code: any white space and any dash. */
+const SEPARATORS = /[\s\-\u2010-\u2015\u2212]/g
+
 /**
- * The 20 symbols a person's text stands for, or what is wrong with it. Case, spaces and hyphens do not matter, and
- * O, I and L read as 0, 1 and 1, as Crockford's alphabet has it. Never throws.
+ * A person's text as code symbols: upper case, without spaces and dashes, and O, I and L read as 0, 1 and 1, as
+ * Crockford's alphabet has it. Symbols no code has are kept, for `readLinkCode` to name.
  */
-export function readLinkCode(text: string): { code: string } | { problem: LinkCodeProblem } {
-  const symbols = text.toUpperCase().replace(/[\s\-\u2010-\u2015\u2212]/g, '').replace(/O/g, '0').replace(/[IL]/g, '1')
-  if ([...symbols].some(symbol => !LINK_CODE_ALPHABET.includes(symbol))) return { problem: 'characters' }
+export function linkCodeSymbols(text: string): string {
+  return text.toUpperCase().replace(SEPARATORS, '').replace(/O/g, '0').replace(/[IL]/g, '1')
+}
+
+/**
+ * The 20 symbols a person's text stands for, or what is wrong with it: `characters` names the first one no code has.
+ * Case, spaces and dashes do not matter, and look-alikes are read as `linkCodeSymbols` reads them. Never throws.
+ */
+export function readLinkCode(text: string): { code: string } | { problem: 'incomplete' | 'too-long' } | { problem: 'characters'; character: string } {
+  const symbols = linkCodeSymbols(text)
+  const stray = [...symbols].find(symbol => !LINK_CODE_ALPHABET.includes(symbol))
+  if (stray !== undefined) return { problem: 'characters', character: stray }
   if (symbols.length < LINK_CODE_LENGTH) return { problem: 'incomplete' }
   return symbols.length > LINK_CODE_LENGTH ? { problem: 'too-long' } : { code: symbols }
 }
