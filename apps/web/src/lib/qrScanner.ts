@@ -28,6 +28,10 @@ export interface ScannerDeps {
   /** Calls `run` after `ms`; returns how to cancel. */
   later(run: () => void, ms: number): () => void
   now(): number
+  /** Whether nobody can see the page: a tab in the background, an app put away, a locked screen. */
+  hidden(): boolean
+  /** Calls `run` whenever `hidden` may have changed; returns how to stop. */
+  onVisibility(run: () => void): () => void
 }
 
 const MAX_WIDTH = 640
@@ -63,6 +67,11 @@ function browserDeps(): ScannerDeps {
       return () => clearTimeout(timer)
     },
     now: () => Date.now(),
+    hidden: () => document.visibilityState === 'hidden',
+    onVisibility: run => {
+      document.addEventListener('visibilitychange', run)
+      return () => document.removeEventListener('visibilitychange', run)
+    },
   }
 }
 
@@ -79,8 +88,9 @@ export interface Scanner {
 
 /**
  * Opens the camera into `video` and reports what each QR code in view says, until `stop`. `onText` hears the same
- * text again only after a while; `onProblem` hears of a camera that stops. Resolves with the problem when the camera
- * cannot be opened. Never throws.
+ * text again only after a while; `onProblem` hears of a camera that stops, and the scanner has stopped then. The
+ * camera runs only while the page can be seen: it is let go when the page is hidden and opened again when it is back.
+ * Resolves with the problem when the camera cannot be opened. Never throws.
  */
 export async function startScanner(
   video: HTMLVideoElement,
@@ -88,50 +98,93 @@ export async function startScanner(
   onProblem: (problem: ScannerProblem) => void,
   deps: ScannerDeps = browserDeps(),
 ): Promise<Scanner | { problem: ScannerProblem }> {
-  let stream: MediaStream
-  try {
-    stream = await deps.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' } } })
-  } catch (error) {
-    return { problem: problemOf(error) }
-  }
   let stopped = false
-  let cancel = (): void => {}
+  let opening = false
+  /** Lets go of the camera that is open now; null while none is. */
+  let release: (() => void) | null = null
+  let unwatch = (): void => {}
   const stop = (): void => {
     stopped = true
-    cancel()
-    for (const track of stream.getTracks()) track.stop()
-    video.srcObject = null
+    unwatch()
+    release?.()
   }
-  for (const track of stream.getVideoTracks()) {
-    track.addEventListener('ended', () => {
-      if (stopped) return
+
+  /** Opens the camera and reads from it until `release`. Resolves with why it could not, or null. */
+  const open = async (): Promise<ScannerProblem | null> => {
+    let stream: MediaStream
+    try {
+      stream = await deps.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' } } })
+    } catch (error) {
+      return problemOf(error)
+    }
+    let live = true
+    let ended = false
+    let cancel = (): void => {}
+    const close = (): void => {
+      if (!live) return
+      live = false
+      release = null
+      cancel()
+      for (const track of stream.getTracks()) track.stop()
+      video.srcObject = null
+    }
+    // Stopped or hidden while the camera was opening: it is not kept.
+    if (stopped || deps.hidden()) {
+      for (const track of stream.getTracks()) track.stop()
+      return null
+    }
+    release = close
+    for (const track of stream.getVideoTracks()) {
+      track.addEventListener('ended', () => {
+        if (!live) return
+        ended = true
+        stop()
+        onProblem('busy')
+      })
+    }
+    video.srcObject = stream
+    video.muted = true
+    video.setAttribute('playsinline', '')
+    await video.play().catch(() => {})
+    if (ended) return 'busy'
+
+    let last = ''
+    let lastAt = 0
+    const scan = async (): Promise<void> => {
+      if (!live) return
+      try {
+        const frame = deps.grab(video)
+        const text = frame && await deps.decode(frame)
+        if (live && text && (text !== last || deps.now() - lastAt >= REPEAT_MS)) {
+          last = text
+          lastAt = deps.now()
+          onText(text)
+        }
+      } catch {
+        // One frame that cannot be read is skipped.
+      }
+      if (live) cancel = deps.later(() => void scan(), EVERY_MS)
+    }
+    void scan()
+    return null
+  }
+
+  const problem = await open()
+  if (problem) return { problem }
+  const follow = (): void => {
+    if (stopped) return
+    if (deps.hidden()) return release?.()
+    if (opening || release) return
+    opening = true
+    void open().then(failed => {
+      opening = false
+      if (!failed || stopped) return
       stop()
-      onProblem('busy')
+      onProblem(failed)
     })
   }
-  video.srcObject = stream
-  video.muted = true
-  video.setAttribute('playsinline', '')
-  await video.play().catch(() => {})
-  if (stopped) return { problem: 'busy' }
-
-  let last = ''
-  let lastAt = 0
-  const scan = async (): Promise<void> => {
-    if (stopped) return
-    try {
-      const frame = deps.grab(video)
-      const text = frame && await deps.decode(frame)
-      if (!stopped && text && (text !== last || deps.now() - lastAt >= REPEAT_MS)) {
-        last = text
-        lastAt = deps.now()
-        onText(text)
-      }
-    } catch {
-      // One frame that cannot be read is skipped.
-    }
-    if (!stopped) cancel = deps.later(() => void scan(), EVERY_MS)
-  }
-  void scan()
+  unwatch = deps.onVisibility(follow)
+  // Hidden while the camera was opening.
+  follow()
   return { stop }
 }

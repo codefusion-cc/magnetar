@@ -19,11 +19,21 @@ const FRAME: Frame = { data: new Uint8ClampedArray(4), width: 1, height: 1 }
 /** Scanner dependencies on a clock the test moves; `reads` is what each frame decodes to, in order. */
 function setup(reads: Array<string | null | Error>) {
   const camera = fakeStream()
+  /** Every camera opened, the first being `camera`. */
+  const cameras = [camera]
+  let opened = 0
   let now = 0
+  let hidden = false
+  let watcher: (() => void) | null = null
   let pending: (() => void) | null = null
   const queue = [...reads]
   const deps: ScannerDeps = {
-    getUserMedia: vi.fn(async () => camera.stream),
+    getUserMedia: vi.fn(async () => (cameras[opened++] ??= fakeStream()).stream),
+    hidden: () => hidden,
+    onVisibility: run => {
+      watcher = run
+      return () => { watcher = null }
+    },
     grab: () => FRAME,
     decode: async () => {
       const next = queue.shift() ?? null
@@ -46,7 +56,13 @@ function setup(reads: Array<string | null | Error>) {
     await Promise.resolve()
     await Promise.resolve()
   }
-  return { deps, camera, frame, scheduled: () => pending !== null }
+  /** The page goes to the background or comes back, and what follows settles. */
+  const show = async (visible: boolean) => {
+    hidden = !visible
+    watcher?.()
+    for (let i = 0; i < 6; i++) await Promise.resolve()
+  }
+  return { deps, camera, cameras, frame, show, scheduled: () => pending !== null, watched: () => watcher !== null }
 }
 
 async function start(reads: Array<string | null | Error>) {
@@ -140,6 +156,87 @@ describe('stopping', () => {
     scanner.stop()
     camera.end()
     expect(problems).toEqual([])
+  })
+})
+
+describe('a page nobody is looking at', () => {
+  test('lets the camera go while hidden and opens it again when it is back', async () => {
+    const { camera, cameras, video, show, frame, texts, scheduled, deps } = await start(['CODE A', 'CODE B', 'CODE C'])
+    await show(false)
+    expect(camera.track.stop).toHaveBeenCalledTimes(1)
+    expect(video.srcObject).toBeNull()
+    expect(scheduled()).toBe(false)
+    await frame(5_000)
+    expect(texts).toEqual(['CODE A'])
+
+    await show(true)
+    expect(deps.getUserMedia).toHaveBeenCalledTimes(2)
+    expect(video.srcObject).toBe(cameras[1]!.stream)
+    expect(cameras[1]!.track.stop).not.toHaveBeenCalled()
+    expect(texts).toEqual(['CODE A', 'CODE B'])
+    await frame()
+    expect(texts).toEqual(['CODE A', 'CODE B', 'CODE C'])
+  })
+
+  test('coming back twice opens one camera, and the old camera ending is not a problem', async () => {
+    const { camera, show, deps, problems } = await start([])
+    await show(false)
+    camera.end()
+    await Promise.all([show(true), show(true)])
+    await show(true)
+    expect(deps.getUserMedia).toHaveBeenCalledTimes(2)
+    expect(problems).toEqual([])
+  })
+
+  test('a scanner stopped while hidden stays stopped and stops watching the page', async () => {
+    const { scanner, show, deps, watched } = await start([])
+    await show(false)
+    scanner.stop()
+    expect(watched()).toBe(false)
+    await show(true)
+    expect(deps.getUserMedia).toHaveBeenCalledTimes(1)
+  })
+
+  test('a camera that cannot be opened again is reported once, and the scanner has stopped', async () => {
+    const { show, deps, problems, watched, scheduled } = await start([])
+    await show(false)
+    deps.getUserMedia = vi.fn(async () => { throw new DOMException('no', 'NotAllowedError') })
+    await show(true)
+    expect(problems).toEqual(['denied'])
+    expect(watched()).toBe(false)
+    expect(scheduled()).toBe(false)
+    await show(false)
+    await show(true)
+    expect(deps.getUserMedia).toHaveBeenCalledTimes(1)
+  })
+
+  test('a camera that opens after the page was hidden is not kept', async () => {
+    const env = setup(['CODE A'])
+    const video = fakeVideo()
+    const texts: string[] = []
+    let open!: (stream: MediaStream) => void
+    env.deps.getUserMedia = vi.fn(() => new Promise<MediaStream>(resolve => { open = resolve }))
+    const starting = startScanner(video, text => texts.push(text), () => {}, env.deps)
+    await env.show(false)
+    open(env.camera.stream)
+    expect(await starting).toHaveProperty('stop')
+    expect(env.camera.track.stop).toHaveBeenCalledTimes(1)
+    expect(video.srcObject).toBeNull()
+    expect(texts).toEqual([])
+  })
+
+  test('a scanner stopped before its camera opened lets the camera go when it does', async () => {
+    const env = setup([])
+    await env.show(false)
+    const scanner = await startScanner(fakeVideo(), () => {}, () => {}, env.deps) as Scanner
+    let open!: (stream: MediaStream) => void
+    env.deps.getUserMedia = vi.fn(() => new Promise<MediaStream>(resolve => { open = resolve }))
+    await env.show(true)
+    scanner.stop()
+    const late = fakeStream()
+    open(late.stream)
+    await env.show(true)
+    expect(late.track.stop).toHaveBeenCalledTimes(1)
   })
 })
 
