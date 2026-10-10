@@ -7,8 +7,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { pushEnabledFor } from '../lib/push.ts'
 import type { ConnectionState, RpcClient } from '../lib/rpcClient.ts'
 import {
-  answeredAttempt, attemptKey, installPhase, observedAttempt, RESTART_WITHIN_MS, restoredAttempt, startedAttempt, type AppView, type InstallAttempt,
-  type InstallPhase,
+  answeredAttempt, attemptKey, clickedAttempt, clockCorrected, installPhase, observedAttempt, RESTART_WITHIN_MS, restoredAttempt, type AppView,
+  type InstallAttempt, type InstallPhase,
 } from '../lib/updateInstall.ts'
 
 /** What the Search page keeps while you browse other pages, like the legacy app did. */
@@ -212,25 +212,39 @@ export function DeviceProvider({ connection, basePath, deviceName, children }: {
   }, [connection])
 
   const awaySince = install.attempt?.offlineSince ?? null
+  // Wakes the page when the wait is over, and again if it woke early, was throttled in a background tab, or the clock moved.
   useEffect(() => {
     if (awaySince === null) return
-    const timer = setTimeout(() => setNow(Date.now()), Math.max(0, awaySince + RESTART_WITHIN_MS - Date.now()))
-    return () => clearTimeout(timer)
-  }, [awaySince])
+    const refresh = () => {
+      const at = Date.now()
+      setNow(at)
+      setInstall(state => {
+        const attempt = state.attempt && clockCorrected(state.attempt, at)
+        return attempt === state.attempt ? state : { ...state, attempt }
+      })
+    }
+    const left = awaySince + RESTART_WITHIN_MS - Date.now()
+    if (now - awaySince >= RESTART_WITHIN_MS) return
+    const timer = setTimeout(refresh, Math.min(Math.max(0, left), RESTART_WITHIN_MS))
+    document.addEventListener('visibilitychange', refresh)
+    return () => {
+      clearTimeout(timer)
+      document.removeEventListener('visibilitychange', refresh)
+    }
+  }, [awaySince, now])
 
-  const running = appView.online ? appView.running : null
   const installUpdate = useCallback(async () => {
-    setInstall(({ attempt, installed }) => ({ attempt: attempt ?? startedAttempt(running), installed }))
     const sent = connection.state.status === 'open'
+    if (sent) setInstall(({ attempt, installed }) => ({ attempt: clickedAttempt(attempt, installPhase(attempt, appView, Date.now()), appView.online ? appView.running : null, Date.now()), installed }))
     try {
       await connection.call('updates.install')
     } catch (error) {
       // The app going away to restart ends the call too; anything else is for the caller to show.
       if (!sent || connection.state.status === 'open') throw error
     } finally {
-      setInstall(({ attempt, installed }) => ({ attempt: answeredAttempt(attempt), installed }))
+      if (sent) setInstall(({ attempt, installed }) => ({ attempt: answeredAttempt(attempt), installed }))
     }
-  }, [connection, running])
+  }, [connection, appView])
 
   const forgetInstall = useCallback(() => setInstall(({ installed }) => ({ attempt: null, installed })), [])
   const phase = installPhase(install.attempt, appView, now)

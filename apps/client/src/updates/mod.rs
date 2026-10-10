@@ -1084,7 +1084,7 @@ mod tests {
         confirm_started(&mut shell("exit 0"), Duration::from_secs(5)).unwrap();
     }
 
-    /// The bundle swap of `mac-install.sh` in a scratch folder, with a stand-in for `/usr/bin/open`: it refuses a
+    /// The bundle swap of `mac-install.sh` in a scratch folder (the app's folder has a space in its name), with a stand-in for `/usr/bin/open`: it refuses a
     /// bundle `refusals` says to (`<version>=<times>`, `always` for every time), and otherwise records the version
     /// it started in `started`.
     #[cfg(unix)]
@@ -1097,7 +1097,7 @@ mod tests {
         fn new(refusals: &[(&str, &str)]) -> Self {
             let dir = tempfile::tempdir().unwrap();
             let path = dir.path();
-            for (bundle, version) in [("Magnetar.app", "old"), ("work/Replacement.app", "new")] {
+            for (bundle, version) in [("Mac Apps/Magnetar.app", "old"), ("work/Replacement.app", "new")] {
                 std::fs::create_dir_all(path.join(bundle)).unwrap();
                 std::fs::write(path.join(bundle).join("version"), version).unwrap();
             }
@@ -1131,7 +1131,12 @@ echo "$version" >> "$here/started"
             let path = self.dir.path();
             std::process::Command::new("/bin/bash")
                 .arg(path.join("install.sh"))
-                .args(["install".as_ref(), path.join("Magnetar.app").as_os_str(), "".as_ref(), path.join("work").as_os_str()])
+                .args([
+                    "install".as_ref(),
+                    path.join("Mac Apps/Magnetar.app").as_os_str(),
+                    "".as_ref(),
+                    path.join("work").as_os_str(),
+                ])
                 .arg(pid.to_string())
                 .status()
                 .unwrap()
@@ -1158,9 +1163,22 @@ echo "$version" >> "$here/started"
         let swap = BundleSwap::new(&[("new", "2")]);
         assert!(swap.install(exited()));
         assert_eq!(swap.read("started"), "new\n");
-        assert_eq!(swap.read("Magnetar.app/version"), "new");
+        assert_eq!(swap.read("Mac Apps/Magnetar.app/version"), "new");
         assert_eq!(swap.read("work/Previous.app/version"), "old");
         assert!(swap.read("work/install.log").contains("Update installed."), "{}", swap.read("work/install.log"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn the_start_is_tried_for_thirty_seconds_and_not_a_moment_less() {
+        // 60 tries, half a second apart: the 60th still counts, a 61st never comes.
+        let last = BundleSwap::new(&[("new", "59")]);
+        assert!(last.install(exited()));
+        assert_eq!(last.read("started"), "new\n");
+        let over = BundleSwap::new(&[("new", "60")]);
+        assert!(!over.install(exited()));
+        assert_eq!(over.read("started"), "old\n");
+        assert_eq!(over.read("Mac Apps/Magnetar.app/version"), "old");
     }
 
     #[cfg(unix)]
@@ -1169,7 +1187,7 @@ echo "$version" >> "$here/started"
         let swap = BundleSwap::new(&[("new", "always"), ("old", "2")]);
         assert!(!swap.install(exited()));
         assert_eq!(swap.read("started"), "old\n");
-        assert_eq!(swap.read("Magnetar.app/version"), "old");
+        assert_eq!(swap.read("Mac Apps/Magnetar.app/version"), "old");
         assert_eq!(swap.read("work/Failed.app/version"), "new");
         assert!(!swap.dir.path().join("work/Previous.app").exists());
         assert!(swap.read("work/install.log").contains("Update failed; restored the previous application."));
@@ -1181,7 +1199,7 @@ echo "$version" >> "$here/started"
         let swap = BundleSwap::new(&[("new", "always"), ("old", "always")]);
         assert!(!swap.install(exited()));
         assert_eq!(swap.read("started"), "");
-        assert_eq!(swap.read("Magnetar.app/version"), "old");
+        assert_eq!(swap.read("Mac Apps/Magnetar.app/version"), "old");
         assert!(swap.read("work/install.log").contains("The previous application could not be started."));
     }
 
@@ -1191,7 +1209,7 @@ echo "$version" >> "$here/started"
         let swap = BundleSwap::new(&[]);
         assert!(!swap.install(std::process::id()));
         assert_eq!(swap.read("started"), "");
-        assert_eq!(swap.read("Magnetar.app/version"), "old");
+        assert_eq!(swap.read("Mac Apps/Magnetar.app/version"), "old");
         assert_eq!(swap.read("work/Replacement.app/version"), "new");
     }
 

@@ -1,5 +1,5 @@
 import { ArrowUpCircle, Sparkles, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import { useFormatDate, useT } from '../lib/i18n.tsx'
 import { offeredVersion, latestRelease } from '../lib/releases.ts'
@@ -45,8 +45,12 @@ export function UpdateBanner() {
   // The app looked and can't install the update itself: the button becomes the download link.
   const [manual, setManual] = useState<string | null>(null)
 
+  // Said once per version, however often the language or the toast function changes.
+  const told = useRef<string | null>(null)
   useEffect(() => {
-    if (installedVersion) toast(t('update.installed', installedVersion), 'success')
+    if (!installedVersion || told.current === installedVersion) return
+    told.current = installedVersion
+    toast(t('update.installed', installedVersion), 'success')
   }, [installedVersion, toast, t])
 
   const running = updates?.currentVersion ?? info?.version
@@ -111,8 +115,8 @@ export function UpdateBanner() {
             </button>
           )}
           {!waiting && (
-            <button type="button" className="btn btn-ghost btn-sm btn-square" aria-label={t(following ? 'update.close' : 'update.dismiss')}
-              title={t(following ? 'update.close' : 'update.dismiss')} onClick={dismiss}>
+            <button type="button" className="btn btn-ghost btn-sm btn-square" aria-label={t(following ? 'common.close' : 'update.dismiss')}
+              title={t(following ? 'common.close' : 'update.dismiss')} onClick={dismiss}>
               <X size={16} />
             </button>
           )}
