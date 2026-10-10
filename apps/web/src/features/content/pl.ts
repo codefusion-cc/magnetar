@@ -1,6 +1,5 @@
 import { DEVICE_NAME_MAX_LENGTH } from '@magnetar/protocol/device-name'
 import { MAX_TORRENT_FILE, MIN_SPEED_LIMIT } from '@magnetar/protocol/limits'
-import { plural } from '@codefusion-cc/i18n'
 import type { FeaturesContent } from './types.ts'
 
 const torrentMb = MAX_TORRENT_FILE / 1024 / 1024
@@ -13,22 +12,16 @@ export const content: FeaturesContent = {
   },
   header: { language: 'Język', signIn: 'Zaloguj się', devices: 'Twoje urządzenia', home: 'Strona główna Magnetara' },
   hero: {
-    badge: 'Za darmo na macOS, Windows i Linux',
-    title: 'Twoje pobierania ',
-    accent: 'z dowolnego miejsca',
+    title: 'Twoje pobierania z dowolnego miejsca',
     lead: 'Magnetar przeszukuje sześć źródeł torrentów naraz, pobiera na Twoim komputerze i śledzi Twoje seriale. Otwierasz go z dowolnej przeglądarki lub telefonu, a wszystko, co płynie między nimi, jest szyfrowane end-to-end. Każdy zrzut ekranu na tej stronie pokazuje prawdziwą aplikację.',
     primary: 'Zobacz funkcje',
     secondary: 'Pobierz aplikację',
   },
-  stats: { features: n => plural('pl', n, { one: 'funkcja', few: 'funkcje', other: 'funkcji' }), screenshots: n => plural('pl', n, { one: 'zrzut ekranu aplikacji', few: 'zrzuty ekranu aplikacji', other: 'zrzutów ekranu aplikacji' }), sources: n => plural('pl', n, { one: 'źródło torrentów w jednym wyszukiwaniu', few: 'źródła torrentów w jednym wyszukiwaniu', other: 'źródeł torrentów w jednym wyszukiwaniu' }), languages: n => plural('pl', n, { one: 'język', few: 'języki', other: 'języków' }) },
   copy: {
     skipToFeatures: 'Przejdź do funkcji',
     sectionsLabel: 'Sekcje strony',
-    overview: { label: 'Przegląd', title: 'Wszystko, co potrafi, w jednym miejscu', lead: 'Wybierz funkcję, by zobaczyć jej zrzuty ekranu i szczegóły.', count: n => `${n} ${n === 1 ? 'funkcja' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'funkcje' : 'funkcji'}` },
-    contents: 'Spis treści',
-    whatItGives: 'Co daje: ',
+    overview: { title: 'Wszystko, co potrafi, w jednym miejscu', lead: 'Wybierz funkcję, by zobaczyć jej zrzuty ekranu i szczegóły.' },
     moreDetails: n => `Więcej szczegółów (${n})`,
-    fewerDetails: 'Mniej szczegółów',
     featureLink: 'Link do tej funkcji',
     shots: {
       group: title => `Zrzuty ekranu: ${title}`,
@@ -72,7 +65,7 @@ export const content: FeaturesContent = {
           ],
         },
         add: {
-          title: 'Linki magnet i pliki .torrent – skądkolwiek je masz',
+          title: 'Linki magnet i pliki .torrent, skądkolwiek je masz',
           gain: 'Wklej stronę pełną linków albo upuść plik w dowolnym miejscu: każdy torrent startuje osobno, a błędny link nie zatrzymuje reszty.',
           text: 'Okno „Dodaj” znajduje każdy link magnet we wklejonym tekście. Wklej link w dowolnym miejscu strony albo upuść na nią plik .torrent, a okno otworzy się już wypełnione, z folderem, który możesz zmienić.',
           points: [
@@ -195,7 +188,7 @@ export const content: FeaturesContent = {
           text: 'Zaloguj się na magnetar.codefusion.cc i otwórz dowolny ze swoich komputerów: wyszukiwanie, pobieranie, Obserwowane i ustawienia działają tak jak w domu. Pracę wykonuje Twój komputer; strona tylko Cię z nim łączy.',
           points: [
             'Twoje urządzenia ze stanem online, odświeżanym co 15 sekund',
-            'Telefon dostaje pasek kart na dole, komputer – pasek boczny',
+            'Telefon ma pasek kart na dole, komputer pasek boczny',
             'To, co ma sens tylko przy komputerze (wybór folderu, otwieranie plików), zostaje na komputerze',
             'Logowanie przez Google; sesja trwa 30 dni od ostatniej wizyty, a wylogowanie od razu odłącza tę przeglądarkę od Twoich komputerów',
           ],
@@ -242,12 +235,12 @@ export const content: FeaturesContent = {
     notify: {
       title: 'Bądź na bieżąco',
       label: 'Powiadomienia',
-      lead: 'Gdy pobieranie się zaczyna lub kończy, obserwacja coś znajduje albo wychodzi aktualizacja – tam, gdzie chcesz się o tym dowiedzieć.',
+      lead: 'Gdy pobieranie się zaczyna lub kończy, obserwacja coś znajduje albo wychodzi aktualizacja: tam, gdzie chcesz się o tym dowiedzieć.',
       features: {
         channels: {
           title: 'Cztery sposoby powiadamiania',
           gain: 'Dowiedz się o ukończonym pobieraniu na telefonie, w skrzynce e-mail albo na Telegramie, bez trzymania otwartej karty.',
-          text: 'Włącz dowolne kanały – powiadomienia na pulpicie, push w przeglądarce, e-mail i Telegram – i wybierz, czy chcesz wiedzieć o rozpoczęciu pobierania, o jego ukończeniu, czy o obu. Każdy kanał ma przycisk „Wyślij testowe powiadomienie”.',
+          text: 'Włącz dowolne kanały (powiadomienia na pulpicie, push w przeglądarce, e-mail i Telegram) i wybierz, czy chcesz wiedzieć o rozpoczęciu pobierania, o jego ukończeniu, czy o obu. Każdy kanał ma przycisk „Wyślij testowe powiadomienie”.',
           points: [
             'Awaria jednego kanału nigdy nie zatrzymuje pozostałych',
             'E-mail przez Twój własny serwer SMTP; bot Telegram',
@@ -374,7 +367,7 @@ export const content: FeaturesContent = {
     items: {
       client: { name: 'Rust', text: 'Aplikacja: jeden plik wykonywalny z panelem, bazą danych (SQLite) i silnikiem w środku.' },
       engine: { name: 'librqbit', text: 'Silnik BitTorrent: DHT, trackery, UPnP, szybkie wznawianie i strumieniowanie nieukończonych plików.' },
-      dashboard: { name: 'React i daisyUI', text: 'Panel – ta sama kompilacja na Twoim komputerze i na stronie.' },
+      dashboard: { name: 'React i daisyUI', text: 'Panel: ta sama kompilacja na Twoim komputerze i na stronie.' },
       worker: { name: 'Cloudflare Workers', text: 'Strona: logowanie i urządzenia w D1 oraz osobny Durable Object dla każdego komputera, który przekazuje jego zaszyfrowane połączenia.' },
       packages: { name: 'Pakiety CodeFusion', text: 'Wspólny, przetestowany kod logowania, powiadomień push, identyfikatorów base58, motywu, aktualizacji aplikacji i tej strony.' },
       console: { name: 'CodeFusion Console', text: 'Tu błędy są grupowane według przyczyny, a twórca widzi każde wdrożenie i to, co zmieniło.' },
@@ -384,7 +377,6 @@ export const content: FeaturesContent = {
   closing: {
     title: 'Wypróbuj Magnetar',
     lead: 'Pobierz darmową aplikację na komputer, a potem zaloguj się tutaj, by mieć do niej dostęp z każdego miejsca.',
-    download: 'Pobierz aplikację',
     signIn: 'Zaloguj się',
   },
 }

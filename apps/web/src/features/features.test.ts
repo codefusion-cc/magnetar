@@ -1,14 +1,14 @@
 import { featuresProblems, outlineProblems } from '@codefusion-cc/features-page/testing'
 import { describe, expect, test } from 'vitest'
 import { LANGUAGES } from '../lib/languages.ts'
-import { featureGroups, FEATURE_LANGUAGES, loadContent } from './content/index.ts'
+import { builtOnEntries, featureGroups, FEATURE_LANGUAGES, loadContent, privacyEntries } from './content/index.ts'
 import type { FeaturesContent } from './content/types.ts'
-import { HERO_SHOTS } from './outline.ts'
+import { HERO_SHOT } from './outline.ts'
 import SIZES from './shots.json'
 
 const FILES = Object.keys(import.meta.glob('./shots/*.webp'))
-/** The page's own anchors besides the features: the header, the overview, its sections and the closing card. */
-const SECTIONS = ['top', 'overview', 'privacy', 'built-on', 'get-app']
+/** The page's own anchors besides the features: the overview, its sections and the download. */
+const SECTIONS = ['overview', 'privacy', 'built-on', 'get-app']
 
 const contents = Object.fromEntries(await Promise.all(FEATURE_LANGUAGES.map(async code => [code, (await loadContent(code)).content] as const))) as Record<string, FeaturesContent>
 const { en } = contents
@@ -28,7 +28,20 @@ describe('the features page', () => {
   })
 
   test.each(FEATURE_LANGUAGES)('has every screenshot it shows, in both themes, and something to say of each feature (%s)', code => {
-    expect(featuresProblems({ groups: featureGroups(contents[code]!), sizes: SIZES, files: FILES, sections: SECTIONS, extraShots: Object.values(HERO_SHOTS) })).toEqual([])
+    expect(featuresProblems({ groups: featureGroups(contents[code]!), sizes: SIZES, files: FILES, sections: SECTIONS })).toEqual([])
+  })
+
+  test.each(FEATURE_LANGUAGES)('describes the shot beside the opening with the feature that shows it (%s)', code => {
+    const alts = featureGroups(contents[code]!).flatMap(group => group.features.flatMap(feature => feature.shots ?? [])).filter(shot => shot.src === HERO_SHOT).map(shot => shot.alt)
+    expect(alts).toHaveLength(1)
+  })
+
+  test.each(FEATURE_LANGUAGES)('gives what it keeps and what it runs on an entry each, with anchors no feature has (%s)', code => {
+    const content = contents[code]!
+    const features = [...privacyEntries(content), ...builtOnEntries(content)]
+    expect(featuresProblems({ features })).toEqual([])
+    const anchors = [...SECTIONS, ...featureGroups(content).flatMap(group => [group.id, ...group.features.map(feature => `${group.id}-${feature.id}`)]), ...features.map(feature => feature.id!)]
+    expect(anchors.filter((anchor, index) => anchors.indexOf(anchor) !== index)).toEqual([])
   })
 
   test.each(FEATURE_LANGUAGES.filter(code => code !== 'en'))('says in %s what it says in English, point for point', code => {
@@ -41,18 +54,9 @@ describe('the features page', () => {
     expect(same).toEqual([])
   })
 
-  test('counts features the way each language counts', () => {
-    const count = (code: string) => contents[code]!.copy.overview.count
-    expect([1, 2, 5].map(count('en'))).toEqual(['1 feature', '2 features', '5 features'])
-    for (const code of FEATURE_LANGUAGES) {
-      for (const n of [1, 2, 4, 5, 12, 21, 22, 25]) expect(count(code)(n), `${code} ${n}`).toMatch(new RegExp(`^${n}\\D`))
-    }
-    expect([1, 2, 4, 5, 12, 13, 22, 25].map(count('pl'))).toEqual(['1 funkcja', '2 funkcje', '4 funkcje', '5 funkcji', '12 funkcji', '13 funkcji', '22 funkcje', '25 funkcji'])
-    expect([1, 2, 5, 11, 21, 22].map(count('ru'))).toEqual(['1 функция', '2 функции', '5 функций', '11 функций', '21 функция', '22 функции'])
-    // The header's figures take the same forms.
-    expect([1, 2, 5, 22, 25].map(n => contents.pl!.stats.features(n))).toEqual(['funkcja', 'funkcje', 'funkcji', 'funkcje', 'funkcji'])
-    expect([1, 3, 8, 21].map(n => contents.ru!.stats.languages(n))).toEqual(['язык', 'языка', 'языков', 'язык'])
-    expect([1, 24].map(n => en!.stats.features(n))).toEqual(['feature', 'features'])
+  test.each(FEATURE_LANGUAGES)('uses none of the marks that make a page read as generated (%s)', code => {
+    const marks = strings(contents[code]).filter(([, text]) => /[\u2013\u2014\u00b7\u2022]/.test(text))
+    expect(marks).toEqual([])
   })
 
   test.each(FEATURE_LANGUAGES)('loads %s as itself, not as English', async code => {

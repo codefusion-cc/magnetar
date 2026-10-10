@@ -11,7 +11,7 @@
   "dependencies": {
     "@codefusion-cc/app-update": "^0.1.0",
     "@codefusion-cc/console": "^0.10.0",
-    "@codefusion-cc/features-page": "^0.1.0",
+    "@codefusion-cc/features-page": "^0.2.0",
     "@codefusion-cc/google-sign-in": "^0.1.0",
     "@codefusion-cc/i18n": "^0.1.0",
     "@codefusion-cc/theme": "^0.1.0",

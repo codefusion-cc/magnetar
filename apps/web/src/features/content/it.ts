@@ -1,6 +1,5 @@
 import { DEVICE_NAME_MAX_LENGTH } from '@magnetar/protocol/device-name'
 import { MAX_TORRENT_FILE, MIN_SPEED_LIMIT } from '@magnetar/protocol/limits'
-import { plural } from '@codefusion-cc/i18n'
 import type { FeaturesContent } from './types.ts'
 
 const torrentMb = MAX_TORRENT_FILE / 1024 / 1024
@@ -13,22 +12,16 @@ export const content: FeaturesContent = {
   },
   header: { language: 'Lingua', signIn: 'Accedi', devices: 'I tuoi dispositivi', home: 'Home di Magnetar' },
   hero: {
-    badge: 'Gratis per macOS, Windows e Linux',
-    title: 'I tuoi download, ',
-    accent: 'ovunque tu sia',
+    title: 'I tuoi download, ovunque tu sia',
     lead: 'Magnetar cerca in sei fonti torrent insieme, scarica sul tuo computer e segue le tue serie. Aprilo da qualsiasi browser o telefono: tutto ciò che passa tra i due è cifrato end-to-end. Ogni screenshot di questa pagina mostra l’app vera.',
     primary: 'Scopri le funzioni',
     secondary: 'Scarica l’app',
   },
-  stats: { features: n => plural('it', n, { one: 'funzione', other: 'funzioni' }), screenshots: n => plural('it', n, { one: 'screenshot dell’app', other: 'screenshot dell’app' }), sources: n => plural('it', n, { one: 'fonte torrent in una sola ricerca', other: 'fonti torrent in una sola ricerca' }), languages: n => plural('it', n, { one: 'lingua', other: 'lingue' }) },
   copy: {
     skipToFeatures: 'Vai alle funzioni',
     sectionsLabel: 'Sezioni della pagina',
-    overview: { label: 'Panoramica', title: 'Tutto quello che fa, in breve', lead: 'Scegli una funzione per vederne screenshot e dettagli.', count: n => `${n} ${n === 1 ? 'funzione' : 'funzioni'}` },
-    contents: 'Indice',
-    whatItGives: 'Cosa ti dà: ',
+    overview: { title: 'Tutto quello che fa, in breve', lead: 'Scegli una funzione per vederne screenshot e dettagli.' },
     moreDetails: n => `Altri dettagli (${n})`,
-    fewerDetails: 'Meno dettagli',
     featureLink: 'Link a questa funzione',
     shots: {
       group: title => `Screenshot: ${title}`,
@@ -384,7 +377,6 @@ export const content: FeaturesContent = {
   closing: {
     title: 'Prova Magnetar',
     lead: 'Scarica l’app gratuita per il tuo computer, poi accedi qui per raggiungerlo da ovunque.',
-    download: 'Scarica l’app',
     signIn: 'Accedi',
   },
 }

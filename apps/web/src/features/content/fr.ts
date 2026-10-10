@@ -1,6 +1,5 @@
 import { DEVICE_NAME_MAX_LENGTH } from '@magnetar/protocol/device-name'
 import { MAX_TORRENT_FILE, MIN_SPEED_LIMIT } from '@magnetar/protocol/limits'
-import { plural } from '@codefusion-cc/i18n'
 import type { FeaturesContent } from './types.ts'
 
 const torrentMb = MAX_TORRENT_FILE / 1024 / 1024
@@ -13,22 +12,16 @@ export const content: FeaturesContent = {
   },
   header: { language: 'Langue', signIn: 'Se connecter', devices: 'Vos appareils', home: 'Accueil Magnetar' },
   hero: {
-    badge: 'Gratuit pour macOS, Windows et Linux',
-    title: 'Vos téléchargements, ',
-    accent: 'où que vous soyez',
+    title: 'Vos téléchargements, où que vous soyez',
     lead: 'Magnetar cherche sur six sources torrent à la fois, télécharge sur votre propre ordinateur et suit vos séries. Ouvrez-le depuis n’importe quel navigateur ou téléphone : tout ce qui passe entre eux est chiffré de bout en bout. Chaque capture d’écran de cette page montre la vraie app.',
     primary: 'Voir les fonctionnalités',
     secondary: 'Obtenir l’app',
   },
-  stats: { features: n => plural('fr', n, { one: 'fonctionnalité', other: 'fonctionnalités' }), screenshots: n => plural('fr', n, { one: 'capture d’écran de l’app', other: 'captures d’écran de l’app' }), sources: n => plural('fr', n, { one: 'source torrent en une recherche', other: 'sources torrent en une recherche' }), languages: n => plural('fr', n, { one: 'langue', other: 'langues' }) },
   copy: {
     skipToFeatures: 'Aller aux fonctionnalités',
     sectionsLabel: 'Sections de la page',
-    overview: { label: 'Aperçu', title: 'Tout ce qu’il fait, en un coup d’œil', lead: 'Choisissez une fonctionnalité pour voir ses captures d’écran et ses détails.', count: n => (n < 2 ? `${n} fonctionnalité` : `${n} fonctionnalités`) },
-    contents: 'Sommaire',
-    whatItGives: 'Ce que ça apporte : ',
+    overview: { title: 'Tout ce qu’il fait, en un coup d’œil', lead: 'Choisissez une fonctionnalité pour voir ses captures d’écran et ses détails.' },
     moreDetails: n => `Plus de détails (${n})`,
-    fewerDetails: 'Moins de détails',
     featureLink: 'Lien vers cette fonctionnalité',
     shots: {
       group: title => `Captures d’écran : ${title}`,
@@ -384,7 +377,6 @@ export const content: FeaturesContent = {
   closing: {
     title: 'Essayer Magnetar',
     lead: 'Téléchargez l’app gratuite pour votre ordinateur, puis connectez-vous ici pour y accéder de partout.',
-    download: 'Obtenir l’app',
     signIn: 'Se connecter',
   },
 }
