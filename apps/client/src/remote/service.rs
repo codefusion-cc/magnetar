@@ -30,8 +30,8 @@ use crate::protocol::e2e::{
     E2ESession, FRAME_HANDSHAKE, FRAME_SEALED, Handshake, accept_browser_handshake, decode_handshake, encode_handshake,
     link_fragment,
 };
-use crate::protocol::link_code;
 use crate::protocol::encoding::{encode_uri_component, iso, parse_iso, to_base64url};
+use crate::protocol::link_code;
 use crate::protocol::relay::{
     CLOSE_DEVICE_REMOVED, DeviceToRelay, RELAY_PING, RelayToDevice, unwrap_from_device, wrap_for_device,
 };
@@ -422,7 +422,9 @@ impl RemoteService {
         self.sweep_links();
         let url = format!("{}/link#{}", self.cloud_url, link_fragment(&device_id, &key_id, &key));
         let code_key_id = link_code::derive(&code).map(|(id, _)| id);
-        Ok(json!({ "url": url, "keyId": key_id, "code": link_code::format(&code), "codeKeyId": code_key_id, "expiresIn": LINK_TTL.as_secs() }))
+        Ok(
+            json!({ "url": url, "keyId": key_id, "code": link_code::format(&code), "codeKeyId": code_key_id, "expiresIn": LINK_TTL.as_secs() }),
+        )
     }
 
     /// Deletes each link nobody used in time when it expires, telling the dashboards, while any is pending. One

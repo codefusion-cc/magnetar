@@ -63,7 +63,8 @@ mod tests {
     /// Fixed inputs computed by the TypeScript implementation: both ends must derive the same id and key.
     #[test]
     fn matches_the_typescript_vector() {
-        let vector: Vec<serde_json::Value> = serde_json::from_str(include_str!("../../../../packages/protocol/src/link-code-vector.json")).unwrap();
+        let vector: Vec<serde_json::Value> =
+            serde_json::from_str(include_str!("../../../../packages/protocol/src/link-code-vector.json")).unwrap();
         assert!(vector.len() >= 4);
         for case in vector {
             let (key_id, key) = derive(case["code"].as_str().unwrap()).unwrap();

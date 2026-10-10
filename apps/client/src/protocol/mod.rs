@@ -4,8 +4,8 @@
 pub mod bytes;
 pub mod device_name;
 pub mod e2e;
-pub mod link_code;
 pub mod encoding;
+pub mod link_code;
 pub mod model;
 pub mod relay;
 pub mod scrub;

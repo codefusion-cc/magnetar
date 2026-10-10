@@ -5,8 +5,8 @@ use rusqlite::{OptionalExtension, params};
 use crate::db::{Db, SecretBox};
 use crate::protocol::LinkedBrowserDto;
 use crate::protocol::e2e::KEY_BYTES;
-use crate::protocol::link_code;
 use crate::protocol::encoding::{from_base64url, now_iso, random_bytes, random_id, to_base64url};
+use crate::protocol::link_code;
 
 /// The condition on a key's expiry, `now` (ISO) being the statement's last parameter.
 const UNEXPIRED: &str = "(expires_at IS NULL OR expires_at > ?)";
@@ -36,7 +36,15 @@ impl BrowserKeyStore {
         Ok((key_id, key))
     }
 
-    fn insert(&self, key_id: &str, key: &[u8], label: &str, active: bool, expires_at: Option<&str>, pair_of: Option<&str>) -> anyhow::Result<()> {
+    fn insert(
+        &self,
+        key_id: &str,
+        key: &[u8],
+        label: &str,
+        active: bool,
+        expires_at: Option<&str>,
+        pair_of: Option<&str>,
+    ) -> anyhow::Result<()> {
         self.db.lock().execute(
             "INSERT INTO browser_keys (key_id, key, label, created_at, active, expires_at, pair_of) VALUES (?, ?, ?, ?, ?, ?, ?)",
             params![key_id, self.sealer.seal(&to_base64url(key)), label, now_iso(), active, expires_at, pair_of],
@@ -50,7 +58,8 @@ impl BrowserKeyStore {
     pub fn mint_link(&self, label: &str, expires_at: &str) -> anyhow::Result<((String, Vec<u8>), String)> {
         let qr = self.mint(label, true, Some(expires_at))?;
         let code = link_code::generate();
-        let (code_key_id, code_key) = link_code::derive(&code).ok_or_else(|| anyhow::anyhow!("a generated code is always valid"))?;
+        let (code_key_id, code_key) =
+            link_code::derive(&code).ok_or_else(|| anyhow::anyhow!("a generated code is always valid"))?;
         self.insert(&code_key_id, &code_key, label, true, Some(expires_at), Some(&qr.0))?;
         Ok((qr, code))
     }

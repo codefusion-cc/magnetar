@@ -173,11 +173,11 @@ export function NotLinked({ device, onLinked }: { device: CloudDeviceDto; onLink
             <p role="status" className="text-sm text-base-content/70">{seen ? t(seen) : camera === 'opening' ? t('link.cameraOpening') : t('link.scanHint')}</p>
           )}
           <div className="flex flex-wrap gap-2">
-            <button type="button" className="btn flex-1" onClick={() => open('choose')} disabled={busy}>{t('link.back')}</button>
+            <button type="button" className="btn flex-none whitespace-nowrap" onClick={() => open('choose')} disabled={busy}>{t('link.back')}</button>
             {(camera === 'denied' || camera === 'busy') && (
               <button type="button" className="btn flex-1" onClick={() => { setCamera(null); setAttempt(n => n + 1) }}>{t('common.retry')}</button>
             )}
-            <button type="button" className="btn btn-primary flex-1" onClick={() => open('type')} disabled={busy}><Keyboard size={16} />{t('link.type')}</button>
+            <button type="button" className="btn btn-primary flex-1 whitespace-nowrap" onClick={() => open('type')} disabled={busy}><Keyboard size={16} />{t('link.type')}</button>
           </div>
         </>
       )}
@@ -206,8 +206,8 @@ export function NotLinked({ device, onLinked }: { device: CloudDeviceDto; onLink
           {busy && <p role="status" className="flex items-center gap-2 text-sm text-base-content/70"><LoaderCircle size={16} className="animate-spin" />{t('link.linking')}</p>}
           <button type="submit" className="btn btn-primary btn-lg w-full" disabled={busy || !text.trim()}>{t('link.submit')}</button>
           <div className="flex gap-2">
-            <button type="button" className="btn flex-1" onClick={() => open('choose')} disabled={busy}>{t('link.back')}</button>
-            <button type="button" className="btn flex-1" onClick={() => open('scan')} disabled={busy}><Camera size={16} />{t('link.scan')}</button>
+            <button type="button" className="btn flex-none whitespace-nowrap" onClick={() => open('choose')} disabled={busy}>{t('link.back')}</button>
+            <button type="button" className="btn flex-1 whitespace-nowrap" onClick={() => open('scan')} disabled={busy}><Camera size={16} />{t('link.scan')}</button>
           </div>
         </form>
       )}
