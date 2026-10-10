@@ -1,6 +1,6 @@
 import type { CloudDeviceDto } from '@magnetar/protocol/cloud'
 import { sameDeviceName } from '@magnetar/protocol/device-name'
-import { ArrowLeft, Laptop, QrCode, SearchX } from 'lucide-react'
+import { ArrowLeft, Laptop, SearchX } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router'
 import { DeviceProvider, useDevice } from '../device/DeviceContext.tsx'
@@ -14,6 +14,7 @@ import { AccountMenu } from './CloudFrame.tsx'
 import { CloudFrame } from './CloudFrame.tsx'
 import { deviceIdPath, devicePath, samePageOn } from './devicePaths.ts'
 import { DeviceSwitcher } from './DeviceSwitcher.tsx'
+import { NotLinked } from './NotLinked.tsx'
 
 /**
  * The account's devices for finding one by its address: the list last fetched at once, then a fresh one each
@@ -115,12 +116,8 @@ function DeviceView({ device, onRenamed }: { device: CloudDeviceDto; onRenamed: 
   if (key === null) {
     return (
       <CloudFrame>
-        <div className="surface mx-auto flex max-w-md flex-col items-center gap-4 px-6 py-10 text-center">
-          <QrCode size={40} className="text-primary" />
-          <h1 className="text-xl font-bold">{t('devices.notLinkedTitle')}</h1>
-          <p className="text-sm text-base-content/70">{t('devices.notLinkedHint')}</p>
-          <Link to="/" className="btn btn-ghost btn-sm"><ArrowLeft size={14} />{t('devices.back')}</Link>
-        </div>
+        <NotLinked device={device} onLinked={() => void getDeviceKey(device.id).then(k => setKey(k ?? null), () => {})} />
+        <Link to="/" className="btn btn-ghost btn-sm mx-auto mt-4 flex w-fit"><ArrowLeft size={14} />{t('devices.back')}</Link>
       </CloudFrame>
     )
   }

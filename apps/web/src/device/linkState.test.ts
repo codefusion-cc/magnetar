@@ -64,4 +64,13 @@ describe('followLink', () => {
       expect(next.listed).toBe(listed || mine !== undefined)
     }))
   })
+
+  it('is linked when a browser used the typed code, though the QR key is gone and was never seen used', () => {
+    const typed: LinkWatch = { ...watch(true), codeKeyId: 'c1' }
+    const phone = browser('c1', '2026-10-02T10:01:00.000Z', 'My phone')
+    expect(followLink(typed, [phone], NOW)).toEqual({ ...typed, state: 'linked', browser: phone })
+    // Another browser having the code's id unused (not possible on a device, but a list is just data) is not a link.
+    expect(followLink(typed, [browser('c1')], NOW).state).toBe('revoked')
+    expect(followLink({ ...watch(true), codeKeyId: 'c1' }, [browser('other', '2026-10-02T10:01:00.000Z')], NOW).state).toBe('revoked')
+  })
 })

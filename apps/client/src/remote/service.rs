@@ -30,6 +30,7 @@ use crate::protocol::e2e::{
     E2ESession, FRAME_HANDSHAKE, FRAME_SEALED, Handshake, accept_browser_handshake, decode_handshake, encode_handshake,
     link_fragment,
 };
+use crate::protocol::link_code;
 use crate::protocol::encoding::{encode_uri_component, iso, parse_iso, to_base64url};
 use crate::protocol::relay::{
     CLOSE_DEVICE_REMOVED, DeviceToRelay, RELAY_PING, RelayToDevice, unwrap_from_device, wrap_for_device,
@@ -409,17 +410,19 @@ impl RemoteService {
         Ok(self.status())
     }
 
-    /// Mints a key for another browser and returns the link that carries it. Unless a browser connects with it
-    /// within `LINK_TTL`, the key is deleted and the dashboards see it leave the list.
+    /// Mints a link for another browser: a key carried by the link (and its QR code) and one a typed code stands for.
+    /// Unless a browser connects with one of them within `LINK_TTL`, both are deleted and the dashboards see the link
+    /// leave the list; the first use deletes the other.
     pub fn link_browser(self: &Arc<Self>, label: Option<&str>) -> ApiResult<Value> {
         let device_id = self.device_id().ok_or_else(|| ApiError::bad("Connect this device to your account first."))?;
         let label = label.map(str::trim).filter(|l| !l.is_empty()).unwrap_or("Linked browser");
         let expires_at = iso(chrono::Utc::now() + LINK_TTL);
-        let (key_id, key) = self.keys.mint(label, true, Some(&expires_at))?;
+        let ((key_id, key), code) = self.keys.mint_link(label, &expires_at)?;
         self.changed();
         self.sweep_links();
         let url = format!("{}/link#{}", self.cloud_url, link_fragment(&device_id, &key_id, &key));
-        Ok(json!({ "url": url, "keyId": key_id, "expiresIn": LINK_TTL.as_secs() }))
+        let code_key_id = link_code::derive(&code).map(|(id, _)| id);
+        Ok(json!({ "url": url, "keyId": key_id, "code": link_code::format(&code), "codeKeyId": code_key_id, "expiresIn": LINK_TTL.as_secs() }))
     }
 
     /// Deletes each link nobody used in time when it expires, telling the dashboards, while any is pending. One

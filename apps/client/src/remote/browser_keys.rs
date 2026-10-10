@@ -5,6 +5,7 @@ use rusqlite::{OptionalExtension, params};
 use crate::db::{Db, SecretBox};
 use crate::protocol::LinkedBrowserDto;
 use crate::protocol::e2e::KEY_BYTES;
+use crate::protocol::link_code;
 use crate::protocol::encoding::{from_base64url, now_iso, random_bytes, random_id, to_base64url};
 
 /// The condition on a key's expiry, `now` (ISO) being the statement's last parameter.
@@ -31,11 +32,27 @@ impl BrowserKeyStore {
     pub fn mint(&self, label: &str, active: bool, expires_at: Option<&str>) -> anyhow::Result<(String, Vec<u8>)> {
         let key_id = random_id(9);
         let key = random_bytes(KEY_BYTES);
-        self.db.lock().execute(
-            "INSERT INTO browser_keys (key_id, key, label, created_at, active, expires_at) VALUES (?, ?, ?, ?, ?, ?)",
-            params![key_id, self.sealer.seal(&to_base64url(&key)), label, now_iso(), active, expires_at],
-        )?;
+        self.insert(&key_id, &key, label, active, expires_at, None)?;
         Ok((key_id, key))
+    }
+
+    fn insert(&self, key_id: &str, key: &[u8], label: &str, active: bool, expires_at: Option<&str>, pair_of: Option<&str>) -> anyhow::Result<()> {
+        self.db.lock().execute(
+            "INSERT INTO browser_keys (key_id, key, label, created_at, active, expires_at, pair_of) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            params![key_id, self.sealer.seal(&to_base64url(key)), label, now_iso(), active, expires_at, pair_of],
+        )?;
+        Ok(())
+    }
+
+    /// Mints the two keys of one link, both expiring at `expires_at`: a random one for the QR code and the one a typed
+    /// code stands for. Whichever a browser connects with first stays, the other is deleted. The code's key is not in
+    /// `list` until it is used. Returns the QR key (id, key) and the code.
+    pub fn mint_link(&self, label: &str, expires_at: &str) -> anyhow::Result<((String, Vec<u8>), String)> {
+        let qr = self.mint(label, true, Some(expires_at))?;
+        let code = link_code::generate();
+        let (code_key_id, code_key) = link_code::derive(&code).ok_or_else(|| anyhow::anyhow!("a generated code is always valid"))?;
+        self.insert(&code_key_id, &code_key, label, true, Some(expires_at), Some(&qr.0))?;
+        Ok((qr, code))
     }
 
     pub fn activate(&self, key_id: &str) {
@@ -73,6 +90,13 @@ impl BrowserKeyStore {
             .optional()
             .ok()??;
         db.execute("UPDATE browser_keys SET last_seen_at = ?, expires_at = NULL WHERE key_id = ?", params![now, key_id]).ok()?;
+        if first_use {
+            // The other key of the same link, if nobody has used it: the link is spent.
+            let _ = db.execute(
+                "DELETE FROM browser_keys WHERE last_seen_at IS NULL AND key_id <> ?1 AND (pair_of = ?1 OR key_id = (SELECT pair_of FROM browser_keys WHERE key_id = ?1))",
+                [key_id],
+            );
+        }
         Some(first_use)
     }
 
@@ -102,7 +126,7 @@ impl BrowserKeyStore {
         let db = self.db.lock();
         let Ok(mut statement) =
             db.prepare(&format!(
-                "SELECT key_id, label, created_at, last_seen_at FROM browser_keys WHERE active = 1 AND {UNEXPIRED} ORDER BY created_at"
+                "SELECT key_id, label, created_at, last_seen_at FROM browser_keys WHERE active = 1 AND {UNEXPIRED} AND (pair_of IS NULL OR last_seen_at IS NOT NULL) ORDER BY created_at"
             ))
         else {
             return Vec::new();
@@ -189,5 +213,54 @@ mod tests {
         assert_eq!(store.next_expiry(), Some(later));
         store.revoke(&first);
         assert_eq!(store.next_expiry(), None);
+    }
+
+    #[test]
+    fn a_link_has_a_qr_key_and_a_typed_code_and_the_first_used_wins() {
+        let (store, _dir) = store();
+        let ((qr, qr_key), code) = store.mint_link("Phone", &at(10)).unwrap();
+        let (code_id, code_key) = link_code::derive(&code).unwrap();
+        assert_eq!(store.lookup(&qr).unwrap(), qr_key);
+        assert_eq!(store.lookup(&code_id).unwrap(), code_key, "the device finds the key the typed code stands for");
+        assert_ne!(qr_key, code_key, "the QR code keeps a key of its own, all random");
+        assert_eq!(listed(&store), vec![qr.clone()], "an unused code is not another pending browser");
+
+        assert_eq!(store.touch(&code_id), Some(true));
+        assert!(store.lookup(&qr).is_none(), "the QR key is spent once the code was used");
+        assert_eq!(listed(&store), vec![code_id.clone()]);
+        assert_eq!(store.touch(&code_id), Some(false));
+        store.db.lock().execute("UPDATE browser_keys SET expires_at = ? WHERE expires_at IS NOT NULL", [at(-1)]).unwrap();
+        assert!(store.lookup(&code_id).is_some(), "a used key does not expire");
+    }
+
+    #[test]
+    fn using_the_qr_key_spends_the_typed_code() {
+        let (store, _dir) = store();
+        let ((qr, _), code) = store.mint_link("Phone", &at(10)).unwrap();
+        let (code_id, _) = link_code::derive(&code).unwrap();
+        assert_eq!(store.touch(&qr), Some(true));
+        assert!(store.lookup(&code_id).is_none(), "a code cannot link a second browser after the QR code linked one");
+        assert_eq!(listed(&store), vec![qr]);
+    }
+
+    #[test]
+    fn a_link_nobody_used_leaves_neither_key_behind() {
+        let (store, _dir) = store();
+        let ((qr, _), code) = store.mint_link("Phone", &at(-1)).unwrap();
+        let (code_id, _) = link_code::derive(&code).unwrap();
+        assert!(store.lookup(&qr).is_none() && store.lookup(&code_id).is_none(), "expired keys open nothing");
+        assert_eq!(store.revoke_expired(), 2);
+        let rows: i64 = store.db.lock().query_row("SELECT COUNT(*) FROM browser_keys", [], |r| r.get(0)).unwrap();
+        assert_eq!(rows, 0);
+    }
+
+    #[test]
+    fn using_one_link_leaves_the_keys_of_other_links_alone() {
+        let (store, _dir) = store();
+        let ((first, _), _) = store.mint_link("One", &at(10)).unwrap();
+        let ((second, _), second_code) = store.mint_link("Two", &at(10)).unwrap();
+        let (second_code_id, _) = link_code::derive(&second_code).unwrap();
+        store.touch(&first);
+        assert!(store.lookup(&second).is_some() && store.lookup(&second_code_id).is_some());
     }
 }

@@ -3,6 +3,8 @@ import type { LinkedBrowserDto } from '@magnetar/protocol'
 /** A link this dashboard made for another browser, followed through the device's list of browsers. */
 export interface LinkWatch {
   keyId: string
+  /** The key the link's typed code stands for: whichever of the two a browser uses first is the link used. */
+  codeKeyId?: string
   /** Whether a list held the key yet: the list can reach the dashboard before the link itself does. */
   listed: boolean
   /** When the device lets the link expire, on this browser's clock; absent from apps whose links never expire. */
@@ -20,6 +22,9 @@ const EARLY_MS = 5_000
  * deletes a link nobody opened in time) and revoked otherwise. Changes to other browsers never count.
  */
 export function followLink(watch: LinkWatch, browsers: readonly LinkedBrowserDto[], now: number): FollowedLink {
+  // The device lists the code's key only once it is used, and deletes the QR code's key then.
+  const byCode = watch.codeKeyId ? browsers.find(b => b.keyId === watch.codeKeyId && b.lastSeenAt) : undefined
+  if (byCode) return { ...watch, listed: true, state: 'linked', browser: byCode }
   const browser = browsers.find(b => b.keyId === watch.keyId)
   if (browser?.lastSeenAt) return { ...watch, listed: true, state: 'linked', browser }
   if (browser) return { ...watch, listed: true, state: 'waiting' }
