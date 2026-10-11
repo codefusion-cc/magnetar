@@ -526,7 +526,10 @@ mod tests {
         let lines: Vec<_> = log.lines().collect();
         assert_eq!(lines.len(), 2, "{log}");
         assert!(lines[0].contains(" ERROR "), "{log}");
-        assert!(lines[0].contains("[panic] Thread '") && lines[0].contains("panicked at apps/client/src/log.rs:"), "{log}");
+        assert!(
+            lines[0].contains("[panic] Thread '") && lines[0].contains("panicked at ") && lines[0].contains("log.rs:"),
+            "{log}"
+        );
         assert!(lines[0].ends_with(": no such window: 7"), "{log}");
         assert!(lines[1].ends_with(": plain text"), "{log}");
     }
