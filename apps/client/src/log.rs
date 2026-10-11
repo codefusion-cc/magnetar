@@ -2,13 +2,14 @@
 //! Errors are also handed to the error sink (telemetry), except those the computer's surroundings caused
 //! (`SURROUNDINGS`), which are logged as warnings. Other crates only log warnings and up.
 
+use std::any::Any;
 use std::cell::Cell;
 use std::fmt::Write as _;
 use std::fs::{File, OpenOptions};
 use std::io::{self, ErrorKind, Write as _};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{LazyLock, Mutex, OnceLock};
+use std::sync::{LazyLock, Mutex, Once, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use regex::Regex;
@@ -254,8 +255,37 @@ fn library_error_from_surroundings(message: &str) -> bool {
     named.peek().is_some() && named.all(|surroundings| surroundings)
 }
 
-/// Installs the logger. `logs` is None in tests, which only log to the console.
+/// What a panic was raised with, as text (`panic!("…")` carries a `&str` or a `String`).
+pub fn panic_message(payload: &(dyn Any + Send)) -> String {
+    payload
+        .downcast_ref::<&str>()
+        .map(|message| (*message).to_owned())
+        .or_else(|| payload.downcast_ref::<String>().cloned())
+        .unwrap_or_else(|| "(no message)".to_owned())
+}
+
+/// Makes every panic leave its message and place in the log, as an error, before the usual stderr
+/// report (which nobody sees in an app started from the Dock). A panic that ends the process, such
+/// as one inside a callback the system makes, otherwise leaves no trace.
+fn install_panic_hook() {
+    static INSTALLED: Once = Once::new();
+    INSTALLED.call_once(|| {
+        let usual = std::panic::take_hook();
+        std::panic::set_hook(Box::new(move |info| {
+            let thread = std::thread::current();
+            let place = info.location().map_or_else(String::new, |at| format!(" at {}:{}", at.file(), at.line()));
+            tracing::error!(target: "magnetar::panic", "Thread '{}' panicked{place}: {}", thread.name().unwrap_or("unnamed"), panic_message(info.payload()));
+            usual(info);
+        }));
+    });
+}
+
+/// Installs the logger, and with a log folder the hook that logs panics. `logs` is None in tests,
+/// which only log to the console and keep the usual panic report.
 pub fn init(logs: Option<PathBuf>, verbose: bool) {
+    if logs.is_some() {
+        install_panic_hook();
+    }
     let layer = FileLayer {
         dir: logs,
         min_level: if verbose { Level::DEBUG } else { Level::INFO },
@@ -453,6 +483,34 @@ mod tests {
 
     /// What the error sink was handed (it can be set once).
     static REPORTED: Mutex<Vec<(String, String)>> = Mutex::new(Vec::new());
+
+    #[test]
+    fn a_panic_leaves_its_message_and_place_in_the_log() {
+        super::install_panic_hook();
+        let dir = tempfile::tempdir().unwrap();
+        let layer = FileLayer { dir: Some(dir.path().to_path_buf()), min_level: tracing::Level::INFO, file: Mutex::default() };
+        let subscriber = tracing_subscriber::layer::SubscriberExt::with(tracing_subscriber::registry(), layer);
+        tracing::subscriber::with_default(subscriber, || {
+            let _ = std::panic::catch_unwind(|| panic!("no such window: {}", 7));
+            let _ = std::panic::catch_unwind(|| panic!("plain text"));
+        });
+        let mut files: Vec<_> = std::fs::read_dir(dir.path()).unwrap().map(|e| e.unwrap().path()).collect();
+        files.sort();
+        let log: String = files.iter().map(|path| std::fs::read_to_string(path).unwrap()).collect();
+        let lines: Vec<_> = log.lines().collect();
+        assert_eq!(lines.len(), 2, "{log}");
+        assert!(lines[0].contains(" ERROR "), "{log}");
+        assert!(lines[0].contains("[panic] Thread '") && lines[0].contains("panicked at apps/client/src/log.rs:"), "{log}");
+        assert!(lines[0].ends_with(": no such window: 7"), "{log}");
+        assert!(lines[1].ends_with(": plain text"), "{log}");
+    }
+
+    #[test]
+    fn a_panic_payload_is_read_as_text_or_named_missing() {
+        assert_eq!(super::panic_message(&"static"), "static");
+        assert_eq!(super::panic_message(&String::from("owned")), "owned");
+        assert_eq!(super::panic_message(&42_u8), "(no message)");
+    }
 
     #[test]
     fn the_logger_writes_the_surroundings_as_warnings_and_reports_only_faults() {
