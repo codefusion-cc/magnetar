@@ -96,7 +96,7 @@ mod platform {
     use block2::RcBlock;
     use objc2::rc::Retained;
     use objc2::runtime::{Bool, NSObject, ProtocolObject};
-    use objc2::{AnyThread, define_class, msg_send};
+    use objc2::{AnyThread, ClassType, define_class, msg_send};
     #[allow(deprecated)]
     use objc2_foundation::{
         NSArray, NSError, NSObjectProtocol, NSSet, NSString, NSUserNotification, NSUserNotificationActivationType,
@@ -138,12 +138,15 @@ mod platform {
                 response: &UNNotificationResponse,
                 handler: &block2::DynBlock<dyn Fn()>,
             ) {
-                let id = response.notification().request().identifier().to_string();
-                let action = response.actionIdentifier().to_string();
-                // Dismissing is no choice; the default action is a click on the notice.
-                if action != "com.apple.UNNotificationDismissActionIdentifier" {
-                    super::chosen(&id, Some(&action));
-                }
+                super::guarded("reading a click", || {
+                    let id = response.notification().request().identifier().to_string();
+                    let action = response.actionIdentifier().to_string();
+                    // Dismissing is no choice; the default action is a click on the notice.
+                    if action != "com.apple.UNNotificationDismissActionIdentifier" {
+                        super::chosen(&id, Some(&action));
+                    }
+                });
+                // The system waits for this, whatever went wrong above.
                 handler.call(());
             }
         }
@@ -167,14 +170,16 @@ mod platform {
             /// The notice's identifier is its id, then `#` and the action its one button does.
             #[unsafe(method(userNotificationCenter:didActivateNotification:))]
             fn did_activate(&self, _center: &NSUserNotificationCenter, notification: &NSUserNotification) {
-                let Some(identifier) = notification.identifier().map(|id| id.to_string()) else { return };
-                let (id, button) = identifier.split_once('#').map_or((identifier.as_str(), None), |(id, b)| (id, Some(b)));
-                let activation = notification.activationType();
-                if activation == NSUserNotificationActivationType::ActionButtonClicked {
-                    super::chosen(id, button);
-                } else if activation == NSUserNotificationActivationType::ContentsClicked {
-                    super::chosen(id, None);
-                }
+                super::guarded("reading a click", || {
+                    let Some(identifier) = notification.identifier().map(|id| id.to_string()) else { return };
+                    let (id, button) = identifier.split_once('#').map_or((identifier.as_str(), None), |(id, b)| (id, Some(b)));
+                    let activation = notification.activationType();
+                    if activation == NSUserNotificationActivationType::ActionButtonClicked {
+                        super::chosen(id, button);
+                    } else if activation == NSUserNotificationActivationType::ContentsClicked {
+                        super::chosen(id, None);
+                    }
+                });
             }
         }
     );
@@ -211,10 +216,10 @@ mod platform {
         });
         LEGACY_DELEGATE.get_or_init(|| {
             let delegate: Retained<LegacyDelegate> = unsafe { msg_send![LegacyDelegate::alloc(), init] };
-            // SAFETY: the delegate lives as long as the process (LEGACY_DELEGATE).
-            unsafe {
-                NSUserNotificationCenter::defaultUserNotificationCenter().setDelegate(Some(ProtocolObject::from_ref(&*delegate)))
-            };
+            if let Some(center) = legacy_center() {
+                // SAFETY: the delegate lives as long as the process (LEGACY_DELEGATE).
+                unsafe { center.setDelegate(Some(ProtocolObject::from_ref(&*delegate))) };
+            }
             Kept(delegate)
         });
         register_categories(
@@ -274,7 +279,18 @@ mod platform {
 
     #[allow(deprecated)]
     fn legacy(id: &str, title: &str, body: &str, button: Option<(&'static str, String)>) {
-        deliver(&NSUserNotificationCenter::defaultUserNotificationCenter(), id, title, body, button);
+        match legacy_center() {
+            Some(center) => deliver(&center, id, title, body, button),
+            None => tracing::info!("Notification not shown: the system has no NSUserNotification center for Magnetar"),
+        }
+    }
+
+    /// The older API's center. The bindings type it as always there; where the system has none for
+    /// this app it answers nil, which is no center rather than a panic.
+    #[allow(deprecated)]
+    fn legacy_center() -> Option<Retained<NSUserNotificationCenter>> {
+        // SAFETY: `defaultUserNotificationCenter` is a class method that takes nothing and answers a center, or nil.
+        unsafe { msg_send![NSUserNotificationCenter::class(), defaultUserNotificationCenter] }
     }
 
     /// What the center has delivered and not yet had dismissed. The system answers nil (and so, to
@@ -365,7 +381,6 @@ mod platform {
     mod tests {
         use std::sync::atomic::{AtomicUsize, Ordering};
 
-        use objc2::ClassType;
         use objc2::rc::Allocated;
 
         use super::*;
