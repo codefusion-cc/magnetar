@@ -411,9 +411,6 @@ impl Drop for Running<'_> {
 async fn unless_panicked<T>(work: impl Future<Output = ApiResult<T>>) -> ApiResult<T> {
     match AssertUnwindSafe(work).catch_unwind().await {
         Ok(outcome) => outcome,
-        Err(panic) => {
-            let message = panic.downcast_ref::<&str>().map(|m| m.to_string()).or_else(|| panic.downcast_ref::<String>().cloned());
-            Err(ApiError::internal(format!("Magnetar ran into a bug: {}", message.unwrap_or_default())))
-        }
+        Err(panic) => Err(ApiError::internal(format!("Magnetar ran into a bug: {}", crate::log::panic_message(&*panic)))),
     }
 }

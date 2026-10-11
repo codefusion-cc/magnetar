@@ -4,7 +4,9 @@
 //! in `notifications.rs` stay what people choose for their downloads.
 //!
 //! Best effort everywhere: where the system has nowhere to show one (a server, a dev build outside
-//! the .app, notifications turned off for Magnetar), nothing shows and the reason is logged.
+//! the .app, notifications turned off for Magnetar), nothing shows and the reason is logged. A notice
+//! that fails in any other way, even by a panic, is logged and skipped too: the system calls some of
+//! this code back from its own threads, where a panic ends the whole process.
 
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock, Mutex};
@@ -40,6 +42,18 @@ type Listener = (Vec<&'static str>, Handler);
 /// shown, so a notice still on screen from the app's last run is answered too.
 static HANDLERS: LazyLock<Mutex<HashMap<String, Listener>>> = LazyLock::new(Mutex::default);
 
+/// Runs `work` for a notice. A panic in it is logged and dropped (None), never allowed to unwind
+/// into the system's thread that called us, which would abort the process.
+fn guarded<T>(what: &str, work: impl FnOnce() -> T) -> Option<T> {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(work)) {
+        Ok(result) => Some(result),
+        Err(panic) => {
+            tracing::warn!("Notification not shown: {what} failed: {}", crate::log::panic_message(&*panic));
+            None
+        }
+    }
+}
+
 fn notice_id(kind: &str) -> String {
     format!("cc.codefusion.magnetar.{kind}")
 }
@@ -51,7 +65,7 @@ fn chosen(id: &str, action: Option<&str>) {
         return;
     };
     let choice = action.and_then(|action| actions.iter().find(|a| **a == action)).map_or(Choice::Open, |a| Choice::Action(a));
-    handler(choice);
+    guarded("answering a click", || handler(choice));
 }
 
 /// Registers what notices of `kind` do when chosen, with every button one may carry (id and
@@ -62,12 +76,12 @@ pub fn listen(kind: &'static str, buttons: &[(&'static str, &str)], on_choice: i
     let id = notice_id(kind);
     let actions = buttons.iter().map(|(action, _)| *action).collect();
     HANDLERS.lock().unwrap_or_else(|e| e.into_inner()).insert(id.clone(), (actions, Arc::new(on_choice)));
-    platform::prepare(&id, buttons);
+    guarded("preparing", || platform::prepare(&id, buttons));
 }
 
 /// Shows `notice`; choosing it does what `listen` registered for its kind.
 pub fn show(notice: Notice) {
-    platform::show(&notice_id(notice.kind), &notice);
+    guarded("showing", || platform::show(&notice_id(notice.kind), &notice));
 }
 
 #[cfg(target_os = "macos")]
@@ -82,7 +96,7 @@ mod platform {
     use block2::RcBlock;
     use objc2::rc::Retained;
     use objc2::runtime::{Bool, NSObject, ProtocolObject};
-    use objc2::{AnyThread, define_class, msg_send};
+    use objc2::{AnyThread, ClassType, define_class, msg_send};
     #[allow(deprecated)]
     use objc2_foundation::{
         NSArray, NSError, NSObjectProtocol, NSSet, NSString, NSUserNotification, NSUserNotificationActivationType,
@@ -124,12 +138,15 @@ mod platform {
                 response: &UNNotificationResponse,
                 handler: &block2::DynBlock<dyn Fn()>,
             ) {
-                let id = response.notification().request().identifier().to_string();
-                let action = response.actionIdentifier().to_string();
-                // Dismissing is no choice; the default action is a click on the notice.
-                if action != "com.apple.UNNotificationDismissActionIdentifier" {
-                    super::chosen(&id, Some(&action));
-                }
+                super::guarded("reading a click", || {
+                    let id = response.notification().request().identifier().to_string();
+                    let action = response.actionIdentifier().to_string();
+                    // Dismissing is no choice; the default action is a click on the notice.
+                    if action != "com.apple.UNNotificationDismissActionIdentifier" {
+                        super::chosen(&id, Some(&action));
+                    }
+                });
+                // The system waits for this, whatever went wrong above.
                 handler.call(());
             }
         }
@@ -153,14 +170,16 @@ mod platform {
             /// The notice's identifier is its id, then `#` and the action its one button does.
             #[unsafe(method(userNotificationCenter:didActivateNotification:))]
             fn did_activate(&self, _center: &NSUserNotificationCenter, notification: &NSUserNotification) {
-                let Some(identifier) = notification.identifier().map(|id| id.to_string()) else { return };
-                let (id, button) = identifier.split_once('#').map_or((identifier.as_str(), None), |(id, b)| (id, Some(b)));
-                let activation = notification.activationType();
-                if activation == NSUserNotificationActivationType::ActionButtonClicked {
-                    super::chosen(id, button);
-                } else if activation == NSUserNotificationActivationType::ContentsClicked {
-                    super::chosen(id, None);
-                }
+                super::guarded("reading a click", || {
+                    let Some(identifier) = notification.identifier().map(|id| id.to_string()) else { return };
+                    let (id, button) = identifier.split_once('#').map_or((identifier.as_str(), None), |(id, b)| (id, Some(b)));
+                    let activation = notification.activationType();
+                    if activation == NSUserNotificationActivationType::ActionButtonClicked {
+                        super::chosen(id, button);
+                    } else if activation == NSUserNotificationActivationType::ContentsClicked {
+                        super::chosen(id, None);
+                    }
+                });
             }
         }
     );
@@ -197,10 +216,10 @@ mod platform {
         });
         LEGACY_DELEGATE.get_or_init(|| {
             let delegate: Retained<LegacyDelegate> = unsafe { msg_send![LegacyDelegate::alloc(), init] };
-            // SAFETY: the delegate lives as long as the process (LEGACY_DELEGATE).
-            unsafe {
-                NSUserNotificationCenter::defaultUserNotificationCenter().setDelegate(Some(ProtocolObject::from_ref(&*delegate)))
-            };
+            if let Some(center) = legacy_center() {
+                // SAFETY: the delegate lives as long as the process (LEGACY_DELEGATE).
+                unsafe { center.setDelegate(Some(ProtocolObject::from_ref(&*delegate))) };
+            }
             Kept(delegate)
         });
         register_categories(
@@ -219,32 +238,8 @@ mod platform {
         let (id, title, body) = (id.to_owned(), notice.title.clone(), notice.body.clone());
         // The first time, macOS asks the person whether Magnetar may notify; later this answers at once.
         let post = RcBlock::new(move |granted: Bool, error: *mut NSError| {
-            if !granted.as_bool() {
-                match unsafe { error.as_ref() } {
-                    // The system refuses this copy of the app as signed, not the person: the older API still shows it.
-                    Some(error) => {
-                        tracing::info!("UserNotifications refused ({}); using NSUserNotification", error.localizedDescription());
-                        legacy(&id, &title, &body, button.clone());
-                    }
-                    None => tracing::info!("Notification not shown: turned off in System Settings"),
-                }
-                return;
-            }
-            let content = UNMutableNotificationContent::new();
-            content.setTitle(&NSString::from_str(&title));
-            content.setBody(&NSString::from_str(&body));
-            if let Some((action, _)) = &button {
-                content.setCategoryIdentifier(&NSString::from_str(&category(&id, action)));
-            }
-            content.setSound(Some(&UNNotificationSound::defaultSound()));
-            let request = UNNotificationRequest::requestWithIdentifier_content_trigger(&NSString::from_str(&id), &content, None);
-            let added = RcBlock::new(|error: *mut NSError| {
-                if let Some(error) = unsafe { error.as_ref() } {
-                    tracing::warn!("Notification not shown: {}", error.localizedDescription());
-                }
-            });
-            UNUserNotificationCenter::currentNotificationCenter()
-                .addNotificationRequest_withCompletionHandler(&request, Some(&added));
+            // The system calls this on its own thread, where a panic would end the whole app.
+            super::guarded("posting", || posted(granted, error, &id, &title, &body, &button));
         });
         center.requestAuthorizationWithOptions_completionHandler(
             UNAuthorizationOptions::Alert | UNAuthorizationOptions::Sound,
@@ -252,9 +247,65 @@ mod platform {
         );
     }
 
+    /// What follows the system's answer to the request to notify.
+    fn posted(granted: Bool, error: *mut NSError, id: &str, title: &str, body: &str, button: &Option<(&'static str, String)>) {
+        if !granted.as_bool() {
+            match unsafe { error.as_ref() } {
+                // The system refuses this copy of the app as signed, not the person: the older API still shows it.
+                Some(error) => {
+                    tracing::info!("UserNotifications refused ({}); using NSUserNotification", error.localizedDescription());
+                    legacy(id, title, body, button.clone());
+                }
+                None => tracing::info!("Notification not shown: turned off in System Settings"),
+            }
+            return;
+        }
+        let content = UNMutableNotificationContent::new();
+        content.setTitle(&NSString::from_str(title));
+        content.setBody(&NSString::from_str(body));
+        if let Some((action, _)) = button {
+            content.setCategoryIdentifier(&NSString::from_str(&category(id, action)));
+        }
+        content.setSound(Some(&UNNotificationSound::defaultSound()));
+        let request = UNNotificationRequest::requestWithIdentifier_content_trigger(&NSString::from_str(id), &content, None);
+        let added = RcBlock::new(|error: *mut NSError| {
+            if let Some(error) = unsafe { error.as_ref() } {
+                tracing::warn!("Notification not shown: {}", error.localizedDescription());
+            }
+        });
+        UNUserNotificationCenter::currentNotificationCenter()
+            .addNotificationRequest_withCompletionHandler(&request, Some(&added));
+    }
+
     #[allow(deprecated)]
     fn legacy(id: &str, title: &str, body: &str, button: Option<(&'static str, String)>) {
-        let center = NSUserNotificationCenter::defaultUserNotificationCenter();
+        match legacy_center() {
+            Some(center) => deliver(&center, id, title, body, button),
+            None => tracing::info!("Notification not shown: the system has no NSUserNotification center for Magnetar"),
+        }
+    }
+
+    /// The older API's center. The bindings type it as always there; where the system has none for
+    /// this app it answers nil, which is no center rather than a panic.
+    #[allow(deprecated)]
+    fn legacy_center() -> Option<Retained<NSUserNotificationCenter>> {
+        // SAFETY: `defaultUserNotificationCenter` is a class method that takes nothing and answers a center, or nil.
+        unsafe { msg_send![NSUserNotificationCenter::class(), defaultUserNotificationCenter] }
+    }
+
+    /// What the center has delivered and not yet had dismissed. The system answers nil (and so, to
+    /// the bindings, a panic) where it keeps nothing for this app, as it did on two Macs where
+    /// notifications were refused: nil is an empty list.
+    #[allow(deprecated)]
+    fn delivered(center: &NSUserNotificationCenter) -> Vec<Retained<NSUserNotification>> {
+        // SAFETY: `deliveredNotifications` takes nothing and answers an NSArray of NSUserNotification, or nil.
+        let list: Option<Retained<NSArray<NSUserNotification>>> = unsafe { msg_send![center, deliveredNotifications] };
+        list.map_or_else(Vec::new, |list| list.iter().collect())
+    }
+
+    /// Delivers a notice through `center`, in place of an older one of its kind.
+    #[allow(deprecated)]
+    fn deliver(center: &NSUserNotificationCenter, id: &str, title: &str, body: &str, button: Option<(&'static str, String)>) {
         let notification = NSUserNotification::new();
         // Its one button's action rides in the identifier, so a click after a restart still knows it.
         let identifier = button.as_ref().map_or(id.to_owned(), |(action, _)| format!("{id}#{action}"));
@@ -271,12 +322,12 @@ mod platform {
         }
         // A newer notice of the kind replaces the older, whatever its button was.
         let of_kind = |n: &NSUserNotification| n.identifier().is_some_and(|i| i.to_string().split('#').next() == Some(id));
-        for old in center.deliveredNotifications().iter().filter(|n| of_kind(n)) {
-            center.removeDeliveredNotification(&old);
+        for old in delivered(center).iter().filter(|n| of_kind(n)) {
+            center.removeDeliveredNotification(old);
         }
         center.deliverNotification(&notification);
         // macOS keeps one it won't show (turned off for Magnetar) out of the delivered list.
-        let listed = center.deliveredNotifications().iter().any(|n| n.identifier().is_some_and(|i| i.to_string() == identifier));
+        let listed = delivered(center).iter().any(|n| n.identifier().is_some_and(|i| i.to_string() == identifier));
         if listed {
             tracing::info!("Notification shown");
         } else {
@@ -322,6 +373,52 @@ mod platform {
         let script = format!("display notification {} with title {}", quote(&notice.body), quote(&notice.title));
         if let Err(error) = crate::system::run_captured("/usr/bin/osascript", &["-e", &script]) {
             tracing::warn!("Notification not shown: {error}");
+        }
+    }
+
+    #[cfg(test)]
+    #[allow(deprecated)]
+    mod tests {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        use objc2::rc::Allocated;
+
+        use super::*;
+
+        static DELIVERED: AtomicUsize = AtomicUsize::new(0);
+
+        define_class!(
+            /// A center that keeps nothing for the app, as the system's does where notifications are refused.
+            #[unsafe(super(NSUserNotificationCenter))]
+            #[name = "MagnetarTestSilentCenter"]
+            struct SilentCenter;
+
+            impl SilentCenter {
+                /// The system's own `init` is unavailable for a center (it raises); skip it.
+                #[unsafe(method_id(init))]
+                fn init(this: Allocated<Self>) -> Retained<Self> {
+                    unsafe { msg_send![super(this.set_ivars(()), NSObject::class()), init] }
+                }
+
+                #[unsafe(method(deliveredNotifications))]
+                fn delivered_notifications(&self) -> *mut NSArray<NSUserNotification> {
+                    std::ptr::null_mut()
+                }
+
+                #[unsafe(method(deliverNotification:))]
+                fn deliver_notification(&self, _notification: &NSUserNotification) {
+                    DELIVERED.fetch_add(1, Ordering::SeqCst);
+                }
+            }
+        );
+
+        #[test]
+        fn a_center_that_lists_nothing_does_not_end_the_notice() {
+            let center: Retained<SilentCenter> = unsafe { msg_send![SilentCenter::alloc(), init] };
+            assert!(delivered(&center).is_empty());
+            let before = DELIVERED.load(Ordering::SeqCst);
+            deliver(&center, "cc.codefusion.magnetar.update", "Title", "Body", Some(("install", "Install".to_owned())));
+            assert_eq!(DELIVERED.load(Ordering::SeqCst), before + 1, "the notice is handed to the system once");
         }
     }
 }
@@ -485,6 +582,28 @@ mod tests {
             *seen.lock().unwrap(),
             [("a", Choice::Action("install")), ("a", Choice::Open), ("a", Choice::Open), ("b", Choice::Open)]
         );
+    }
+
+    #[test]
+    fn a_handler_that_panics_does_not_unwind_into_the_system() {
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let later = seen.clone();
+        HANDLERS.lock().unwrap().insert(notice_id("test-panics"), (vec![], Arc::new(|_| panic!("a bug in the handler"))));
+        HANDLERS
+            .lock()
+            .unwrap()
+            .insert(notice_id("test-after"), (vec![], Arc::new(move |choice| later.lock().unwrap().push(choice))));
+        // The system calls `chosen` from its own thread, where a panic ends the process.
+        chosen(&notice_id("test-panics"), None);
+        chosen(&notice_id("test-after"), None);
+        assert_eq!(*seen.lock().unwrap(), [Choice::Open]);
+    }
+
+    #[test]
+    fn guarded_work_gives_its_result_or_nothing_after_a_panic() {
+        assert_eq!(guarded("adding", || 1 + 1), Some(2));
+        assert_eq!(guarded("failing", || -> u8 { panic!("boom") }), None);
+        assert_eq!(guarded("failing with text", || -> u8 { panic!("{}", String::from("boom")) }), None);
     }
 
     #[test]
