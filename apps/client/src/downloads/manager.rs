@@ -26,6 +26,7 @@ use crate::protocol::{
     TransferStatusDto,
 };
 use crate::search::magnet::{build_magnet, extract_info_hash, magnet_name, normalize_info_hash};
+use crate::series::episode::parse_episode;
 use crate::series::episodes::EpisodeDownload;
 use crate::settings::{AppSettings, SettingsService};
 use crate::system::folders::normalize;
@@ -61,6 +62,8 @@ struct Item {
     episode: Option<i64>,
     /// The last episode it holds, when it is more than `episode` (a double episode, a pack).
     last_episode: Option<i64>,
+    /// The season its title names, if any.
+    season: Option<i64>,
     uploaded_bytes: u64,
     /// Indexes of the torrent's files to download; None is all of them.
     selected_files: Option<Vec<usize>>,
@@ -95,25 +98,42 @@ struct EpisodeFile {
 /// A series download collected under the lock, with the file to look for on disk once outside it.
 struct Unchecked {
     id: i64,
-    first: i64,
-    last: i64,
+    held: SeriesEpisodes,
     status: DownloadStatus,
     file: Option<(PathBuf, EpisodeFile)>,
 }
 
 impl Item {
-    /// The first and last episode a series download holds.
-    fn episodes(&self) -> Option<(i64, i64)> {
+    /// The episodes a series download holds.
+    fn series(&self) -> Option<SeriesEpisodes> {
         let first = self.episode?;
-        Some((first, self.last_episode.unwrap_or(first).max(first)))
+        Some(SeriesEpisodes {
+            task: self.series_task_id?,
+            season: self.season,
+            first,
+            last: self.last_episode.unwrap_or(first).max(first),
+        })
     }
 
     fn from_row(row: &Row<'_>) -> rusqlite::Result<Self> {
         let status: String = row.get("status")?;
         let selected: Option<String> = row.get("selected_files")?;
+        let name: String = row.get("name")?;
+        let episode: Option<i64> = row.get("episode")?;
+        let (mut season, mut last_episode): (Option<i64>, Option<i64>) = (row.get("season")?, row.get("last_episode")?);
+        // A download made before seasons and spans were kept (or by such a build) has neither: its title,
+        // the release the rule chose, says what the rule took it for.
+        if let Some(first) = episode
+            && season.is_none()
+            && last_episode.is_none()
+            && let Some(parsed) = parse_episode(&name).filter(|parsed| parsed.episode == first)
+        {
+            season = parsed.season;
+            last_episode = (parsed.through > first).then_some(parsed.through);
+        }
         Ok(Self {
             id: row.get("id")?,
-            name: row.get("name")?,
+            name,
             name_is_placeholder: row.get("name_is_placeholder")?,
             magnet_uri: row.get("magnet_uri")?,
             info_hash: row.get("info_hash")?,
@@ -128,8 +148,9 @@ impl Item {
             start_notification_sent: row.get("start_notification_sent")?,
             complete_notification_sent: row.get("complete_notification_sent")?,
             series_task_id: row.get("series_task_id")?,
-            episode: row.get("episode")?,
-            last_episode: row.get("last_episode")?,
+            episode,
+            last_episode,
+            season,
             uploaded_bytes: row.get::<_, i64>("uploaded_bytes")?.max(0) as u64,
             selected_files: selected.and_then(|json| serde_json::from_str(&json).ok()),
             file_count: None,
@@ -219,12 +240,21 @@ pub struct AddDownload {
     pub save_folder: Option<String>,
 }
 
-/// The episodes of a series rule a download is made for: `first` through `last`.
-#[derive(Clone, Copy, Debug)]
+/// The episodes of a series rule a download is made for: `first` through `last` of `season`, None when
+/// its title names no season.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SeriesEpisodes {
     pub task: i64,
+    pub season: Option<i64>,
     pub first: i64,
     pub last: i64,
+}
+
+impl SeriesEpisodes {
+    /// Whether these are episodes of `season` (any, when None). A title that names no season may be any.
+    pub fn of_season(&self, season: Option<i64>) -> bool {
+        season.is_none() || self.season.is_none_or(|own| Some(own) == season)
+    }
 }
 
 /// Where the download manager's torrent engine comes from.
@@ -627,13 +657,13 @@ impl DownloadManager {
         unfinished
     }
 
-    /// Series downloads that died for want of peers: (download id, first and last episode, info hash).
-    pub fn dead_episodes(&self, series_task_id: i64) -> Vec<(i64, i64, i64, String)> {
+    /// Downloads of the rule's `season` that died for want of peers: (download id, its episodes, info hash).
+    pub fn dead_episodes(&self, series_task_id: i64, season: Option<i64>) -> Vec<(i64, SeriesEpisodes, String)> {
         self.items()
             .values()
-            .filter(|i| i.series_task_id == Some(series_task_id) && i.status == DownloadStatus::Error)
-            .filter(|i| i.error.as_deref().is_some_and(|e| e.starts_with(NO_PEERS)))
-            .filter_map(|i| i.episodes().map(|(first, last)| (i.id, first, last, i.info_hash.clone())))
+            .filter(|i| i.status == DownloadStatus::Error && i.error.as_deref().is_some_and(|e| e.starts_with(NO_PEERS)))
+            .filter_map(|i| Some((i.id, i.series()?, i.info_hash.clone())))
+            .filter(|(_, held, _)| held.task == series_task_id && held.of_season(season))
             .collect()
     }
 
@@ -666,23 +696,21 @@ impl DownloadManager {
                 }
             }
             for item in items.values() {
-                let (Some(task), Some((first, last))) = (item.series_task_id.filter(|t| wanted(Some(*t))), item.episodes())
-                else {
-                    continue;
-                };
+                let Some(held) = item.series().filter(|held| wanted(Some(held.task))) else { continue };
                 let file = item
                     .episode_file
                     .clone()
                     .flatten()
                     .filter(|_| item.status.is_finished())
                     .map(|file| (PathBuf::from(&item.save_path), file));
-                unchecked.push((task, Unchecked { id: item.id, first, last, status: item.status, file }));
+                unchecked.push(Unchecked { id: item.id, held, status: item.status, file });
             }
         }
         let mut found: HashMap<i64, Vec<EpisodeDownload>> = HashMap::new();
-        for (task, Unchecked { id, first, last, status, file }) in unchecked {
+        for Unchecked { id, held, status, file } in unchecked {
             let on_disk = file.is_none_or(|(save_path, f)| length_inside(&save_path, &f.relative) == Some(f.size));
-            found.entry(task).or_default().push(EpisodeDownload { id, first, last, status, on_disk });
+            let SeriesEpisodes { task, season, first, last } = held;
+            found.entry(task).or_default().push(EpisodeDownload { id, season, first, last, status, on_disk });
         }
         found
     }
@@ -709,8 +737,8 @@ impl DownloadManager {
             .unwrap_or_else(|| hash.clone());
         let mut item = self.db.lock().query_row(
             "INSERT INTO downloads (name, name_is_placeholder, magnet_uri, info_hash, save_path, source, status, added_at,
-               series_task_id, episode, last_episode)
-             VALUES (?, ?, ?, ?, ?, ?, 'Queued', ?, ?, ?, ?) RETURNING *",
+               series_task_id, episode, last_episode, season)
+             VALUES (?, ?, ?, ?, ?, ?, 'Queued', ?, ?, ?, ?, ?) RETURNING *",
             params![
                 display_name,
                 display_name == hash,
@@ -721,7 +749,8 @@ impl DownloadManager {
                 now_iso(),
                 input.series.map(|s| s.task),
                 input.series.map(|s| s.first),
-                input.series.and_then(|s| (s.last > s.first).then_some(s.last))
+                input.series.and_then(|s| (s.last > s.first).then_some(s.last)),
+                input.series.and_then(|s| s.season)
             ],
             Item::from_row,
         )?;

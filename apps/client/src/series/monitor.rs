@@ -158,7 +158,7 @@ impl SeriesMonitor {
     /// Episodes whose release nobody seeded get another one: the dead release is never picked
     /// again, and its download (which has no files) makes way for the new one.
     async fn replace_dead(&self, task: &SeriesTask, searches: &mut Searches) -> ApiResult<()> {
-        let dead = self.downloads.dead_episodes(task.id);
+        let dead = self.downloads.dead_episodes(task.id, task.season);
         if dead.is_empty() {
             return Ok(());
         }
@@ -166,7 +166,7 @@ impl SeriesMonitor {
             self.store.reject(task.id, hash);
         }
         let rejected = self.store.rejected(task.id);
-        for (download, first, last, _) in dead {
+        for (download, SeriesEpisodes { first, last, .. }, _) in dead {
             // A dead pack or double episode may come back as several releases; it makes way once every
             // episode it held has one. Until then the next check tries again, and a release already
             // queued is found by its torrent rather than added twice.
@@ -210,12 +210,13 @@ impl SeriesMonitor {
     /// Downloads `result` as `episode`, and returns the last episode it holds: more than `episode`
     /// for a double episode or a pack, which then need no download of their own.
     async fn queue(&self, task: &SeriesTask, episode: i64, result: TorrentSearchResult) -> ApiResult<i64> {
-        let last = parse_episode(&result.title).filter(|p| p.episode == episode).map_or(episode, |p| p.through);
+        let parsed = parse_episode(&result.title).filter(|p| p.episode == episode);
+        let (season, last) = parsed.map_or((task.season, episode), |p| (p.season.or(task.season), p.through));
         start_from_result(
             &self.search,
             &self.downloads,
             Arc::new(Mutex::new(result)),
-            Some(SeriesEpisodes { task: task.id, first: episode, last }),
+            Some(SeriesEpisodes { task: task.id, season, first: episode, last }),
             task.download_folder.clone(),
             &self.cancel,
         )

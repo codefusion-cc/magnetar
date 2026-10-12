@@ -24,6 +24,8 @@ const MAX_RANGE: i64 = 20_000;
 #[derive(Clone, Debug)]
 pub struct EpisodeDownload {
     pub id: i64,
+    /// The season its title names, if any.
+    pub season: Option<i64>,
     pub first: i64,
     /// The last episode it holds; `first` unless it is a double episode or a pack.
     pub last: i64,
@@ -33,9 +35,13 @@ pub struct EpisodeDownload {
 }
 
 /// Every episode of the rule, by number: what TVmaze lists for its season (or the whole show,
-/// counted through, when it has no season), every number its downloads hold, and every number the
-/// rule has covered up to the episode it waits for.
+/// counted through, when it has no season), every number its downloads of that season hold, and every
+/// number the rule has covered up to the episode it waits for. An episode is its season and number: a
+/// download of another season is not one of the rule's, and without a season, an episode had or under
+/// way through a download that names its season is described as that season's episode.
 pub fn episodes(task: &SeriesTask, show: &[ShowEpisode], downloads: &[EpisodeDownload]) -> Vec<SeriesEpisodeDto> {
+    let downloads: Vec<&EpisodeDownload> =
+        downloads.iter().filter(|d| task.season.is_none() || d.season.is_none_or(|s| Some(s) == task.season)).collect();
     let mut listed: BTreeMap<i64, (Option<String>, Option<String>)> = BTreeMap::new();
     let mut place = |number: i64, episode: &ShowEpisode| {
         listed.entry(number).or_insert_with(|| (episode.name.clone(), episode.airstamp.clone()));
@@ -53,7 +59,7 @@ pub fn episodes(task: &SeriesTask, show: &[ShowEpisode], downloads: &[EpisodeDow
     // Of several downloads holding an episode (one replaced a dead release, or brought better
     // quality), the newest of its kind: (finished and on disk, under way).
     let mut held: BTreeMap<i64, (Option<i64>, Option<i64>)> = BTreeMap::new();
-    for download in downloads {
+    for download in &downloads {
         for number in download.first..=download.last {
             listed.entry(number).or_default();
             let (have, under_way) = held.entry(number).or_default();
@@ -67,8 +73,18 @@ pub fn episodes(task: &SeriesTask, show: &[ShowEpisode], downloads: &[EpisodeDow
     listed
         .into_iter()
         .filter(|(number, _)| *number >= 1)
-        .map(|(number, (name, airstamp))| {
+        .map(|(number, (mut name, mut airstamp))| {
             let state = state(task, number, held.get(&number).copied().unwrap_or_default());
+            let through = match state {
+                EpisodeState::Have { download_id } | EpisodeState::Downloading { download_id } => Some(download_id),
+                _ => None,
+            };
+            if task.season.is_none()
+                && let Some(season) = through.and_then(|id| downloads.iter().find(|d| d.id == id)).and_then(|d| d.season)
+            {
+                let own = show.iter().find(|e| (e.season, e.number) == (season, number));
+                (name, airstamp) = own.map(|e| (e.name.clone(), e.airstamp.clone())).unwrap_or_default();
+            }
             SeriesEpisodeDto { number, name, airstamp, state }
         })
         .collect()
@@ -147,7 +163,7 @@ mod tests {
     }
 
     fn download(id: i64, first: i64, last: i64, status: DownloadStatus, on_disk: bool) -> EpisodeDownload {
-        EpisodeDownload { id, first, last, status, on_disk }
+        EpisodeDownload { id, season: Some(1), first, last, status, on_disk }
     }
 
     fn states(list: &[SeriesEpisodeDto]) -> Vec<(i64, EpisodeState)> {

@@ -401,3 +401,98 @@ async fn an_episode_whose_file_is_removed_from_disk_is_missed() {
     app.series.changed();
     assert_eq!(listed(&app).episodes.episodes[0].state, EpisodeState::Missed);
 }
+
+fn airstamps(episodes: &SeriesEpisodesDto) -> Vec<Option<&str>> {
+    episodes.episodes.iter().map(|e| e.airstamp.as_deref()).collect()
+}
+
+#[tokio::test]
+async fn a_download_of_one_season_is_not_an_episode_of_another() {
+    let (tvmaze, api) = Tvmaze::start().await;
+    tvmaze.answer(StatusCode::OK, show(&[(1, Some(1), None), (2, Some(1), None)]));
+    let dir = tempfile::tempdir().unwrap();
+    let app = app_in(dir.path(), &["Show.S01E01.1080p.WEB"], &api);
+    let task = app.actions.create_series(rule(Some(1))).await.unwrap();
+    tvmaze.asked_at_least(1).await;
+    let checked = app.actions.check_series_now(task.id).await.unwrap();
+    let download = app.downloads.list()[0].id;
+    assert_eq!(states(&checked.episodes)[0], (1, EpisodeState::Downloading { download_id: download }));
+
+    // The rule moves on to season 2, from its first episode: season 1's download is not season 2's.
+    let patch: SeriesTaskPatch = serde_json::from_value(json!({ "season": 2 })).unwrap();
+    app.actions.update_series(task.id, patch).unwrap();
+    app.db.lock().execute("UPDATE series_tasks SET last_downloaded_episode = 0", []).unwrap();
+    assert_eq!(states(&app.actions.get_series(task.id).unwrap().episodes), [(1, EpisodeState::Expected)]);
+}
+
+#[tokio::test]
+async fn without_a_season_a_download_that_names_its_season_has_that_episodes_air_time() {
+    let (tvmaze, api) = Tvmaze::start().await;
+    tvmaze.answer(
+        StatusCode::OK,
+        show(&[(1, Some(1), Some("2026-01-01T15:00:00Z")), (1, Some(2), None), (2, Some(1), Some("2026-06-01T15:00:00Z"))]),
+    );
+    let dir = tempfile::tempdir().unwrap();
+    let app = app_in(dir.path(), &["Show.S02E01.1080p.WEB"], &api);
+    let task = app.actions.create_series(rule(None)).await.unwrap();
+    tvmaze.asked_at_least(1).await;
+    let checked = app.actions.check_series_now(task.id).await.unwrap();
+    let download = app.downloads.list()[0].id;
+    assert_eq!(states(&checked.episodes)[0], (1, EpisodeState::Downloading { download_id: download }));
+    assert_eq!(airstamps(&checked.episodes)[0], Some("2026-06-01T15:00:00.000Z"), "season 2's first, not season 1's");
+}
+
+#[tokio::test]
+async fn a_double_episode_downloaded_before_episodes_were_counted_holds_both() {
+    let (tvmaze, api) = Tvmaze::start().await;
+    tvmaze.answer(StatusCode::OK, show(&[(1, Some(1), None), (1, Some(2), None), (1, Some(3), None)]));
+    let dir = tempfile::tempdir().unwrap();
+    let app = app_in(dir.path(), &[], &api);
+    let task = app.actions.create_series(rule(Some(1))).await.unwrap();
+    tvmaze.asked_at_least(1).await;
+    // As a library from before stored it: the first episode only, no span, no season.
+    app.db
+        .lock()
+        .execute(
+            "INSERT INTO downloads (name, magnet_uri, info_hash, save_path, source, status, added_at, series_task_id, episode)
+             VALUES ('Show.S01E01E02.1080p.WEB', 'magnet:?xt=urn:btih:aa', 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', '/nowhere',
+               'Nyaa', 'Paused', '2026-10-02T16:00:00.000Z', ?, 1)",
+            [task.id],
+        )
+        .unwrap();
+    app.db.lock().execute("UPDATE series_tasks SET last_downloaded_episode = 2, enabled = 0", []).unwrap();
+    drop(app);
+    let app = app_in(dir.path(), &[], &api);
+    app.start();
+    let id = app.downloads.list()[0].id;
+    assert_eq!(
+        states(&listed(&app).episodes),
+        [
+            (1, EpisodeState::Downloading { download_id: id }),
+            (2, EpisodeState::Downloading { download_id: id }),
+            (3, EpisodeState::Expected)
+        ]
+    );
+}
+
+#[tokio::test]
+async fn a_dead_download_of_a_season_the_rule_left_is_not_replaced_by_the_new_seasons_episode() {
+    let (_tvmaze, api) = Tvmaze::start().await;
+    let dir = tempfile::tempdir().unwrap();
+    let app = app_in(dir.path(), &["Show.S01E01.1080p.WEB", "Show.S02E01.1080p.WEB"], &api);
+    let task = app.actions.create_series(rule(Some(1))).await.unwrap();
+    app.actions.check_series_now(task.id).await.unwrap();
+    let old = app.downloads.list()[0].id;
+    app.db.lock().execute("UPDATE downloads SET status = 'Error', error = 'No peers found — dead'", []).unwrap();
+    drop(app);
+    let app = app_in(dir.path(), &["Show.S01E01.1080p.WEB", "Show.S02E01.1080p.WEB"], &api);
+    app.start();
+    let patch: SeriesTaskPatch = serde_json::from_value(json!({ "season": 2 })).unwrap();
+    app.actions.update_series(task.id, patch).unwrap();
+    app.db.lock().execute("UPDATE series_tasks SET last_downloaded_episode = 0", []).unwrap();
+    app.actions.check_series_now(task.id).await.unwrap();
+    let mut names: Vec<(i64, String)> = app.downloads.list().into_iter().map(|d| (d.id, d.name)).collect();
+    names.sort();
+    assert_eq!(names[0], (old, "Show.S01E01.1080p.WEB".to_owned()), "season 1's failed download stays for the user to see");
+    assert_eq!(names[1].1, "Show.S02E01.1080p.WEB");
+}

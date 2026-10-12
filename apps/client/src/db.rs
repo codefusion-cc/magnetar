@@ -116,11 +116,13 @@ ALTER TABLE browser_keys ADD COLUMN pair_of TEXT;
 ",
     // Every episode of a rule's show with its air time, kept with the show. Shows are looked up again
     // at once to fill it, rather than when their details next fall due. A download may hold more than
-    // its first episode (a double episode, a pack): last_episode, null when it holds one.
+    // its first episode (a double episode, a pack): last_episode, null when it holds one. season is the
+    // one its title names. Older rows have neither, and are read from their title (`Item::from_row`).
     r"
 ALTER TABLE series_tasks ADD COLUMN show_episodes TEXT;
 UPDATE series_tasks SET show_checked_at = NULL;
 ALTER TABLE downloads ADD COLUMN last_episode INTEGER;
+ALTER TABLE downloads ADD COLUMN season INTEGER;
 ",
 ];
 
@@ -435,7 +437,12 @@ mod tests {
         let version: i64 = conn.pragma_query_value(None, "user_version", |r| r.get(0)).unwrap();
         assert_eq!(version, MIGRATIONS.len() as i64);
         for (table, old) in tables.iter().zip(old) {
-            assert_eq!(rows(&conn, table, &["show_checked_at", "show_episodes", "last_episode"]), old, "{table}");
+            let added: &[&str] = match *table {
+                "series_tasks" => &["show_checked_at", "show_episodes"],
+                "downloads" => &["last_episode", "season"],
+                _ => &[],
+            };
+            assert_eq!(rows(&conn, table, added), old, "{table}");
         }
         let added: Vec<(Option<String>, Option<String>)> = conn
             .prepare("SELECT show_episodes, show_checked_at FROM series_tasks")
