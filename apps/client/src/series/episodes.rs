@@ -73,6 +73,7 @@ pub fn episodes(task: &SeriesTask, show: &[ShowEpisode], downloads: &[EpisodeDow
             }
         }
     }
+    let seasons: std::collections::HashMap<i64, Option<i64>> = downloads.iter().map(|d| (d.id, d.season)).collect();
     listed
         .into_iter()
         .filter(|(number, _)| *number >= 1)
@@ -83,7 +84,7 @@ pub fn episodes(task: &SeriesTask, show: &[ShowEpisode], downloads: &[EpisodeDow
                 _ => None,
             };
             if task.season.is_none()
-                && let Some(season) = through.and_then(|id| downloads.iter().find(|d| d.id == id)).and_then(|d| d.season)
+                && let Some(season) = through.and_then(|id| seasons.get(&id).copied().flatten())
             {
                 let own = show.iter().find(|e| (e.season, e.number) == (season, number));
                 (name, airstamp) = own.map(|e| (e.name.clone(), e.airstamp.clone())).unwrap_or_default();

@@ -291,10 +291,12 @@ mod tests {
             {"season":1,"number":3,"name":"Three","type":"insignificant_special"},
             {"season":1,"number":3,"name":"","airstamp":null},
             {"season":1,"number":4,"name":"Four","airstamp":"next Friday"},
-            {"season":1,"number":0,"name":"Zero"}
+            {"season":1,"number":0,"name":"Zero"},
+            {"season":1,"number":5,"name":"Late","airstamp":"2026-10-31T22:30:00-04:00"}
         ]"#,
         );
-        assert_eq!(list.iter().map(place).collect::<Vec<_>>(), [(1, 1), (1, 2), (1, 3), (1, 4)]);
+        assert_eq!(list[4].airstamp.as_deref(), Some("2026-11-01T02:30:00.000Z"), "a night in New York is the next day in UTC");
+        assert_eq!(list.iter().map(place).collect::<Vec<_>>(), [(1, 1), (1, 2), (1, 3), (1, 4), (1, 5)]);
         assert_eq!(list[0].airstamp.as_deref(), Some("2026-10-02T15:00:00.000Z"));
         assert_eq!(list[1].airstamp.as_deref(), Some("2026-10-09T15:00:00.000Z"), "the provider's offset is applied");
         assert_eq!(list[1].name.as_deref(), Some("Two"));
