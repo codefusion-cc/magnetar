@@ -618,13 +618,16 @@ impl DownloadManager {
         unfinished
     }
 
-    /// Series downloads that died for want of peers: (download id, episode, info hash).
-    pub fn dead_episodes(&self, series_task_id: i64) -> Vec<(i64, i64, String)> {
+    /// Series downloads that died for want of peers: (download id, first and last episode, info hash).
+    pub fn dead_episodes(&self, series_task_id: i64) -> Vec<(i64, i64, i64, String)> {
         self.items()
             .values()
             .filter(|i| i.series_task_id == Some(series_task_id) && i.status == DownloadStatus::Error)
             .filter(|i| i.error.as_deref().is_some_and(|e| e.starts_with(NO_PEERS)))
-            .filter_map(|i| Some((i.id, i.episode?, i.info_hash.clone())))
+            .filter_map(|i| {
+                let first = i.episode?;
+                Some((i.id, first, i.last_episode.unwrap_or(first).max(first), i.info_hash.clone()))
+            })
             .collect()
     }
 

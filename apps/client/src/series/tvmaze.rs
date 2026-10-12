@@ -20,7 +20,7 @@ const MAX_SHOW_BYTES: u64 = 32 * 1024 * 1024;
 /// A medium poster is ~30–60 KB; anything much bigger isn't one.
 const MAX_POSTER_BYTES: u64 = 1024 * 1024;
 /// Episode titles are a few words; a longer one is cut here.
-const MAX_NAME_CHARS: usize = 120;
+pub const MAX_NAME_CHARS: usize = 120;
 
 #[derive(Deserialize)]
 struct Show {

@@ -13,8 +13,9 @@ pub const PAGE_MAX: usize = 200;
 /// Episodes a rule carries in `series.list` and `series.changed`: a season, even a long one.
 pub const WINDOW: usize = 100;
 /// Episodes `series.list` and `series.changed` carry for all rules together, so that a library of
-/// many rules stays far below what the relay forwards in one message (1 MiB).
-pub const LIST_BUDGET: usize = 2_000;
+/// many rules stays far below what the relay forwards in one message (1 MiB), even with every name
+/// as long as TVmaze's may be.
+pub const LIST_BUDGET: usize = 1_000;
 /// The most episode numbers a rule's own range adds: a rule that has counted far past what TVmaze
 /// lists still yields a list of bounded length.
 const MAX_RANGE: i64 = 20_000;
@@ -289,7 +290,19 @@ mod tests {
 
     #[test]
     fn many_rules_share_the_budget() {
-        assert_eq!((window_size(0), window_size(1), window_size(20), window_size(21)), (WINDOW, WINDOW, WINDOW, 95));
+        assert_eq!((window_size(0), window_size(1), window_size(10), window_size(11)), (WINDOW, WINDOW, WINDOW, 90));
         assert_eq!((window_size(LIST_BUDGET), window_size(LIST_BUDGET * 2)), (1, 1));
+    }
+
+    #[test]
+    fn a_list_of_the_longest_names_stays_well_inside_one_relay_message() {
+        let longest = SeriesEpisodeDto {
+            number: MAX_RANGE,
+            name: Some("\u{1F3AC}".repeat(crate::series::tvmaze::MAX_NAME_CHARS)),
+            airstamp: Some("2026-10-02T15:00:00.000Z".into()),
+            state: Downloading { download_id: i64::MAX },
+        };
+        let bytes = serde_json::to_vec(&vec![longest; LIST_BUDGET]).unwrap().len();
+        assert!(bytes < crate::protocol::relay::MAX_RELAY_FRAME * 3 / 4, "{bytes} bytes");
     }
 }

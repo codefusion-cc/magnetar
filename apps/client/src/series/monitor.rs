@@ -162,16 +162,24 @@ impl SeriesMonitor {
         if dead.is_empty() {
             return Ok(());
         }
-        for (_, _, hash) in &dead {
+        for (.., hash) in &dead {
             self.store.reject(task.id, hash);
         }
         let rejected = self.store.rejected(task.id);
-        for (download, episode, _) in dead {
-            let Some(result) = self.find_episode(task, episode, searches, &rejected).await? else { continue };
-            let title = result.title.clone();
-            self.queue(task, episode, result).await?;
-            self.downloads.delete(download, false).await?;
-            tracing::info!("Series '{}': episode {episode} had no seeders; trying {title}", task.name);
+        for (download, first, last, _) in dead {
+            // A dead pack or double episode may come back as several releases; it makes way once every
+            // episode it held has one. Until then the next check tries again, and a release already
+            // queued is found by its torrent rather than added twice.
+            let mut episode = first;
+            while episode <= last {
+                let Some(result) = self.find_episode(task, episode, searches, &rejected).await? else { break };
+                let title = result.title.clone();
+                tracing::info!("Series '{}': episode {episode} had no seeders; trying {title}", task.name);
+                episode = self.queue(task, episode, result).await? + 1;
+            }
+            if episode > last {
+                self.downloads.delete(download, false).await?;
+            }
         }
         Ok(())
     }
