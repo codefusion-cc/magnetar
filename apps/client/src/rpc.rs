@@ -579,8 +579,8 @@ async fn dispatch(
             ok(app.downloads.get(download)?)
         }
         "series.episodes" => {
-            let SeriesEpisodesQuery { id, offset, limit } = parse(params)?;
-            ok(a.series_episodes(id, offset, limit)?)
+            let SeriesEpisodesQuery { id, after, limit } = parse(params)?;
+            ok(a.series_episodes(id, after, limit)?)
         }
         "series.poster" => {
             let poster = app.monitor.poster(parse::<IdParams>(params)?.id)?;

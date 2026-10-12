@@ -265,9 +265,9 @@ impl Actions {
         self.series.dtos()
     }
 
-    /// A page of a rule's episodes, by number.
-    pub fn series_episodes(&self, id: i64, offset: usize, limit: Option<usize>) -> ApiResult<SeriesEpisodesDto> {
-        self.series.episodes(id, offset, limit.unwrap_or(episodes::WINDOW))
+    /// A page of a rule's episodes: those numbered after `after`, from the first when None.
+    pub fn series_episodes(&self, id: i64, after: Option<i64>, limit: Option<usize>) -> ApiResult<SeriesEpisodesDto> {
+        self.series.episodes(id, after, limit.unwrap_or(episodes::WINDOW))
     }
 
     pub fn get_series(&self, id: i64) -> ApiResult<SeriesTaskDto> {

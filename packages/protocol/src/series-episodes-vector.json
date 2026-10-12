@@ -7,5 +7,6 @@
     { "number": 4, "name": "Ćma i ogień", "airstamp": null, "state": "expected" },
     { "number": 5, "name": null, "airstamp": null, "state": "missed" }
   ],
+  "version": "3f9a0c71d2e4b856",
   "airDatesCheckedAt": "2026-10-12T08:30:00.000Z"
 }

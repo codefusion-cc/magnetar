@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, test } from 'vitest'
 import { EPISODES_PAGE_MAX, MAX_CHECK_INTERVAL_MINUTES, MIN_WATCH_INTERVAL_MINUTES, SeriesEpisodesDto, SeriesTaskInput, SeriesTaskPatch, WatchInput } from './model.ts'
+import { RPC_PARAMS } from './rpc.ts'
 import vector from './series-episodes-vector.json'
 
 const accepts = (schema: { safeParse: (v: unknown) => { success: boolean } }, value: unknown) => schema.safeParse(value).success
@@ -36,7 +37,7 @@ describe('check intervals', () => {
 describe('series episodes', () => {
   const rust = (path: string) => readFileSync(new URL(`../../../apps/client/src/${path}`, import.meta.url), 'utf8')
   const episode = (fields: Record<string, unknown>) => ({ number: 1, name: null, airstamp: null, state: 'expected', ...fields })
-  const page = (episodes: unknown[]) => ({ total: episodes.length, offset: 0, episodes, airDatesCheckedAt: null })
+  const page = (episodes: unknown[]) => ({ total: episodes.length, offset: 0, episodes, version: '3f9a0c71d2e4b856', airDatesCheckedAt: null })
 
   test('what the app writes is what the dashboard reads', () => {
     // apps/client/src/protocol/model.rs writes this file's list and checks it is the same.
@@ -52,6 +53,21 @@ describe('series episodes', () => {
     }
     for (const state of ['expected', 'missed']) expect(accepts(SeriesEpisodesDto, page([episode({ state, downloadId: 3 })])), state).toBe(false)
     expect(accepts(SeriesEpisodesDto, page([episode({ state: 'aired' })]))).toBe(false)
+  })
+
+  test('every slice says which list of episodes it is from', () => {
+    expect(accepts(SeriesEpisodesDto, page([]))).toBe(true)
+    const { version: _, ...unversioned } = page([])
+    expect(accepts(SeriesEpisodesDto, unversioned)).toBe(false)
+    expect(accepts(SeriesEpisodesDto, { ...page([]), version: '' })).toBe(false)
+  })
+
+  test('the next page is asked for after the last number, not from a position', () => {
+    const params = RPC_PARAMS['series.episodes']
+    expect(params.parse({ id: 1, after: 200, limit: EPISODES_PAGE_MAX })).toEqual({ id: 1, after: 200, limit: EPISODES_PAGE_MAX })
+    expect(accepts(params, { id: 1 })).toBe(true)
+    for (const query of [{ id: 1, offset: 200 }, { id: 1, after: 1.5 }, { id: 1, limit: 0 }, { id: 1, limit: EPISODES_PAGE_MAX + 1 }])
+      expect(accepts(params, query), JSON.stringify(query)).toBe(false)
   })
 
   test('air times are UTC instants', () => {

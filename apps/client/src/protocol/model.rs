@@ -278,13 +278,12 @@ pub enum EpisodeState {
 }
 
 /// Which of a rule's episodes `series.episodes` returns: `limit` (1 to `series::episodes::PAGE_MAX`,
-/// `WINDOW` if left out) from `offset`.
+/// `WINDOW` if left out) of those numbered after `after`, from the first if left out.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct SeriesEpisodesQuery {
     pub id: i64,
-    #[serde(default)]
-    pub offset: usize,
+    pub after: Option<i64>,
     pub limit: Option<usize>,
 }
 
@@ -295,6 +294,8 @@ pub struct SeriesEpisodesDto {
     pub total: usize,
     pub offset: usize,
     pub episodes: Vec<SeriesEpisodeDto>,
+    /// The same for every slice of one list of the rule's episodes, and different once any episode changed.
+    pub version: String,
     /// When TVmaze last answered for the show; None if never.
     pub air_dates_checked_at: Option<String>,
 }
@@ -1039,6 +1040,7 @@ mod tests {
                 episode(4, Some("Ćma i ogień"), None, EpisodeState::Expected),
                 episode(5, None, None, EpisodeState::Missed),
             ],
+            version: "3f9a0c71d2e4b856".into(),
             air_dates_checked_at: Some("2026-10-12T08:30:00.000Z".into()),
         };
         assert_eq!(serde_json::to_value(written).unwrap(), vector);

@@ -213,11 +213,15 @@ builds (debug builds read `apps/web/dist` from disk). `src/app.rs` wires the ser
   Show details and posters come from TVmaze (`series/tvmaze.rs`), refreshed twice a day, posters served to browsers
   by `series.poster`; the show's episode list comes in the same answer and is kept with the task
   (`series_tasks.show_episodes`). A failed or malformed answer keeps what TVmaze said before, and the show rests 30
-  minutes. `series/episodes.rs` gives each task's episodes a state from that list, the task and its downloads: had (a
-  finished download whose largest chosen file is whole on disk), downloading (under way, paused or failed), expected
-  (the task fetches it once out) or missed. A release naming several episodes (`S01E01E02`, a pack) holds them all
-  (`downloads.last_episode`). Every task carries a window of its episodes, at most 100 and a shared budget for all tasks
-  together so `series.changed` stays far below a relay frame; `series.episodes` pages through the rest.
+  minutes; an answer without the episode list is a failed one. `series/episodes.rs` gives each task's episodes a
+  state from that list, the task and its downloads: had (a finished download whose own file for that episode is whole
+  on disk; without its .torrent, the file named as the download), downloading (under way, paused or failed), expected
+  (the task fetches it once out) or missed. An episode is its season and number: a download records the season its
+  title names (`downloads.season`) and every episode it holds (`downloads.last_episode`; `S01E01E02`, `S01E01-E12`,
+  not `S01E01E03`), so a task moved to another season doesn't count the old season's downloads; rows from before have
+  both read from their title. Every task carries a window of its episodes, at most 100, all windows shrinking alike
+  until the whole list fits one relay message (`LIST_BYTES`); `series.episodes` pages through the rest by number
+  (`after` the last one seen), and each slice's `version` changes whenever any of the task's episodes does.
   `series.changed` is sent only when it differs from the last one: on a task's change, a download's
   (`SeriesStore::follow_downloads`), and once a round, which notices files removed from disk.
   A watch reports (or downloads) the first release its rules allow, then rests.

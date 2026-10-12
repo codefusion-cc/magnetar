@@ -139,12 +139,15 @@ async fn rest_routes_validate_and_report_errors() {
     assert_eq!(partial.status(), 400);
     // A rule's episodes, in pages.
     let episodes = |query: &str| http.get(format!("{base}/api/series/{id}/episodes{query}")).send();
-    let page: Value = episodes("?offset=0&limit=5").await.unwrap().json().await.unwrap();
+    let page: Value = episodes("?limit=5").await.unwrap().json().await.unwrap();
     assert_eq!(
         (&page["total"], &page["episodes"][0]["number"], &page["episodes"][0]["state"]),
         (&json!(1), &json!(1), &json!("expected"))
     );
-    for query in ["?limit=0", "?limit=201", "?limit=many", "?offset=-1"] {
+    assert!(page["version"].as_str().is_some_and(|v| !v.is_empty()));
+    let next: Value = episodes("?after=1&limit=5").await.unwrap().json().await.unwrap();
+    assert_eq!((&next["episodes"], &next["offset"], &next["version"]), (&json!([]), &json!(1), &page["version"]));
+    for query in ["?limit=0", "?limit=201", "?limit=many", "?after=1.5", "?after=one"] {
         assert_eq!(episodes(query).await.unwrap().status(), 400, "{query}");
     }
     assert_eq!(http.get(format!("{base}/api/series/{}/episodes", id + 100)).send().await.unwrap().status(), 404);
@@ -365,17 +368,21 @@ mod dashboard_socket {
         let task = app.series.create(&input).unwrap();
         let mut socket = open(&base).await;
         let page = call(&mut socket, 1, "series.episodes", json!({ "id": task.id })).await.unwrap();
+        let version = page["result"]["version"].clone();
         assert_eq!(
             page["result"],
             json!({
-                "total": 1, "offset": 0, "airDatesCheckedAt": null,
+                "total": 1, "offset": 0, "airDatesCheckedAt": null, "version": version,
                 "episodes": [{ "number": 3, "name": null, "airstamp": null, "state": "expected" }],
             })
         );
+        let after = call(&mut socket, 5, "series.episodes", json!({ "id": task.id, "after": 2 })).await.unwrap();
+        assert_eq!(after["result"], page["result"], "numbered after 2: from 3");
         for (id, params) in [
             (2, json!({ "id": task.id, "limit": 201 })),
             (3, json!({ "id": task.id, "page": 2 })),
-            (4, json!({ "id": task.id, "offset": -1 })),
+            (4, json!({ "id": task.id, "offset": 0 })),
+            (6, json!({ "id": task.id, "after": "2" })),
         ] {
             let refused = call(&mut socket, id, "series.episodes", params.clone()).await.unwrap();
             assert_eq!(refused["error"]["code"], "bad_request", "{params}");

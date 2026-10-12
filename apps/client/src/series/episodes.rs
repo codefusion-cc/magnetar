@@ -3,6 +3,9 @@
 //! Nothing here depends on the clock: whether an expected episode has aired yet is its air time's to say.
 
 use std::collections::BTreeMap;
+use std::ops::Range;
+
+use sha2::{Digest, Sha256};
 
 use super::store::SeriesTask;
 use super::tvmaze::ShowEpisode;
@@ -12,10 +15,10 @@ use crate::protocol::{DownloadStatus, EpisodeState, SeriesEpisodeDto, SeriesEpis
 pub const PAGE_MAX: usize = 200;
 /// Episodes a rule carries in `series.list` and `series.changed`: a season, even a long one.
 pub const WINDOW: usize = 100;
-/// Episodes `series.list` and `series.changed` carry for all rules together, so that a library of
-/// many rules stays far below what the relay forwards in one message (1 MiB), even with every name
-/// as long as TVmaze's may be.
-pub const LIST_BUDGET: usize = 1_000;
+/// The most bytes `series.list` and `series.changed` take, rules and episodes together: what the relay
+/// forwards in one message (`MAX_RELAY_FRAME`), less room for the message around the list. The rules'
+/// windows shrink until it fits; what they leave out is paged.
+pub const LIST_BYTES: usize = crate::protocol::relay::MAX_RELAY_FRAME - 4 * 1024;
 /// The most episode numbers a rule's own range adds: a rule that has counted far past what TVmaze
 /// lists still yields a list of bounded length.
 const MAX_RANGE: i64 = 20_000;
@@ -101,26 +104,91 @@ fn state(task: &SeriesTask, number: i64, (have, under_way): (Option<i64>, Option
     if ahead { EpisodeState::Expected } else { EpisodeState::Missed }
 }
 
-/// `limit` episodes from `offset`.
-pub fn page(all: Vec<SeriesEpisodeDto>, offset: usize, limit: usize, checked_at: Option<String>) -> SeriesEpisodesDto {
-    let total = all.len();
-    let episodes = all.into_iter().skip(offset).take(limit.min(PAGE_MAX)).collect();
-    SeriesEpisodesDto { total, offset, episodes, air_dates_checked_at: checked_at }
+/// A rule's every episode, and the version that tells one list of them from another.
+pub struct EpisodeList {
+    all: Vec<SeriesEpisodeDto>,
+    version: String,
+    checked_at: Option<String>,
 }
 
-/// At most `size` episodes around where the rule stands: from a few before the first episode still
-/// to come (or under way), so the season so far and what comes next are both in it. The last ones
-/// when nothing is to come.
-pub fn window(all: Vec<SeriesEpisodeDto>, size: usize, checked_at: Option<String>) -> SeriesEpisodesDto {
-    let to_come = all.iter().position(|e| matches!(e.state, EpisodeState::Expected | EpisodeState::Downloading { .. }));
-    let anchor = to_come.unwrap_or(all.len());
-    let offset = anchor.saturating_sub(size / 4).min(all.len().saturating_sub(size));
-    page(all, offset, size, checked_at)
+impl EpisodeList {
+    /// `all` in order of number; `checked_at` is when TVmaze last answered for the show.
+    pub fn new(all: Vec<SeriesEpisodeDto>, checked_at: Option<String>) -> Self {
+        let mut hash = Sha256::new();
+        // Writing JSON into a hash fails only if serializing does, which a list of these never does.
+        let _ = serde_json::to_writer(&mut hash, &all);
+        let version = hash.finalize()[..8].iter().map(|b| format!("{b:02x}")).collect();
+        Self { all, version, checked_at }
+    }
+
+    fn slice(&self, range: Range<usize>) -> SeriesEpisodesDto {
+        SeriesEpisodesDto {
+            total: self.all.len(),
+            offset: range.start,
+            episodes: self.all[range].to_vec(),
+            version: self.version.clone(),
+            air_dates_checked_at: self.checked_at.clone(),
+        }
+    }
+
+    /// Up to `limit` (at most `PAGE_MAX`) episodes numbered after `after`, from the first when None. By
+    /// number, not position: episodes listed or dropped meanwhile shift nothing, so paging on from a
+    /// page's last number neither skips nor repeats one; `version` says when what came before changed.
+    pub fn page(&self, after: Option<i64>, limit: usize) -> SeriesEpisodesDto {
+        let start = after.map_or(0, |after| self.all.partition_point(|e| e.number <= after));
+        self.slice(start..(start + limit.min(PAGE_MAX)).min(self.all.len()))
+    }
+
+    /// Which of the episodes a window of `size` holds: from a few before the first one still to come (or
+    /// under way), so the season so far and what comes next are both in it; the last ones when nothing is
+    /// to come. A larger window holds every episode a smaller one does.
+    fn window_range(&self, size: usize) -> Range<usize> {
+        let to_come = self.all.iter().position(|e| matches!(e.state, EpisodeState::Expected | EpisodeState::Downloading { .. }));
+        let anchor = to_come.unwrap_or(self.all.len());
+        let start = anchor.saturating_sub(size / 4).min(self.all.len().saturating_sub(size));
+        start..(start + size).min(self.all.len())
+    }
+
+    /// At most `size` episodes around where the rule stands.
+    pub fn window(&self, size: usize) -> SeriesEpisodesDto {
+        self.slice(self.window_range(size))
+    }
 }
 
-/// The episodes each of `rules` rules carries in a list: `WINDOW`, fewer when many share `LIST_BUDGET`.
-pub fn window_size(rules: usize) -> usize {
-    (LIST_BUDGET / rules.max(1)).clamp(1, WINDOW)
+/// The largest window, up to `WINDOW`, that every rule can carry with all of them in at most `budget`
+/// bytes of JSON: `lists` are each rule's episodes with the bytes the rule takes without them. 0 when
+/// even the rules alone take more.
+pub fn fit(lists: &[(usize, &EpisodeList)], budget: usize) -> usize {
+    // What each rule's widest window costs, episode by episode (each with a comma), added up: every
+    // narrower window lies inside it, so its cost is a difference of two of these sums.
+    let costs: Vec<(Range<usize>, Vec<usize>)> = lists
+        .iter()
+        .map(|(_, list)| {
+            let widest = list.window_range(WINDOW);
+            let mut sums = vec![0];
+            for episode in &list.all[widest.clone()] {
+                sums.push(sums.last().unwrap() + serde_json::to_vec(episode).map_or(usize::MAX / 2, |json| json.len() + 1));
+            }
+            (widest, sums)
+        })
+        .collect();
+    let rules: usize = lists.iter().map(|(bytes, _)| bytes + 1).sum::<usize>() + 2;
+    let bytes = |size: usize| -> usize {
+        let episodes = lists.iter().zip(&costs).map(|((_, list), (widest, sums))| {
+            let range = list.window_range(size);
+            sums[range.end - widest.start] - sums[range.start - widest.start]
+        });
+        rules.saturating_add(episodes.sum())
+    };
+    let (mut fits, mut too_large) = (0, WINDOW + 1);
+    if bytes(WINDOW) <= budget {
+        return WINDOW;
+    }
+    while too_large - fits > 1 {
+        let middle = (fits + too_large) / 2;
+        if bytes(middle) <= budget { fits = middle } else { too_large = middle }
+    }
+    fits
 }
 
 #[cfg(test)]
@@ -292,43 +360,82 @@ mod tests {
         assert!(episodes(&task(None, i64::MAX, None, i64::MAX - 1), &[], &[]).len() == 1);
     }
 
+    fn list(all: Vec<SeriesEpisodeDto>) -> EpisodeList {
+        EpisodeList::new(all, None)
+    }
+
     #[test]
     fn pages_and_windows_hold_what_they_say() {
-        let all = episodes(&task(None, 1, None, 600), &[], &[]);
-        assert_eq!(all.len(), 601);
-        let p = page(all.clone(), 590, 50, None);
+        let all = list(episodes(&task(None, 1, None, 600), &[], &[]));
+        assert_eq!(all.all.len(), 601);
+        let p = all.page(Some(590), 50);
         assert_eq!((p.total, p.offset, p.episodes.len(), p.episodes[0].number), (601, 590, 11, 591));
-        assert_eq!(page(all.clone(), 700, 50, None).episodes.len(), 0);
-        assert_eq!(page(all.clone(), 0, 10_000, None).episodes.len(), PAGE_MAX);
+        assert!(all.page(Some(601), 50).episodes.is_empty());
+        assert_eq!(all.page(None, 10_000).episodes.len(), PAGE_MAX);
+        assert_eq!(all.page(Some(i64::MIN), 1).episodes[0].number, 1);
+        assert!(all.page(Some(i64::MAX), 1).episodes.is_empty());
+        assert!(all.page(None, 0).episodes.is_empty());
         // The window reaches the episode the rule waits for, with the ones before it.
-        let w = window(all.clone(), WINDOW, Some("2026-10-12T00:00:00.000Z".into()));
+        let w = EpisodeList::new(all.all.clone(), Some("2026-10-12T00:00:00.000Z".into())).window(WINDOW);
         assert_eq!((w.offset, w.episodes.len(), w.episodes.last().unwrap().number), (501, WINDOW, 601));
         assert_eq!(w.air_dates_checked_at.as_deref(), Some("2026-10-12T00:00:00.000Z"));
+        assert!(all.window(0).episodes.is_empty());
         // A short season is sent whole.
-        let short = episodes(&task(Some(1), 1, None, 0), &season(1, 12), &[]);
-        assert_eq!((window(short.clone(), WINDOW, None).offset, window(short, WINDOW, None).episodes.len()), (0, 12));
+        let short = list(episodes(&task(Some(1), 1, None, 0), &season(1, 12), &[]));
+        assert_eq!((short.window(WINDOW).offset, short.window(WINDOW).episodes.len()), (0, 12));
         // With much still to come, the window starts a quarter before it.
-        let ahead = episodes(&task(None, 1, None, 299), &[], &[]);
-        let mut long = ahead.clone();
+        let mut long = episodes(&task(None, 1, None, 299), &[], &[]);
         long.extend((301..=700).map(|number| SeriesEpisodeDto { number, name: None, airstamp: None, state: Expected }));
-        assert_eq!(window(long, WINDOW, None).offset, 299 - WINDOW / 4);
+        assert_eq!(list(long).window(WINDOW).offset, 299 - WINDOW / 4);
     }
 
     #[test]
-    fn many_rules_share_the_budget() {
-        assert_eq!((window_size(0), window_size(1), window_size(10), window_size(11)), (WINDOW, WINDOW, WINDOW, 90));
-        assert_eq!((window_size(LIST_BUDGET), window_size(LIST_BUDGET * 2)), (1, 1));
+    fn a_page_numbered_on_from_the_last_neither_skips_nor_repeats_one() {
+        let numbered = |numbers: &[i64]| {
+            list(numbers.iter().map(|&number| SeriesEpisodeDto { number, name: None, airstamp: None, state: Expected }).collect())
+        };
+        let before = numbered(&(1..=400).collect::<Vec<_>>());
+        let first = before.page(None, 200);
+        // Episode 50 dropped and 401 listed before the next page.
+        let after = numbered(&(1..=401).filter(|n| *n != 50).collect::<Vec<_>>());
+        let next = after.page(first.episodes.last().map(|e| e.number), 200);
+        assert_eq!((next.episodes[0].number, next.episodes[199].number), (201, 400));
+        assert_ne!(first.version, next.version);
+        assert_eq!(numbered(&[1, 2]).version, numbered(&[1, 2]).version, "the same list, the same version");
     }
 
     #[test]
-    fn a_list_of_the_longest_names_stays_well_inside_one_relay_message() {
-        let longest = SeriesEpisodeDto {
-            number: MAX_RANGE,
+    fn a_window_holds_every_episode_a_smaller_one_does() {
+        for (last, count) in [(0, 0), (0, 1), (3, 12), (299, 700), (650, 601), (10, 40)] {
+            let all = list(episodes(&task(None, 1, None, last), &[], &[]).into_iter().take(count).collect());
+            for size in 0..WINDOW {
+                let (small, large) = (all.window_range(size), all.window_range(size + 1));
+                assert!(large.start <= small.start && small.end <= large.end, "{last} {count} {size}");
+                assert_eq!(small.len(), size.min(all.all.len()));
+            }
+        }
+    }
+
+    #[test]
+    fn many_rules_share_what_one_message_holds() {
+        let longest = |number| SeriesEpisodeDto {
+            number,
+            // Each 4 bytes in JSON, the most any character takes once control characters are gone.
             name: Some("\u{1F3AC}".repeat(crate::series::tvmaze::MAX_NAME_CHARS)),
             airstamp: Some("2026-10-02T15:00:00.000Z".into()),
             state: Downloading { download_id: i64::MAX },
         };
-        let bytes = serde_json::to_vec(&vec![longest; LIST_BUDGET]).unwrap().len();
-        assert!(bytes < crate::protocol::relay::MAX_RELAY_FRAME * 3 / 4, "{bytes} bytes");
+        let show = list((1..=300).map(longest).collect());
+        let per_episode = serde_json::to_vec(&show.all[0]).unwrap().len() + 1;
+        // Few rules: each its whole window.
+        assert_eq!(fit(&[(500, &show); 5], LIST_BYTES), WINDOW);
+        // Many: as many as fit, and the list within the budget.
+        let rules = vec![(700, &show); 1_000];
+        let size = fit(&rules, LIST_BYTES);
+        let total = |size: usize| 1_000 * (700 + 1 + size * per_episode) + 2;
+        assert!(total(size) <= LIST_BYTES && total(size + 1) > LIST_BYTES, "{size}");
+        // Rules that alone take more than a message carry none.
+        assert_eq!(fit(&[(LIST_BYTES, &show)], LIST_BYTES), 0);
+        assert_eq!(fit(&[], LIST_BYTES), WINDOW);
     }
 }

@@ -174,7 +174,7 @@ async fn the_season_comes_with_its_air_dates_and_where_each_episode_stands() {
     assert_eq!((episodes.total, episodes.offset), (3, 0));
     assert!(episodes.air_dates_checked_at.is_some());
     // The same from the page, and the same through REST and MCP's action.
-    assert_eq!(&app.actions.series_episodes(task.id, 0, None).unwrap(), episodes);
+    assert_eq!(&app.actions.series_episodes(task.id, None, None).unwrap(), episodes);
 }
 
 #[tokio::test]
@@ -288,14 +288,14 @@ async fn a_long_show_is_sent_in_part_and_the_rest_is_paged() {
     assert_eq!((window.total, window.offset, window.episodes.len()), (600, 500, 100));
     assert_eq!((window.episodes[0].number, window.episodes[99].number), (501, 600));
     assert_eq!(window.episodes[50].state, EpisodeState::Expected, "551, the next one");
-    let page = app.actions.series_episodes(task.id, 0, Some(200)).unwrap();
+    let page = app.actions.series_episodes(task.id, None, Some(200)).unwrap();
     assert_eq!((page.episodes.len(), page.episodes[0].number, page.episodes[199].number), (200, 1, 200));
-    assert_eq!(app.actions.series_episodes(task.id, 590, Some(50)).unwrap().episodes.len(), 10);
-    assert!(app.actions.series_episodes(task.id, 650, Some(50)).unwrap().episodes.is_empty());
+    assert_eq!(app.actions.series_episodes(task.id, Some(590), Some(50)).unwrap().episodes.len(), 10);
+    assert!(app.actions.series_episodes(task.id, Some(650), Some(50)).unwrap().episodes.is_empty());
     for limit in [0, 201] {
-        assert!(app.actions.series_episodes(task.id, 0, Some(limit)).is_err(), "{limit}");
+        assert!(app.actions.series_episodes(task.id, None, Some(limit)).is_err(), "{limit}");
     }
-    assert!(app.actions.series_episodes(task.id + 1, 0, None).is_err(), "no such rule");
+    assert!(app.actions.series_episodes(task.id + 1, None, None).is_err(), "no such rule");
 }
 
 /// The `series.changed` messages sent so far.
@@ -609,4 +609,111 @@ async fn an_answer_about_a_name_the_rule_no_longer_has_is_never_kept() {
     // The rule's own name is kept.
     assert!(app.series.save_show(task.id, Some("Another show"), Some(&old), &episodes, None).unwrap());
     assert_eq!(names(&app.actions.get_series(task.id).unwrap().episodes), [Some("Old")]);
+}
+
+/// `rules` rules straight into the library, each with a long name, query and folder and a show of
+/// `episodes` episodes whose names are as long as TVmaze's may be, in the widest characters JSON has.
+fn many_rules(app: &App, rules: usize, episodes: i64) {
+    let name: String = "\u{1F3AC}".repeat(magnetar::series::tvmaze::MAX_NAME_CHARS);
+    let show: Vec<Value> = (1..=episodes)
+        .map(|n| json!({ "season": 1, "number": n, "name": name, "airstamp": "2026-10-02T15:00:00.000Z" }))
+        .collect();
+    let show = Value::Array(show).to_string();
+    let mut db = app.db.lock();
+    let tx = db.transaction().unwrap();
+    for n in 0..rules {
+        tx.execute(
+            "INSERT INTO series_tasks (name, query, title_filter, season, download_folder, last_downloaded_episode, created_at,
+               prefer_words, exclude_words, show_episodes, show_checked_at)
+             VALUES (?1, ?2, 'SubsPlease 1080p', 1, ?3, 50, '2026-10-01T00:00:00.000Z', 'SubsPlease', 'HEVC x265', ?4,
+               '2026-10-12T00:00:00.000Z')",
+            rusqlite::params![
+                format!("A show with a long name {n:04} {}", "ż".repeat(60)),
+                format!("A show {n:04}"),
+                format!("/Volumes/Media/Shows/{}", "x".repeat(150)),
+                show
+            ],
+        )
+        .unwrap();
+    }
+    tx.commit().unwrap();
+}
+
+/// Bytes of `series.changed` as the dashboard is sent it.
+fn message_bytes(list: &[SeriesTaskDto]) -> usize {
+    serde_json::to_vec(&json!({ "event": "series.changed", "data": list })).unwrap().len()
+}
+
+#[tokio::test]
+async fn the_list_of_every_rule_always_fits_one_relay_message() {
+    let (_tvmaze, api) = Tvmaze::start().await;
+    let dir = tempfile::tempdir().unwrap();
+    let app = app_in(dir.path(), &[], &api);
+    many_rules(&app, 1_000, 100);
+    let list = app.actions.list_series();
+    assert_eq!(list.len(), 1_000);
+    assert!(message_bytes(&list) <= magnetar::protocol::relay::MAX_RELAY_FRAME, "{} bytes", message_bytes(&list));
+    assert!(list.iter().all(|t| t.episodes.total == 100), "each still says how many there are");
+
+    // A few rules get their whole window.
+    let dir = tempfile::tempdir().unwrap();
+    let app = app_in(dir.path(), &[], &api);
+    many_rules(&app, 5, 300);
+    let list = app.actions.list_series();
+    assert!(list.iter().all(|t| t.episodes.episodes.len() == magnetar::series::episodes::WINDOW));
+}
+
+#[tokio::test]
+async fn a_change_to_an_episode_outside_the_window_still_tells_the_dashboard() {
+    let (tvmaze, api) = Tvmaze::start().await;
+    let long: Vec<(i64, Option<i64>, Option<&str>)> = (1..=600).map(|n| (1, Some(n), None)).collect();
+    tvmaze.answer(StatusCode::OK, show(&long));
+    let dir = tempfile::tempdir().unwrap();
+    let app = app_in(dir.path(), &[], &api);
+    let task = app.actions.create_series(rule(Some(1))).await.unwrap();
+    tvmaze.asked_at_least(1).await;
+    app.db.lock().execute("UPDATE series_tasks SET last_downloaded_episode = 550, enabled = 0", []).unwrap();
+    app.series.changed();
+    let before = listed(&app).episodes;
+    assert_eq!(before.episodes[0].number, 501);
+
+    // TVmaze renames episode 1, on a page fetched earlier: what that page says is out of date.
+    let mut events = app.events.subscribe();
+    let found = app.series.get(task.id).unwrap();
+    let mut list = found.show_episodes.clone();
+    list[0].name = Some("Pilot".into());
+    app.series.save_show(task.id, None, found.show.as_ref(), &list, found.show_checked_at.as_deref()).unwrap();
+    let mut told = sent(&mut events);
+    assert_eq!(told.len(), 1, "series.changed for a change outside the window, once");
+    let told = told.remove(0);
+    let after = &listed(&app).episodes;
+    assert_eq!(after.episodes, before.episodes, "the window itself is the same");
+    assert_ne!(told[0]["episodes"]["version"], serde_json::to_value(&before).unwrap()["version"]);
+    app.series.changed();
+    assert!(sent(&mut events).is_empty(), "and only once");
+}
+
+#[tokio::test]
+async fn pages_follow_on_by_number_whatever_changed_between_them() {
+    let (tvmaze, api) = Tvmaze::start().await;
+    let first: Vec<(i64, Option<i64>, Option<&str>)> = (1..=400).map(|n| (1, Some(n), None)).collect();
+    tvmaze.answer(StatusCode::OK, show(&first));
+    let dir = tempfile::tempdir().unwrap();
+    let app = app_in(dir.path(), &[], &api);
+    let task = app.actions.create_series(rule(Some(1))).await.unwrap();
+    tvmaze.asked_at_least(1).await;
+    let one = app.actions.series_episodes(task.id, None, Some(200)).unwrap();
+    assert_eq!((one.episodes[0].number, one.episodes[199].number, one.offset, one.total), (1, 200, 0, 400));
+
+    // TVmaze drops episode 50 and lists 401 before the next page is asked for.
+    let second: Vec<_> = (1..=401).filter(|n| *n != 50).map(|n| (1, Some(n), None)).collect();
+    tvmaze.answer(StatusCode::OK, show(&second));
+    app.monitor.refresh_show(task.id).await.unwrap();
+    let two = app.actions.series_episodes(task.id, Some(200), Some(200)).unwrap();
+    assert_eq!((two.episodes[0].number, two.episodes.last().unwrap().number), (201, 400), "none skipped, none twice");
+    assert_ne!(two.version, one.version, "the first page is out of date, and says so");
+    let three = app.actions.series_episodes(task.id, Some(400), Some(200)).unwrap();
+    assert_eq!(three.episodes.iter().map(|e| e.number).collect::<Vec<_>>(), [401]);
+    assert!(app.actions.series_episodes(task.id, Some(401), Some(200)).unwrap().episodes.is_empty());
+    assert_eq!(app.actions.series_episodes(task.id, Some(-5), Some(1)).unwrap().episodes[0].number, 1);
 }

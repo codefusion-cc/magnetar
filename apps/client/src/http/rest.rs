@@ -118,12 +118,13 @@ pub async fn handle(
             (Route::SeriesTask(id), _) => to_json(actions.get_series(id)?),
             (Route::SeriesCheck(id), _) => to_json(actions.check_series_now(id).await?),
             (Route::SeriesEpisodes(id), _) => {
-                let number = |name: &str| {
-                    param(name)
-                        .map(|v| v.parse::<usize>().map_err(|_| ApiError::bad(format!("{name} must be a whole number."))))
+                fn number<T: std::str::FromStr>(name: &str, value: Option<String>) -> ApiResult<Option<T>> {
+                    value
+                        .map(|v| v.parse::<T>().map_err(|_| ApiError::bad(format!("{name} must be a whole number."))))
                         .transpose()
-                };
-                to_json(actions.series_episodes(id, number("offset")?.unwrap_or(0), number("limit")?)?)
+                }
+                let (after, limit) = (number("after", param("after"))?, number("limit", param("limit"))?);
+                to_json(actions.series_episodes(id, after, limit)?)
             }
             (Route::Settings, _) => to_json(actions.agent_settings()),
         }

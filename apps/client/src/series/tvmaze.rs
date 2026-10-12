@@ -90,7 +90,13 @@ impl ListedEpisode {
             return None;
         }
         let (season, number) = (self.season.filter(|s| *s >= 0)?, self.number.filter(|n| *n >= 1)?);
-        let name = self.name.map(|n| n.trim().chars().take(MAX_NAME_CHARS).collect::<String>()).filter(|n| !n.is_empty());
+        // Control characters say nothing a name needs, and cost six bytes each in JSON.
+        let name = self
+            .name
+            .map(|n| {
+                n.chars().filter(|c| !c.is_control()).collect::<String>().trim().chars().take(MAX_NAME_CHARS).collect::<String>()
+            })
+            .filter(|n| !n.is_empty());
         // Any offset TVmaze gives is applied, so every air time compares as UTC.
         let airstamp = self.airstamp.as_deref().and_then(parse_iso).map(iso);
         Some(ShowEpisode { season, number, name, airstamp })
@@ -294,5 +300,8 @@ mod tests {
     fn a_very_long_name_is_cut() {
         let list = episodes(&format!(r#"[{{"season":1,"number":1,"name":"{}"}}]"#, "é".repeat(5000)));
         assert_eq!(list[0].name.as_ref().map(|n| n.chars().count()), Some(MAX_NAME_CHARS));
+        let list =
+            episodes(r#"[{"season":1,"number":1,"name":"\u0000\u0007 Pilot\u001b\n"},{"season":1,"number":2,"name":"\u0001"}]"#);
+        assert_eq!((list[0].name.as_deref(), list[1].name.as_deref()), (Some("Pilot"), None), "control characters dropped");
     }
 }

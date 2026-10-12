@@ -102,7 +102,7 @@ pub fn document() -> Value {
                 "summary": "The rule's episodes by number, each with its air time and whether it is had, downloading, expected or missed",
                 "parameters": [
                     id,
-                    { "name": "offset", "in": "query", "schema": { "type": "integer", "minimum": 0, "default": 0 } },
+                    { "name": "after", "in": "query", "description": "Only episodes numbered after this one (the last of the page before)", "schema": { "type": "integer" } },
                     { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": PAGE_MAX, "default": WINDOW } },
                 ],
                 "responses": ok,

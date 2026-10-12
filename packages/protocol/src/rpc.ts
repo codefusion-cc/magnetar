@@ -87,10 +87,10 @@ export const RPC_PARAMS = {
   'watches.download': id,
   /** The show's poster from TVmaze, base64 JPEG, or null. */
   'series.poster': id,
-  /** A page of one rule's episodes, by number from `offset`. */
+  /** A page of one rule's episodes: those numbered after `after` (the last of the page before), from the first if left out. */
   'series.episodes': z.strictObject({
     id: z.number().int(),
-    offset: z.number().int().min(0).optional(),
+    after: z.number().int().optional(),
     limit: z.number().int().min(1).max(EPISODES_PAGE_MAX).optional(),
   }),
 

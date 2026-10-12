@@ -5,7 +5,7 @@ use tokio::sync::broadcast::error::{RecvError, TryRecvError};
 use tokio_util::sync::CancellationToken;
 
 use super::episode::EpisodeRule;
-use super::episodes::{self, EpisodeDownload, PAGE_MAX, WINDOW};
+use super::episodes::{self, EpisodeDownload, EpisodeList, LIST_BYTES, PAGE_MAX, WINDOW};
 use super::quality::QualityRule;
 use super::tvmaze::ShowEpisode;
 use crate::db::Db;
@@ -140,6 +140,10 @@ impl SeriesTask {
     /// Every episode of the rule, given the downloads it made.
     pub fn episodes(&self, downloads: &[EpisodeDownload]) -> Vec<SeriesEpisodeDto> {
         episodes::episodes(self, &self.show_episodes, downloads)
+    }
+
+    fn episode_list(&self, downloads: &[EpisodeDownload]) -> EpisodeList {
+        EpisodeList::new(self.episodes(downloads), self.show_checked_at.clone())
     }
 
     fn to_dto(&self, episodes: SeriesEpisodesDto) -> SeriesTaskDto {
@@ -312,30 +316,33 @@ impl SeriesStore {
 
     /// The rule with its episodes around where it stands.
     pub fn dto(&self, task: &SeriesTask) -> SeriesTaskDto {
-        task.to_dto(episodes::window(task.episodes(&self.made_by(task.id)), WINDOW, task.show_checked_at.clone()))
+        task.to_dto(task.episode_list(&self.made_by(task.id)).window(WINDOW))
     }
 
-    /// Every rule, each with its share of `episodes::LIST_BUDGET`.
+    /// Every rule, each with as many of its episodes as all of them together leave room for in one
+    /// message (`LIST_BYTES`).
     pub fn dtos(&self) -> Vec<SeriesTaskDto> {
         let tasks = self.all();
         let mut downloads = self.downloads.series_downloads(None);
-        let size = episodes::window_size(tasks.len());
-        tasks
-            .iter()
-            .map(|task| {
-                let made = downloads.remove(&task.id).unwrap_or_default();
-                task.to_dto(episodes::window(task.episodes(&made), size, task.show_checked_at.clone()))
-            })
-            .collect()
+        let lists: Vec<EpisodeList> =
+            tasks.iter().map(|task| task.episode_list(&downloads.remove(&task.id).unwrap_or_default())).collect();
+        let bare =
+            |task: &SeriesTask, list: &EpisodeList| serde_json::to_vec(&task.to_dto(list.window(0))).map_or(0, |json| json.len());
+        let sized: Vec<(usize, &EpisodeList)> = tasks.iter().zip(&lists).map(|(task, list)| (bare(task, list), list)).collect();
+        let size = episodes::fit(&sized, LIST_BYTES);
+        if size == 0 && !tasks.is_empty() {
+            tracing::warn!("The series rules alone are more than one message holds: they are sent without episodes");
+        }
+        tasks.iter().zip(&lists).map(|(task, list)| task.to_dto(list.window(size))).collect()
     }
 
-    /// `limit` (at most `PAGE_MAX`) of the rule's episodes from `offset`.
-    pub fn episodes(&self, id: i64, offset: usize, limit: usize) -> ApiResult<SeriesEpisodesDto> {
+    /// Up to `limit` (1 to `PAGE_MAX`) of the rule's episodes, numbered after `after` (from the first when None).
+    pub fn episodes(&self, id: i64, after: Option<i64>, limit: usize) -> ApiResult<SeriesEpisodesDto> {
         if !(1..=PAGE_MAX).contains(&limit) {
             return Err(ApiError::bad(format!("limit must be 1 to {PAGE_MAX}.")));
         }
         let task = self.get(id)?;
-        Ok(episodes::page(task.episodes(&self.made_by(id)), offset, limit, task.show_checked_at.clone()))
+        Ok(task.episode_list(&self.made_by(id)).page(after, limit))
     }
 
     /// The downloads the rule made.

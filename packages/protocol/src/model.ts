@@ -237,11 +237,19 @@ export const SeriesEpisodeDto = z.discriminatedUnion('state', [
 export type SeriesEpisodeDto = z.infer<typeof SeriesEpisodeDto>
 export type EpisodeState = SeriesEpisodeDto['state']
 
-/** A slice of a rule's episodes, by number: `episodes` are those from `offset` of `total`. */
+/**
+ * A slice of a rule's episodes, by number: `episodes` are those from `offset` of `total`. The next page
+ * is asked for with the last episode's number as `after`, so changes in between skip or repeat none.
+ */
 export const SeriesEpisodesDto = z.strictObject({
   total: z.number().int().min(0),
   offset: z.number().int().min(0),
   episodes: z.array(SeriesEpisodeDto).max(EPISODES_PAGE_MAX),
+  /**
+   * The same for every slice of one list of the rule's episodes, different once any episode changed:
+   * a page held with another version than the rule's latest is out of date.
+   */
+  version: z.string().min(1),
   /** When TVmaze last answered for the show, so a page can say how old the air dates are; null if never. */
   airDatesCheckedAt: z.iso.datetime().nullable(),
 })
