@@ -30,8 +30,8 @@ pub struct EpisodeDownload {
     /// The last episode it holds; `first` unless it is a double episode or a pack.
     pub last: i64,
     pub status: DownloadStatus,
-    /// For a finished download, whether its file is still on disk.
-    pub on_disk: bool,
+    /// For a finished download, the episodes whose own file is no longer whole on disk.
+    pub gone: Vec<i64>,
 }
 
 /// Every episode of the rule, by number: what TVmaze lists for its season (or the whole show,
@@ -65,7 +65,7 @@ pub fn episodes(task: &SeriesTask, show: &[ShowEpisode], downloads: &[EpisodeDow
             let (have, under_way) = held.entry(number).or_default();
             if !download.status.is_finished() {
                 *under_way = (*under_way).max(Some(download.id));
-            } else if download.on_disk {
+            } else if !download.gone.contains(&number) {
                 *have = (*have).max(Some(download.id));
             }
         }
@@ -163,7 +163,14 @@ mod tests {
     }
 
     fn download(id: i64, first: i64, last: i64, status: DownloadStatus, on_disk: bool) -> EpisodeDownload {
-        EpisodeDownload { id, season: Some(1), first, last, status, on_disk }
+        EpisodeDownload {
+            id,
+            season: Some(1),
+            first,
+            last,
+            status,
+            gone: if on_disk { Vec::new() } else { (first..=last).collect() },
+        }
     }
 
     fn states(list: &[SeriesEpisodeDto]) -> Vec<(i64, EpisodeState)> {

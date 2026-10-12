@@ -496,3 +496,81 @@ async fn a_dead_download_of_a_season_the_rule_left_is_not_replaced_by_the_new_se
     assert_eq!(names[0], (old, "Show.S01E01.1080p.WEB".to_owned()), "season 1's failed download stays for the user to see");
     assert_eq!(names[1].1, "Show.S02E01.1080p.WEB");
 }
+
+/// A finished download the rule made of `torrent`, its episodes `first` to `last` of season 1, and the
+/// app opened again with the rule at `last` and paused, so only the disk says what is there.
+async fn finished_download(dir: &std::path::Path, api: &str, torrent: Vec<u8>, first: i64, last: i64) -> (Arc<App>, i64) {
+    let app = app_in(dir, &[], api);
+    let task = app.actions.create_series(rule(Some(1))).await.unwrap();
+    let added = app.downloads.add_torrent_file(torrent, "File", None).unwrap();
+    app.db
+        .lock()
+        .execute(
+            "UPDATE downloads SET series_task_id = ?, episode = ?, last_episode = ?, season = 1, status = 'Completed', progress = 100",
+            rusqlite::params![task.id, first, (last > first).then_some(last)],
+        )
+        .unwrap();
+    app.db.lock().execute("UPDATE series_tasks SET last_downloaded_episode = ?, enabled = 0", [last]).unwrap();
+    drop(app);
+    let app = app_in(dir, &[], api);
+    app.start();
+    (app, added.id)
+}
+
+#[tokio::test]
+async fn each_episode_of_a_pack_is_had_only_while_its_own_file_is_there() {
+    let (_tvmaze, api) = Tvmaze::start().await;
+    let dir = tempfile::tempdir().unwrap();
+    let files = [("Show.S01E01.mkv", 1_000), ("Show.S01E02.mkv", 3_000), ("Show.S01E03.mkv", 2_000), ("Show.S01.nfo", 10)];
+    let torrent = common::torrent_of_files("Show.S01E01-E03.1080p", &files);
+    let folder = dir.path().join("dl").join("Show.S01E01-E03.1080p");
+    std::fs::create_dir_all(&folder).unwrap();
+    for (name, length) in files {
+        std::fs::write(folder.join(name), vec![0u8; length]).unwrap();
+    }
+    let (app, id) = finished_download(dir.path(), &api, torrent, 1, 3).await;
+    let have = EpisodeState::Have { download_id: id };
+    assert_eq!(states(&listed(&app).episodes), [(1, have), (2, have), (3, have), (4, EpisodeState::Expected)]);
+
+    // The smaller episode's file deleted, another cut short: only the largest is still had.
+    std::fs::remove_file(folder.join("Show.S01E01.mkv")).unwrap();
+    std::fs::write(folder.join("Show.S01E03.mkv"), vec![0u8; 1_999]).unwrap();
+    app.series.changed();
+    assert_eq!(states(&listed(&app).episodes)[..3], [(1, EpisodeState::Missed), (2, have), (3, EpisodeState::Missed)]);
+
+    // Episode 1 back, but episode 2 no longer chosen: it is not kept, so not had.
+    std::fs::write(folder.join("Show.S01E01.mkv"), vec![0u8; 1_000]).unwrap();
+    std::fs::write(folder.join("Show.S01E03.mkv"), vec![0u8; 2_000]).unwrap();
+    app.downloads.select_files(id, vec![0, 2, 3]).await.unwrap();
+    assert_eq!(states(&listed(&app).episodes)[..3], [(1, have), (2, EpisodeState::Missed), (3, have)]);
+}
+
+#[tokio::test]
+async fn an_episode_whose_torrent_details_are_gone_is_had_only_while_its_file_is_there() {
+    let (_tvmaze, api) = Tvmaze::start().await;
+    let dir = tempfile::tempdir().unwrap();
+    let torrent = common::torrent_of_size(2_000, "Show.S01E01.mkv");
+    let (app, id) = finished_download(dir.path(), &api, torrent, 1, 1).await;
+    let size = app.downloads.files(id).unwrap()[0].size;
+    let file = dir.path().join("dl").join("Show.S01E01.mkv");
+    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+    std::fs::write(&file, vec![0u8; size as usize]).unwrap();
+    // The cached .torrent is lost; the download's name and length still say which file it is.
+    let cached = std::fs::read_dir(dir.path().join("data").join("torrents")).unwrap().next().unwrap().unwrap().path();
+    std::fs::remove_file(&cached).unwrap();
+    app.db.lock().execute("UPDATE downloads SET total_bytes = ?", [size as i64]).unwrap();
+    drop(app);
+    let app = app_in(dir.path(), &[], &api);
+    app.start();
+    assert_eq!(states(&listed(&app).episodes)[0], (1, EpisodeState::Have { download_id: id }));
+    std::fs::remove_file(&file).unwrap();
+    app.series.changed();
+    assert_eq!(states(&listed(&app).episodes)[0], (1, EpisodeState::Missed));
+
+    // A corrupt .torrent proves nothing either, and the name still decides.
+    std::fs::write(&cached, b"d4:info").unwrap();
+    std::fs::write(&file, vec![0u8; size as usize]).unwrap();
+    assert_eq!(states(&listed(&app).episodes)[0], (1, EpisodeState::Have { download_id: id }));
+    std::fs::write(&file, vec![0u8; size as usize + 1]).unwrap();
+    assert_eq!(states(&listed(&app).episodes)[0], (1, EpisodeState::Missed));
+}
