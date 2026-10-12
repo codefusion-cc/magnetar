@@ -208,14 +208,15 @@ builds (debug builds read `apps/web/dist` from disk). `src/app.rs` wires the ser
   most 448 KiB a read, to stay under the relay's frame size).
 - **Series and watches**: `SeriesMonitor` checks due series tasks and watches every minute. Each episode takes the
   best release its task's quality rules allow (`series/quality.rs`); a download that found no peers is replaced by the
-  next best and its release remembered in `series_rejects`. Tasks can start from the newest episode already out.
+  next best (a dead pack once each of its episodes has another release) and its release remembered in
+  `series_rejects`. Tasks can start from the newest episode already out.
   Show details and posters come from TVmaze (`series/tvmaze.rs`), refreshed twice a day, posters served to browsers
   by `series.poster`; the show's episode list comes in the same answer and is kept with the task
   (`series_tasks.show_episodes`). A failed or malformed answer keeps what TVmaze said before, and the show rests 30
   minutes. `series/episodes.rs` gives each task's episodes a state from that list, the task and its downloads: had (a
   finished download whose largest chosen file is whole on disk), downloading (under way, paused or failed), expected
   (the task fetches it once out) or missed. A release naming several episodes (`S01E01E02`, a pack) holds them all
-  (`downloads.last_episode`). Every task carries a window of its episodes, at most 100 and 2,000 for all tasks
+  (`downloads.last_episode`). Every task carries a window of its episodes, at most 100 and a shared budget for all tasks
   together so `series.changed` stays far below a relay frame; `series.episodes` pages through the rest.
   `series.changed` is sent only when it differs from the last one: on a task's change, a download's
   (`SeriesStore::follow_downloads`), and once a round, which notices files removed from disk.
