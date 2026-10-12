@@ -2,6 +2,7 @@ use serde_json::{Value, json};
 
 use crate::config::VERSION;
 use crate::protocol::MAX_CHECK_INTERVAL_MINUTES;
+use crate::series::episodes::{PAGE_MAX, WINDOW};
 
 fn nullable(kind: &str) -> Value {
     json!({ "type": [kind, "null"] })
@@ -97,6 +98,15 @@ pub fn document() -> Value {
                 "delete": { "summary": "Delete (downloads are kept)", "parameters": [id], "responses": ok },
             },
             "/api/series/{id}/check": { "post": { "summary": "Check now", "parameters": [id], "responses": limited } },
+            "/api/series/{id}/episodes": { "get": {
+                "summary": "The rule's episodes by number, each with its air time and whether it is had, downloading, expected or missed",
+                "parameters": [
+                    id,
+                    { "name": "offset", "in": "query", "schema": { "type": "integer", "minimum": 0, "default": 0 } },
+                    { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": PAGE_MAX, "default": WINDOW } },
+                ],
+                "responses": ok,
+            } },
             "/api/settings": { "get": { "summary": "Download folder and post-download action", "responses": ok } },
         },
     })
