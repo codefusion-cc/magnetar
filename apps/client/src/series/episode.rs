@@ -7,8 +7,10 @@ static NXNN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?-u:\b)([0-9]{1,2}
 static EPISODE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?-u:\b)(?:[Ee]p(?:isode)?|[Ee])[\s._]?([0-9]{1,4})(?-u:\b)").unwrap());
 static DASH_NUMBER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[-–]\s*([0-9]+)").unwrap());
-/// The second number of a double episode right after "S01E01": "E02", "-E02" or "-02".
-static AND_EPISODE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(?:-?[Ee]|-)([0-9]{1,4})").unwrap());
+/// The last episode of a range right after "S01E01": "-E12" or "-12".
+static RANGE_END: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^-[Ee]?([0-9]{1,4})").unwrap());
+/// One more episode named right after "S01E01": the "E02" of "S01E01E02".
+static NEXT_TAG: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^[Ee]([0-9]{1,4})").unwrap());
 /// The most episodes one release is taken to hold: a whole season, not a numbering slip.
 const MAX_SPAN: i64 = 200;
 
@@ -51,16 +53,29 @@ pub fn parse_episode(title: &str) -> Option<Episode> {
     (value > 0 && value < 1900).then_some(Episode { season: None, episode: value, through: value })
 }
 
-/// The last episode of a release whose first is `episode`, from what follows it in the title. A number
-/// running into more digits, a resolution ("-1080p") or a size ("-2x") is not an episode.
+/// The last episode of a release whose first is `episode`, from what follows it in the title: the end of a
+/// range ("-E12", "-12"), or the last of episode tags that follow one another ("E02E03"; "E01E03" lacks 2,
+/// so holds 1 only). A number running into more digits, a resolution ("-1080p") or a size ("-2x") is not
+/// an episode.
 fn through(rest: &str, episode: i64) -> i64 {
-    let Some(m) = AND_EPISODE.captures(rest) else { return episode };
-    let digits = &m[1];
-    let next = rest[m.get(0).map_or(0, |m| m.end())..].chars().next();
-    if next.is_some_and(|c| c.is_ascii_digit() || matches!(c, 'p' | 'P' | 'x' | 'X')) {
-        return episode;
+    let number = |regex: &Regex, text: &str| -> Option<(i64, usize)> {
+        let m = regex.captures(text)?;
+        let end = m.get(0)?.end();
+        let next = text[end..].chars().next();
+        if next.is_some_and(|c| c.is_ascii_digit() || matches!(c, 'p' | 'P' | 'x' | 'X')) {
+            return None;
+        }
+        Some((m[1].parse().ok()?, end))
+    };
+    let within = |last: i64| last > episode && last - episode <= MAX_SPAN;
+    if let Some((last, _)) = number(&RANGE_END, rest) {
+        return if within(last) { last } else { episode };
     }
-    digits.parse::<i64>().ok().filter(|&last| last > episode && last - episode <= MAX_SPAN).unwrap_or(episode)
+    let (mut last, mut rest) = (episode, rest);
+    while let Some((next, end)) = number(&NEXT_TAG, rest).filter(|&(next, _)| next == last + 1 && within(next)) {
+        (last, rest) = (next, &rest[end..]);
+    }
+    last
 }
 
 #[derive(Clone, Copy)]
@@ -156,9 +171,35 @@ mod tests {
             ("Show S01E01-12345", 1, 1),
             ("Show S01E07 - 08 [1080p]", 7, 7),
             ("Show S01E01", 1, 1),
+            // Episode tags one after another name each episode: a gap is not a range.
+            ("Show.S01E01E03.1080p", 1, 1),
+            ("Show.S01E01E02E03.WEB", 1, 3),
+            ("Show.S01E01E02E04.WEB", 1, 2),
+            ("Show.S01E01-E03.WEB", 1, 3),
         ] {
             let parsed = parse_episode(title).unwrap();
             assert_eq!((parsed.episode, parsed.through), (episode, through), "{title}");
+        }
+    }
+
+    proptest::proptest! {
+        /// Whatever follows the episode tag, the release holds that episode and at most `MAX_SPAN` after it.
+        #[test]
+        fn a_release_holds_its_first_episode_and_a_bounded_run_after_it(rest in "[-Ee0-9pPxX .]{0,24}") {
+            let parsed = parse_episode(&format!("Show S01E05{rest}")).unwrap();
+            proptest::prop_assert!(parsed.through >= parsed.episode && parsed.through - parsed.episode <= MAX_SPAN);
+        }
+
+        /// Of episode tags one after another, the release holds the run that follows on from the first.
+        #[test]
+        fn a_chain_of_tags_holds_its_unbroken_run(first in 1i64..300, steps in proptest::collection::vec(0i64..3, 0..6)) {
+            let mut numbers = vec![first];
+            for step in &steps {
+                numbers.push(numbers.last().unwrap() + step);
+            }
+            let tags: String = numbers.iter().map(|n| format!("E{n:02}")).collect();
+            let run = numbers.windows(2).take_while(|w| w[1] == w[0] + 1).count() as i64;
+            proptest::prop_assert_eq!(parse_episode(&format!("Show.S01{tags}.1080p")).unwrap().through, first + run);
         }
     }
 
