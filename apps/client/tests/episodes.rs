@@ -34,10 +34,11 @@ impl Tvmaze {
         (tvmaze, address)
     }
 
-    async fn search(State(tvmaze): State<Self>) -> (StatusCode, String) {
+    async fn search(State(tvmaze): State<Self>) -> (StatusCode, [(&'static str, &'static str); 1], String) {
         let mut state = tvmaze.0.lock().unwrap();
         state.2 += 1;
-        (state.0, state.1.clone())
+        // Too many calls: TVmaze says when to come back (here, at once).
+        (state.0, [("retry-after", "0")], state.1.clone())
     }
 
     fn answer(&self, status: StatusCode, body: impl Into<String>) {
@@ -716,4 +717,48 @@ async fn pages_follow_on_by_number_whatever_changed_between_them() {
     assert_eq!(three.episodes.iter().map(|e| e.number).collect::<Vec<_>>(), [401]);
     assert!(app.actions.series_episodes(task.id, Some(401), Some(200)).unwrap().episodes.is_empty());
     assert_eq!(app.actions.series_episodes(task.id, Some(-5), Some(1)).unwrap().episodes[0].number, 1);
+}
+
+#[tokio::test]
+async fn shows_due_all_at_once_are_looked_up_a_few_a_round_and_too_many_calls_stop_the_round() {
+    let (tvmaze, api) = Tvmaze::start().await;
+    tvmaze.answer(StatusCode::OK, show(&[(1, Some(1), None)]));
+    let dir = tempfile::tempdir().unwrap();
+    let app = app_in(dir.path(), &[], &api);
+    let first = app.actions.create_series(rule(Some(1))).await.unwrap();
+    tvmaze.asked_at_least(1).await;
+    {
+        let mut db = app.db.lock();
+        let tx = db.transaction().unwrap();
+        for n in 0..39 {
+            tx.execute(
+                "INSERT INTO series_tasks (name, query, season, created_at) VALUES (?1, ?1, 1, '2026-10-01T00:00:00.000Z')",
+                [format!("Show {n}")],
+            )
+            .unwrap();
+        }
+        tx.commit().unwrap();
+    }
+    // As after migration 8: every show due, the one checked longest ago first.
+    app.db.lock().execute("UPDATE series_tasks SET show_checked_at = NULL WHERE id <> ?", [first.id]).unwrap();
+    app.db
+        .lock()
+        .execute("UPDATE series_tasks SET show_checked_at = '2000-01-01T00:00:00.000Z' WHERE id = ?", [first.id])
+        .unwrap();
+
+    // TVmaze has had enough: the round stops asking, and holds it against no show.
+    tvmaze.answer(StatusCode::TOO_MANY_REQUESTS, "");
+    let asked = tvmaze.asked();
+    app.monitor.check_all().await;
+    assert_eq!(tvmaze.asked(), asked + 1);
+
+    tvmaze.answer(StatusCode::OK, show(&[(1, Some(1), None)]));
+    let checked = |app: &App| app.series.all().iter().filter(|t| t.show_checked_at.is_some()).count();
+    app.monitor.check_all().await;
+    assert_eq!(tvmaze.asked(), asked + 1 + magnetar::series::monitor::SHOW_LOOKUPS_PER_ROUND, "a few a round");
+    assert_eq!(checked(&app), 1 + magnetar::series::monitor::SHOW_LOOKUPS_PER_ROUND);
+    for _ in 0..3 {
+        app.monitor.check_all().await;
+    }
+    assert_eq!(checked(&app), 40, "every show in a few rounds");
 }

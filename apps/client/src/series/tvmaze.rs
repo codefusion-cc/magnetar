@@ -103,6 +103,23 @@ impl ListedEpisode {
     }
 }
 
+/// TVmaze asked to be called less often (HTTP 429): no answer about the show, ask again after `retry_after`.
+#[derive(Debug)]
+pub struct Busy {
+    pub retry_after: Duration,
+}
+
+impl std::fmt::Display for Busy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "TVmaze asked to be called again in {} s", self.retry_after.as_secs())
+    }
+}
+
+impl std::error::Error for Busy {}
+
+/// How long TVmaze asks to wait at most; its limit is per ten seconds.
+const MAX_RETRY_AFTER: Duration = Duration::from_secs(10 * 60);
+
 /// What TVmaze knows of a show.
 pub struct Found {
     pub info: ShowInfoDto,
@@ -136,6 +153,11 @@ pub async fn lookup(http: &reqwest::Client, api: &str, name: &str) -> anyhow::Re
     let response = http.get(url).timeout(TIMEOUT).send().await?;
     if response.status() == reqwest::StatusCode::NOT_FOUND {
         return Ok(None);
+    }
+    if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+        let seconds = response.headers().get(reqwest::header::RETRY_AFTER).and_then(|v| v.to_str().ok()?.trim().parse().ok());
+        let retry_after = seconds.map_or(Duration::from_secs(10), Duration::from_secs).min(MAX_RETRY_AFTER);
+        return Err(Busy { retry_after }.into());
     }
     anyhow::ensure!(response.status().is_success(), "TVmaze answered HTTP {}", response.status().as_u16());
     let body = read_body(response, MAX_SHOW_BYTES).await?;

@@ -28,6 +28,10 @@ const MAX_EPISODES_PER_CHECK: usize = 25;
 const SHOW_REFRESH: chrono::Duration = chrono::Duration::hours(12);
 /// After TVmaze failed for a show, it is asked again no sooner than this; what it said before stays.
 const SHOW_RETRY: Duration = Duration::from_secs(30 * 60);
+/// Shows whose details fell due that one round looks up, those checked longest ago first: TVmaze allows
+/// 20 calls in ten seconds, and a library whose every show fell due at once (after an upgrade) is
+/// looked up over a few rounds instead.
+pub const SHOW_LOOKUPS_PER_ROUND: usize = 15;
 
 /// Periodically checks due series tasks and queues their new episodes: the best release each task's
 /// quality rules allow, replacing one that turned out dead with the next best.
@@ -46,6 +50,8 @@ pub struct SeriesMonitor {
     pub tvmaze_api: OnceLock<String>,
     /// When TVmaze last failed for a rule's show, by rule.
     show_failures: Mutex<HashMap<i64, Instant>>,
+    /// Until when TVmaze asked not to be called (`tvmaze::Busy`).
+    tvmaze_busy_until: Mutex<Option<Instant>>,
 }
 
 impl SeriesMonitor {
@@ -71,6 +77,7 @@ impl SeriesMonitor {
             running: Mutex::default(),
             tvmaze_api: OnceLock::new(),
             show_failures: Mutex::default(),
+            tvmaze_busy_until: Mutex::default(),
         })
     }
 
@@ -302,8 +309,12 @@ impl SeriesMonitor {
         let found = if name.trim().is_empty() {
             None
         } else {
-            tvmaze::lookup(&self.http, api, name.trim()).await.inspect_err(|_| {
-                self.failures().insert(id, Instant::now());
+            tvmaze::lookup(&self.http, api, name.trim()).await.inspect_err(|error| {
+                match error.downcast_ref::<tvmaze::Busy>() {
+                    // Too many calls says nothing about this show.
+                    Some(busy) => *self.busy_until() = Some(Instant::now() + busy.retry_after),
+                    None => drop(self.failures().insert(id, Instant::now())),
+                }
             })?
         };
         self.failures().remove(&id);
@@ -329,18 +340,38 @@ impl SeriesMonitor {
         self.failures().get(&id).is_some_and(|at| at.elapsed() < SHOW_RETRY)
     }
 
+    fn busy_until(&self) -> std::sync::MutexGuard<'_, Option<Instant>> {
+        self.tvmaze_busy_until.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    fn tvmaze_busy(&self) -> bool {
+        self.busy_until().is_some_and(|until| Instant::now() < until)
+    }
+
     async fn refresh_stale_shows(&self) {
         if self.posters.is_none() {
             return;
         }
         let now = chrono::Utc::now();
-        for task in self.store.all() {
-            if is_due(task.show_checked_at.as_deref(), SHOW_REFRESH, now)
-                && !self.show_resting(task.id)
-                && !self.cancel.is_cancelled()
-                && let Err(error) = unless_panicked(self.refresh_show(task.id)).await
-            {
+        let mut due: Vec<SeriesTask> = self
+            .store
+            .all()
+            .into_iter()
+            .filter(|task| is_due(task.show_checked_at.as_deref(), SHOW_REFRESH, now) && !self.show_resting(task.id))
+            .collect();
+        // Never checked first, then the oldest (the times are ISO, so they sort as text).
+        due.sort_by(|a, b| a.show_checked_at.cmp(&b.show_checked_at));
+        for task in due.into_iter().take(SHOW_LOOKUPS_PER_ROUND) {
+            if self.cancel.is_cancelled() || self.tvmaze_busy() {
+                break;
+            }
+            let busy_before = *self.busy_until();
+            if let Err(error) = unless_panicked(self.refresh_show(task.id)).await {
                 tracing::debug!("TVmaze lookup for '{}' failed: {error}", task.name);
+            }
+            if *self.busy_until() != busy_before {
+                // Too many calls: the rest wait for the next round.
+                break;
             }
         }
     }
