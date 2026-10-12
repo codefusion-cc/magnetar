@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use magnetar::app::{App, AppOptions};
 use magnetar::downloads::manager::EngineSource;
 use magnetar::paths::Paths;
-use magnetar::protocol::{DownloadStatus, SeriesTaskInput, StartFrom};
+use magnetar::protocol::{DownloadStatus, EpisodeState, SeriesTaskInput, StartFrom};
 use magnetar::search::types::{Provider, TorrentSearchResult};
 use tokio_util::sync::CancellationToken;
 
@@ -168,6 +168,8 @@ async fn a_release_nobody_seeds_is_replaced_by_the_next_best() {
     let downloads = app.downloads.list();
     assert_eq!(downloads.iter().map(|d| d.name.as_str()).collect::<Vec<_>>(), ["[Preferred] Show - 01 (1080p)"]);
     assert_eq!(downloads[0].status, DownloadStatus::Queued);
+    let episode = |app: &App| app.actions.list_series()[0].episodes.episodes[0].state;
+    assert_eq!(episode(&app), EpisodeState::Downloading { download_id: downloads[0].id }, "the episode follows the new release");
 
     // It dies too: nothing left that the rules allow, so the failure stays for the user to see.
     app.db.lock().execute("UPDATE downloads SET status = 'Error', error = 'No peers found — dead'", []).unwrap();
@@ -179,6 +181,7 @@ async fn a_release_nobody_seeds_is_replaced_by_the_next_best() {
     assert_eq!(downloads.len(), 1);
     assert_eq!((downloads[0].name.as_str(), downloads[0].status), ("[Preferred] Show - 01 (1080p)", DownloadStatus::Error));
     assert_eq!(app.actions.list_series()[0].next_episode, 2, "the episode still counts as taken");
+    assert_eq!(episode(&app), EpisodeState::Downloading { download_id: downloads[0].id }, "its failed download is shown");
 }
 
 #[tokio::test]

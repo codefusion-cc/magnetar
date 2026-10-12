@@ -45,7 +45,7 @@ pub struct SeriesTask {
 }
 
 impl SeriesTask {
-    fn from_row(row: &Row<'_>) -> rusqlite::Result<Self> {
+    pub(crate) fn from_row(row: &Row<'_>) -> rusqlite::Result<Self> {
         Ok(Self {
             id: row.get("id")?,
             name: row.get("name")?,
