@@ -41,6 +41,7 @@ enum Route<'a> {
     Series,
     SeriesTask(i64),
     SeriesCheck(i64),
+    SeriesEpisodes(i64),
     Settings,
 }
 
@@ -52,6 +53,7 @@ impl Route<'_> {
             Route::Downloads | Route::Series => &["GET", "POST"],
             Route::Download(_) => &["GET", "DELETE"],
             Route::SeriesTask(_) => &["GET", "PUT", "PATCH", "DELETE"],
+            Route::SeriesEpisodes(_) => &["GET"],
         }
     }
 }
@@ -71,6 +73,7 @@ fn route(path: &str) -> Option<Route<'_>> {
         ["series"] => Route::Series,
         ["series", n] => Route::SeriesTask(id(n)?),
         ["series", n, "check"] => Route::SeriesCheck(id(n)?),
+        ["series", n, "episodes"] => Route::SeriesEpisodes(id(n)?),
         ["settings"] => Route::Settings,
         _ => return None,
     })
@@ -114,6 +117,14 @@ pub async fn handle(
             (Route::SeriesTask(id), "DELETE") => to_json(actions.delete_series(id)?),
             (Route::SeriesTask(id), _) => to_json(actions.get_series(id)?),
             (Route::SeriesCheck(id), _) => to_json(actions.check_series_now(id).await?),
+            (Route::SeriesEpisodes(id), _) => {
+                let number = |name: &str| {
+                    param(name)
+                        .map(|v| v.parse::<usize>().map_err(|_| ApiError::bad(format!("{name} must be a whole number."))))
+                        .transpose()
+                };
+                to_json(actions.series_episodes(id, number("offset")?.unwrap_or(0), number("limit")?)?)
+            }
             (Route::Settings, _) => to_json(actions.agent_settings()),
         }
     }

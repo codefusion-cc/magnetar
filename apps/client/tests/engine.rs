@@ -48,8 +48,7 @@ fn magnet(hash: &str, folder: &Path) -> AddDownload {
         name: String::new(),
         magnet_uri: format!("magnet:?xt=urn:btih:{hash}"),
         source: "Magnet".into(),
-        series_task_id: None,
-        episode: None,
+        series: None,
         save_folder: Some(folder.display().to_string()),
     }
 }
@@ -299,8 +298,7 @@ async fn downloads_wait_for_the_chosen_interface_and_stop_without_it() {
             name: String::new(),
             magnet_uri: magnet.into(),
             source: "Magnet".into(),
-            series_task_id: None,
-            episode: None,
+            series: None,
             save_folder: None,
         })
         .unwrap();

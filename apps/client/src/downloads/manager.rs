@@ -26,6 +26,7 @@ use crate::protocol::{
     TransferStatusDto,
 };
 use crate::search::magnet::{build_magnet, extract_info_hash, magnet_name, normalize_info_hash};
+use crate::series::episodes::EpisodeDownload;
 use crate::settings::{AppSettings, SettingsService};
 use crate::system::folders::normalize;
 
@@ -58,6 +59,8 @@ struct Item {
     series_task_id: Option<i64>,
     /// The series episode this download is, so a dead torrent can be replaced by another release.
     episode: Option<i64>,
+    /// The last episode it holds, when it is more than `episode` (a double episode, a pack).
+    last_episode: Option<i64>,
     uploaded_bytes: u64,
     /// Indexes of the torrent's files to download; None is all of them.
     selected_files: Option<Vec<usize>>,
@@ -78,6 +81,15 @@ struct Item {
     attaching: Option<CancellationToken>,
     /// Bumped on every attach and detach, so a slow attach can tell it has been superseded.
     attempt: u64,
+    /// The file that is the episode, for a series download: looked up once, None until then.
+    episode_file: Option<Option<EpisodeFile>>,
+}
+
+/// A series download's episode on disk: its largest chosen file, `relative` to the save folder.
+#[derive(Clone)]
+struct EpisodeFile {
+    relative: PathBuf,
+    size: u64,
 }
 
 impl Item {
@@ -102,6 +114,7 @@ impl Item {
             complete_notification_sent: row.get("complete_notification_sent")?,
             series_task_id: row.get("series_task_id")?,
             episode: row.get("episode")?,
+            last_episode: row.get("last_episode")?,
             uploaded_bytes: row.get::<_, i64>("uploaded_bytes")?.max(0) as u64,
             selected_files: selected.and_then(|json| serde_json::from_str(&json).ok()),
             file_count: None,
@@ -114,6 +127,7 @@ impl Item {
             handle: None,
             attaching: None,
             attempt: 0,
+            episode_file: None,
         })
     }
 
@@ -186,9 +200,16 @@ pub struct AddDownload {
     pub name: String,
     pub magnet_uri: String,
     pub source: String,
-    pub series_task_id: Option<i64>,
-    pub episode: Option<i64>,
+    pub series: Option<SeriesEpisodes>,
     pub save_folder: Option<String>,
+}
+
+/// The episodes of a series rule a download is made for: `first` through `last`.
+#[derive(Clone, Copy, Debug)]
+pub struct SeriesEpisodes {
+    pub task: i64,
+    pub first: i64,
+    pub last: i64,
 }
 
 /// Where the download manager's torrent engine comes from.
@@ -601,6 +622,65 @@ impl DownloadManager {
             .collect()
     }
 
+    /// The downloads series rules made, by rule, with the episodes each holds and, for a finished one,
+    /// whether the episode is still whole on disk. A finished download whose torrent details are
+    /// gone can't be checked and counts as there.
+    pub fn series_downloads(&self, only: Option<i64>) -> HashMap<i64, Vec<EpisodeDownload>> {
+        let wanted = |task: Option<i64>| task.is_some_and(|task| only.is_none_or(|only| only == task));
+        let finished = |status: DownloadStatus| matches!(status, DownloadStatus::Completed | DownloadStatus::Seeding);
+        // The episode's file of a finished download, looked up once from its torrent, outside the lock.
+        let unknown: Vec<(i64, String, Option<Vec<usize>>)> = self
+            .items()
+            .values()
+            .filter(|i| wanted(i.series_task_id) && i.episode.is_some() && finished(i.status) && i.episode_file.is_none())
+            .map(|i| (i.id, i.info_hash.clone(), i.selected_files.clone()))
+            .collect();
+        let looked_up: Vec<(i64, Option<Vec<usize>>, Option<EpisodeFile>)> = unknown
+            .into_iter()
+            .map(|(id, hash, selected)| {
+                let file = self.metadata(&hash).and_then(|m| episode_file(&m, selected.as_deref()));
+                (id, selected, file)
+            })
+            .collect();
+        let mut found: HashMap<i64, Vec<(EpisodeDownload, Option<(PathBuf, EpisodeFile)>)>> = HashMap::new();
+        {
+            let mut items = self.items();
+            for (id, selected, file) in looked_up {
+                // Unless its files were chosen anew meanwhile.
+                if let Some(item) = items.get_mut(&id).filter(|i| i.selected_files == selected) {
+                    item.episode_file = Some(file);
+                }
+            }
+            for item in items.values() {
+                let (Some(task), Some(first)) = (item.series_task_id.filter(|t| wanted(Some(*t))), item.episode) else {
+                    continue;
+                };
+                let on_disk = item
+                    .episode_file
+                    .clone()
+                    .flatten()
+                    .filter(|_| finished(item.status))
+                    .map(|file| (PathBuf::from(&item.save_path), file));
+                let last = item.last_episode.unwrap_or(first).max(first);
+                let download = EpisodeDownload { id: item.id, first, last, status: item.status, on_disk: true };
+                found.entry(task).or_default().push((download, on_disk));
+            }
+        }
+        found
+            .into_iter()
+            .map(|(task, downloads)| {
+                let downloads = downloads
+                    .into_iter()
+                    .map(|(download, file)| EpisodeDownload {
+                        on_disk: file.is_none_or(|(save_path, f)| length_inside(&save_path, &f.relative) == Some(f.size)),
+                        ..download
+                    })
+                    .collect();
+                (task, downloads)
+            })
+            .collect()
+    }
+
     /// Adds a magnet, or returns the download already tracking that torrent.
     pub fn add(self: &Arc<Self>, input: AddDownload) -> ApiResult<DownloadDto> {
         let hash = extract_info_hash(&input.magnet_uri)
@@ -623,8 +703,8 @@ impl DownloadManager {
             .unwrap_or_else(|| hash.clone());
         let mut item = self.db.lock().query_row(
             "INSERT INTO downloads (name, name_is_placeholder, magnet_uri, info_hash, save_path, source, status, added_at,
-               series_task_id, episode)
-             VALUES (?, ?, ?, ?, ?, ?, 'Queued', ?, ?, ?) RETURNING *",
+               series_task_id, episode, last_episode)
+             VALUES (?, ?, ?, ?, ?, ?, 'Queued', ?, ?, ?, ?) RETURNING *",
             params![
                 display_name,
                 display_name == hash,
@@ -633,8 +713,9 @@ impl DownloadManager {
                 save_path,
                 input.source,
                 now_iso(),
-                input.series_task_id,
-                input.episode
+                input.series.map(|s| s.task),
+                input.series.map(|s| s.first),
+                input.series.and_then(|s| (s.last > s.first).then_some(s.last))
             ],
             Item::from_row,
         )?;
@@ -669,14 +750,7 @@ impl DownloadManager {
         let name = metadata.name.clone().unwrap_or_default();
         let trackers: Vec<&str> = trackers.iter().map(String::as_str).collect();
         let magnet = build_magnet(&hash, &name, &trackers).ok_or_else(|| ApiError::bad("That is not a valid .torrent file."))?;
-        self.add(AddDownload {
-            magnet_uri: magnet.uri,
-            name,
-            source: source.to_owned(),
-            series_task_id: None,
-            episode: None,
-            save_folder,
-        })
+        self.add(AddDownload { magnet_uri: magnet.uri, name, source: source.to_owned(), series: None, save_folder })
     }
 
     pub async fn pause(&self, id: i64) -> ApiResult<DownloadDto> {
@@ -814,6 +888,7 @@ impl DownloadManager {
             item.total_bytes = (0..count).filter(chosen).map(|i| metadata.file_sizes[i]).sum();
             item.selected_files = selection.clone();
             item.file_count = Some(count);
+            item.episode_file = None;
             if item.status == DownloadStatus::Completed && missing {
                 let have: u64 = (0..count).filter(chosen).map(|i| done[i]).sum();
                 item.progress = percent(have, item.total_bytes);
@@ -1345,6 +1420,15 @@ fn torrent_identity(bytes: &[u8]) -> Option<(String, Vec<String>)> {
 pub fn media_kind(path: &Path) -> Option<&'static str> {
     let kind = super::media::media_type(&path.to_string_lossy());
     ["video", "audio"].into_iter().find(|media| kind.starts_with(&format!("{media}/")))
+}
+
+/// The file that is the episode: the largest of those chosen.
+fn episode_file(metadata: &Metadata, selected: Option<&[usize]>) -> Option<EpisodeFile> {
+    let folder = metadata.content_folder().unwrap_or(Path::new(""));
+    (metadata.files.iter().zip(&metadata.file_sizes).enumerate())
+        .filter(|(index, _)| selected.is_none_or(|s| s.contains(index)))
+        .max_by_key(|(_, (_, size))| **size)
+        .map(|(_, (path, &size))| EpisodeFile { relative: folder.join(path), size })
 }
 
 fn write_item(db: &rusqlite::Connection, item: &Item) -> rusqlite::Result<usize> {

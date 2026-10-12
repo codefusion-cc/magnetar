@@ -1,0 +1,11 @@
+{
+  "total": 5,
+  "offset": 1,
+  "episodes": [
+    { "number": 2, "name": "The Long Night", "airstamp": "2026-10-02T15:00:00.000Z", "state": "have", "downloadId": 41 },
+    { "number": 3, "name": null, "airstamp": "2026-10-09T15:00:00.000Z", "state": "downloading", "downloadId": 42 },
+    { "number": 4, "name": "Ćma i ogień", "airstamp": null, "state": "expected" },
+    { "number": 5, "name": null, "airstamp": null, "state": "missed" }
+  ],
+  "airDatesCheckedAt": "2026-10-12T08:30:00.000Z"
+}

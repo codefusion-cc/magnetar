@@ -9,7 +9,9 @@ use tokio_util::sync::CancellationToken;
 use crate::api::actions::Actions;
 use crate::config::VERSION;
 use crate::error::{ApiError, ApiResult};
-use crate::protocol::{DOWNLOAD_STATUSES, MAX_CHECK_INTERVAL_MINUTES, SeriesTaskInput, SeriesTaskPatch, StartDownloadInput};
+use crate::protocol::{
+    DOWNLOAD_STATUSES, MAX_CHECK_INTERVAL_MINUTES, SeriesEpisodesQuery, SeriesTaskInput, SeriesTaskPatch, StartDownloadInput,
+};
 
 const PROTOCOL_VERSIONS: [&str; 4] = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
 
@@ -135,6 +137,19 @@ fn tools() -> Vec<Value> {
             read_only(),
         ),
         tool(
+            "list_series_episodes",
+            "List one series rule's episodes by number: each with its name, air time (UTC) and state: have (downloaded, on disk), downloading (with the download's id), expected (the rule fetches it once out) or missed (not here and the rule won't fetch it). Pages of up to 200 from offset; total says how many there are.",
+            schema(
+                json!({
+                    "id": { "type": "integer", "description": "Series task id from list_series_tasks." },
+                    "offset": { "type": "integer", "minimum": 0, "description": "Skip this many episodes. Default 0." },
+                    "limit": { "type": "integer", "minimum": 1, "maximum": 200, "description": "At most this many. Default 100." }
+                }),
+                &["id"],
+            ),
+            read_only(),
+        ),
+        tool(
             "create_series_task",
             "Create an automatic rule that searches for and downloads new episodes.",
             schema(
@@ -236,6 +251,10 @@ async fn call_tool(actions: &Actions, name: &str, arguments: &Value, cancel: &Ca
             to_value(actions.delete_download(a.id, a.delete_files).await?)
         }
         "list_series_tasks" => to_value(actions.list_series()),
+        "list_series_episodes" => {
+            let SeriesEpisodesQuery { id, offset, limit } = args(name, arguments)?;
+            to_value(actions.series_episodes(id, offset, limit)?)
+        }
         "create_series_task" => to_value(actions.create_series(args::<SeriesTaskInput>(name, arguments)?).await?),
         "update_series_task" => {
             let id = args::<Id>(name, arguments)?.id;

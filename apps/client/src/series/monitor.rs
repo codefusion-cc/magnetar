@@ -1,8 +1,8 @@
 use std::collections::{HashMap, HashSet};
 use std::panic::AssertUnwindSafe;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
 use futures::FutureExt;
 use tokio_util::sync::CancellationToken;
@@ -12,8 +12,7 @@ use super::store::{SeriesStore, SeriesTask};
 use super::tvmaze;
 use super::watch::{self, WatchStore};
 use crate::api::actions::start_from_result;
-use crate::downloads::AddDownload;
-use crate::downloads::DownloadManager;
+use crate::downloads::{AddDownload, DownloadManager, SeriesEpisodes};
 use crate::error::{ApiError, ApiResult};
 use crate::notifications::NotificationDispatcher;
 use crate::protocol::encoding::{now_iso, parse_iso};
@@ -27,6 +26,8 @@ const STARTUP_DELAY: Duration = Duration::from_secs(10);
 const MAX_EPISODES_PER_CHECK: usize = 25;
 /// Show details (next air date) are looked up again this often.
 const SHOW_REFRESH: chrono::Duration = chrono::Duration::hours(12);
+/// After TVmaze failed for a show, it is asked again no sooner than this; what it said before stays.
+const SHOW_RETRY: Duration = Duration::from_secs(30 * 60);
 
 /// Periodically checks due series tasks and queues their new episodes: the best release each task's
 /// quality rules allow, replacing one that turned out dead with the next best.
@@ -41,6 +42,10 @@ pub struct SeriesMonitor {
     posters: Option<PathBuf>,
     cancel: CancellationToken,
     running: Mutex<HashSet<i64>>,
+    /// TVmaze's API, `tvmaze::API` unless set first (a test's own TVmaze).
+    pub tvmaze_api: OnceLock<String>,
+    /// When TVmaze last failed for a rule's show, by rule.
+    show_failures: Mutex<HashMap<i64, Instant>>,
 }
 
 impl SeriesMonitor {
@@ -64,10 +69,13 @@ impl SeriesMonitor {
             posters,
             cancel: CancellationToken::new(),
             running: Mutex::default(),
+            tvmaze_api: OnceLock::new(),
+            show_failures: Mutex::default(),
         })
     }
 
     pub fn start(self: &Arc<Self>) {
+        tokio::spawn(self.store.clone().follow_downloads(self.cancel.clone()));
         let monitor = self.clone();
         tokio::spawn(async move {
             let mut delay = STARTUP_DELAY;
@@ -99,6 +107,9 @@ impl SeriesMonitor {
         self.check_due().await;
         self.check_due_watches().await;
         self.refresh_stale_shows().await;
+        // An episode's file removed from disk tells nobody: this round looks.
+        let store = self.store.clone();
+        let _ = tokio::task::spawn_blocking(move || store.changed()).await;
     }
 
     async fn check_due(&self) {
@@ -179,8 +190,7 @@ impl SeriesMonitor {
             let episode = task.next_episode();
             let Some(result) = self.find_episode(task, episode, searches, &rejected).await? else { break };
             let title = result.title.clone();
-            self.queue(task, episode, result).await?;
-            task.last_downloaded_episode = episode;
+            task.last_downloaded_episode = self.queue(task, episode, result).await?;
             // Saved per episode: a failure hunting the next one must not lose the record that this
             // one was queued, or the next pass could add a second download of it.
             self.store.save(&self.fresh(task))?;
@@ -189,17 +199,20 @@ impl SeriesMonitor {
         Ok(())
     }
 
-    async fn queue(&self, task: &SeriesTask, episode: i64, result: TorrentSearchResult) -> ApiResult<()> {
+    /// Downloads `result` as `episode`, and returns the last episode it holds: more than `episode`
+    /// for a double episode or a pack, which then need no download of their own.
+    async fn queue(&self, task: &SeriesTask, episode: i64, result: TorrentSearchResult) -> ApiResult<i64> {
+        let last = parse_episode(&result.title).filter(|p| p.episode == episode).map_or(episode, |p| p.through);
         start_from_result(
             &self.search,
             &self.downloads,
             Arc::new(Mutex::new(result)),
-            Some((task.id, episode)),
+            Some(SeriesEpisodes { task: task.id, first: episode, last }),
             task.download_folder.clone(),
             &self.cancel,
         )
         .await?;
-        Ok(())
+        Ok(last)
     }
 
     /// Re-reads the task and applies what this check changed. The user may edit the rule from the
@@ -270,28 +283,45 @@ impl SeriesMonitor {
             .unwrap_or(0))
     }
 
-    /// Looks the show up on TVmaze again: after a rename, and twice a day for air dates.
+    /// Looks the show up on TVmaze again: after a rename, and twice a day for air dates. When TVmaze
+    /// can't be asked, or answers with something that isn't a show, what it said before stays, with
+    /// the time it said it; the show is asked again after `SHOW_RETRY`.
     pub async fn refresh_show(&self, id: i64) -> ApiResult<()> {
         let Some(posters) = &self.posters else { return Ok(()) };
-        let task = self.store.get(id)?;
-        let name = task.name.trim();
-        let found = if name.is_empty() { None } else { tvmaze::lookup(&self.http, name).await? };
-        let mut latest = self.store.get(id)?;
-        latest.show_checked_at = Some(now_iso());
-        latest.show = match found {
-            Some((mut show, poster)) => {
-                let path = tvmaze::poster_path(posters, show.tvmaze_id);
-                if let Some(url) = poster
-                    && let Err(error) = tvmaze::save_poster(&self.http, &url, &path).await
-                {
-                    tracing::warn!("Could not save the poster for '{name}': {error:#}");
-                }
-                show.has_poster = path.exists();
-                Some(show)
-            }
-            None => None,
+        let name = self.store.get(id)?.name.trim().to_owned();
+        let api = self.tvmaze_api.get_or_init(|| tvmaze::API.into());
+        let found = match name.is_empty() {
+            true => None,
+            false => tvmaze::lookup(&self.http, api, &name).await.inspect_err(|_| self.show_failed(id, true))?,
         };
-        self.store.save(&latest)
+        self.show_failed(id, false);
+        if self.store.get(id)?.name.trim() != name {
+            // Renamed meanwhile: this answer is of the old name, and the new one has its own look-up.
+            return Ok(());
+        }
+        let Some(mut found) = found else { return self.store.save_show(id, None, &[], Some(&now_iso())) };
+        let path = tvmaze::poster_path(posters, found.info.tvmaze_id);
+        if let Some(url) = found.poster
+            && let Err(error) = tvmaze::save_poster(&self.http, &url, &path).await
+        {
+            tracing::warn!("Could not save the poster for '{name}': {error:#}");
+        }
+        found.info.has_poster = path.exists();
+        self.store.save_show(id, Some(&found.info), &found.episodes, Some(&now_iso()))
+    }
+
+    fn show_failed(&self, id: i64, failed: bool) {
+        let mut failures = self.show_failures.lock().unwrap_or_else(|e| e.into_inner());
+        if failed {
+            failures.insert(id, Instant::now());
+        } else {
+            failures.remove(&id);
+        }
+    }
+
+    fn show_resting(&self, id: i64) -> bool {
+        let failures = self.show_failures.lock().unwrap_or_else(|e| e.into_inner());
+        failures.get(&id).is_some_and(|at| at.elapsed() < SHOW_RETRY)
     }
 
     async fn refresh_stale_shows(&self) {
@@ -301,6 +331,7 @@ impl SeriesMonitor {
         let now = chrono::Utc::now();
         for task in self.store.all() {
             if is_due(task.show_checked_at.as_deref(), SHOW_REFRESH, now)
+                && !self.show_resting(task.id)
                 && !self.cancel.is_cancelled()
                 && let Err(error) = unless_panicked(self.refresh_show(task.id)).await
             {
@@ -360,8 +391,7 @@ impl SeriesMonitor {
             name: release.title.clone(),
             magnet_uri: release.magnet_uri.clone(),
             source: release.source.clone(),
-            series_task_id: None,
-            episode: None,
+            series: None,
             save_folder: None,
         })?;
         Ok(added.id)

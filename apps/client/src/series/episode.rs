@@ -7,11 +7,17 @@ static NXNN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?-u:\b)([0-9]{1,2}
 static EPISODE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?-u:\b)(?:[Ee]p(?:isode)?|[Ee])[\s._]?([0-9]{1,4})(?-u:\b)").unwrap());
 static DASH_NUMBER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[-–]\s*([0-9]+)").unwrap());
+/// The second number of a double episode right after "S01E01": "E02", "-E02" or "-02".
+static AND_EPISODE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(?:-?[Ee]|-)([0-9]{1,4})").unwrap());
+/// The most episodes one release is taken to hold: a whole season, not a numbering slip.
+const MAX_SPAN: i64 = 200;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Episode {
     pub season: Option<i64>,
     pub episode: i64,
+    /// The last episode the release holds: `episode` itself, or more for "S01E01E02" or "S01E01-E12".
+    pub through: i64,
 }
 
 /// Extracts (season, episode) from a torrent title. Understands "S01E05", "1x05", "Episode 5",
@@ -22,13 +28,17 @@ pub fn parse_episode(title: &str) -> Option<Episode> {
     }
     let number = |text: &str| text.parse::<i64>().ok();
     if let Some(m) = SXXEYY.captures(title) {
-        return Some(Episode { season: number(&m[1]), episode: number(&m[2])? });
+        let episode = number(&m[2])?;
+        let through = through(&title[m.get(0)?.end()..], episode);
+        return Some(Episode { season: number(&m[1]), episode, through });
     }
     if let Some(m) = NXNN.captures(title) {
-        return Some(Episode { season: number(&m[1]), episode: number(&m[2])? });
+        let episode = number(&m[2])?;
+        return Some(Episode { season: number(&m[1]), episode, through: episode });
     }
     if let Some(m) = EPISODE.captures(title) {
-        return Some(Episode { season: None, episode: number(&m[1])? });
+        let episode = number(&m[1])?;
+        return Some(Episode { season: None, episode, through: episode });
     }
     // "Show Name - 05 [1080p]", without mistaking years or resolutions for episodes: the number
     // must be 1–4 digits not followed by another digit, "p" or "x".
@@ -38,7 +48,19 @@ pub fn parse_episode(title: &str) -> Option<Episode> {
         (digits.len() <= 4 && !next.is_some_and(|c| matches!(c, 'p' | 'P' | 'x' | 'X'))).then(|| digits.as_str())
     })?;
     let value = number(found)?;
-    (value > 0 && value < 1900).then_some(Episode { season: None, episode: value })
+    (value > 0 && value < 1900).then_some(Episode { season: None, episode: value, through: value })
+}
+
+/// The last episode of a release whose first is `episode`, from what follows it in the title. A number
+/// running into more digits, a resolution ("-1080p") or a size ("-2x") is not an episode.
+fn through(rest: &str, episode: i64) -> i64 {
+    let Some(m) = AND_EPISODE.captures(rest) else { return episode };
+    let digits = &m[1];
+    let next = rest[m.get(0).map_or(0, |m| m.end())..].chars().next();
+    if next.is_some_and(|c| c.is_ascii_digit() || matches!(c, 'p' | 'P' | 'x' | 'X')) {
+        return episode;
+    }
+    digits.parse::<i64>().ok().filter(|&last| last > episode && last - episode <= MAX_SPAN).unwrap_or(episode)
 }
 
 #[derive(Clone, Copy)]
@@ -82,7 +104,7 @@ mod tests {
     use super::*;
 
     fn ep(season: Option<i64>, episode: i64) -> Option<Episode> {
-        Some(Episode { season, episode })
+        Some(Episode { season, episode, through: episode })
     }
 
     #[test]
@@ -118,6 +140,26 @@ mod tests {
         assert_eq!(parse_episode("Documentary 2024 1080p"), None);
         assert_eq!(parse_episode("Show - 1080p"), None);
         assert_eq!(parse_episode("Show Movie - 2024"), None);
+    }
+
+    #[test]
+    fn a_double_episode_or_a_pack_holds_every_episode_it_names() {
+        for (title, episode, through) in [
+            ("Show.S01E01E02.1080p.WEB", 1, 2),
+            ("Show S01E01-E02 720p", 1, 2),
+            ("Show.S02E03-04.HDTV", 3, 4),
+            ("Show S01E01-E12 Complete", 1, 12),
+            ("Show S01E01-1080p", 1, 1),
+            ("Show S01E01-2x", 1, 1),
+            ("Show S01E05-E03", 5, 5),
+            ("Show S01E01-E900", 1, 1),
+            ("Show S01E01-12345", 1, 1),
+            ("Show S01E07 - 08 [1080p]", 7, 7),
+            ("Show S01E01", 1, 1),
+        ] {
+            let parsed = parse_episode(title).unwrap();
+            assert_eq!((parsed.episode, parsed.through), (episode, through), "{title}");
+        }
     }
 
     #[test]

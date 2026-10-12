@@ -114,6 +114,14 @@ ALTER TABLE browser_keys ADD COLUMN expires_at TEXT;
     r"
 ALTER TABLE browser_keys ADD COLUMN pair_of TEXT;
 ",
+    // Every episode of a rule's show with its air time, kept with the show. Shows are looked up again
+    // at once to fill it, rather than when their details next fall due. A download may hold more than
+    // its first episode (a double episode, a pack): last_episode, null when it holds one.
+    r"
+ALTER TABLE series_tasks ADD COLUMN show_episodes TEXT;
+UPDATE series_tasks SET show_checked_at = NULL;
+ALTER TABLE downloads ADD COLUMN last_episode INTEGER;
+",
 ];
 
 /// The app database. Statements are short, so one connection behind a mutex serves every service.

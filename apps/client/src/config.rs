@@ -54,3 +54,15 @@ pub static USER_AGENT: LazyLock<String> = LazyLock::new(|| format!("Magnetar/{VE
 pub fn http_client() -> reqwest::Result<reqwest::Client> {
     reqwest::Client::builder().user_agent(USER_AGENT.as_str()).build()
 }
+
+/// A response's body, refusing more than `max` bytes, whatever its length header claims.
+pub async fn read_body(mut response: reqwest::Response, max: u64) -> anyhow::Result<Vec<u8>> {
+    let url = response.url().clone();
+    anyhow::ensure!(response.content_length().is_none_or(|length| length <= max), "{url} is too large");
+    let mut body = Vec::new();
+    while let Some(chunk) = response.chunk().await? {
+        body.extend_from_slice(&chunk);
+        anyhow::ensure!(body.len() as u64 <= max, "{url} is too large");
+    }
+    Ok(body)
+}

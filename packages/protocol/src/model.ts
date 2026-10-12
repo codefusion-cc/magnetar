@@ -1,7 +1,7 @@
 import { z } from 'zod'
-import { MAX_TORRENT_FILE, MIN_SPEED_LIMIT } from './limits.ts'
+import { EPISODES_PAGE_MAX, MAX_TORRENT_FILE, MIN_SPEED_LIMIT } from './limits.ts'
 
-export { MAX_TORRENT_FILE, MIN_SPEED_LIMIT }
+export { EPISODES_PAGE_MAX, MAX_TORRENT_FILE, MIN_SPEED_LIMIT }
 
 export const DOWNLOAD_STATUSES = [
   'Queued', 'FetchingMetadata', 'Downloading', 'Seeding', 'Paused', 'Completed', 'Error',
@@ -150,6 +150,8 @@ export interface SeriesTaskDto {
   excludeWords: string | null
   /** From TVmaze, once the show has been found there. */
   show: ShowInfoDto | null
+  /** The rule's episodes around where it stands; `series.episodes` pages through the rest. */
+  episodes: SeriesEpisodesDto
 }
 
 export type SeriesResolution = '720p' | '1080p' | '2160p'
@@ -206,6 +208,42 @@ export interface ShowInfoDto {
   nextEpisode: AiringDto | null
   previousEpisode: AiringDto | null
 }
+
+const episodeFields = {
+  /** In the rule's season, or counted across the whole show when the rule has none. */
+  number: z.number().int().min(1),
+  name: z.string().nullable(),
+  /** When it airs or aired, in UTC (`…Z`); null until TVmaze has a date. */
+  airstamp: z.iso.datetime().nullable(),
+}
+
+/**
+ * One episode of a series rule and where it stands:
+ * - `have`: a download of it finished and its file is on disk;
+ * - `downloading`: a download of it is under way, paused or failed (the download says which);
+ * - `expected`: the rule will fetch it once it is out, aired or not;
+ * - `missed`: it is not here and the rule will not fetch it (before the rule's start or after its
+ *   end, or downloaded once and since removed).
+ * Specials, which TVmaze leaves unnumbered, are not part of a rule's episodes.
+ */
+export const SeriesEpisodeDto = z.discriminatedUnion('state', [
+  z.strictObject({ ...episodeFields, state: z.literal('have'), downloadId: z.number().int() }),
+  z.strictObject({ ...episodeFields, state: z.literal('downloading'), downloadId: z.number().int() }),
+  z.strictObject({ ...episodeFields, state: z.literal('expected') }),
+  z.strictObject({ ...episodeFields, state: z.literal('missed') }),
+])
+export type SeriesEpisodeDto = z.infer<typeof SeriesEpisodeDto>
+export type EpisodeState = SeriesEpisodeDto['state']
+
+/** A slice of a rule's episodes, by number: `episodes` are those from `offset` of `total`. */
+export const SeriesEpisodesDto = z.strictObject({
+  total: z.number().int().min(0),
+  offset: z.number().int().min(0),
+  episodes: z.array(SeriesEpisodeDto).max(EPISODES_PAGE_MAX),
+  /** When TVmaze last answered for the show, so a page can say how old the air dates are; null if never. */
+  airDatesCheckedAt: z.iso.datetime().nullable(),
+})
+export type SeriesEpisodesDto = z.infer<typeof SeriesEpisodesDto>
 
 /** Secret fields are write-only: reads say whether one is set, never what it is. */
 export interface SettingsDto {

@@ -1,11 +1,11 @@
 import { z } from 'zod'
-import { FOLDER_PAGE_MAX, MAX_TORRENT_FILE, TORRENT_UPLOAD_CHUNK } from './limits.ts'
+import { EPISODES_PAGE_MAX, FOLDER_PAGE_MAX, MAX_TORRENT_FILE, TORRENT_UPLOAD_CHUNK } from './limits.ts'
 import {
   SeriesTaskInput, SeriesTaskPatch, SettingsPatch, StartDownloadInput, WatchInput,
   AGENT_CLIENTS, type AgentClientDto, type AgentConnectResultDto, type AgentStatusDto, type AppInfoDto, type DownloadDto, type DownloadFileDto,
   type FolderPageDto, type FolderRootsDto, type LegacyImportResultDto,
   type LegacyImportStatusDto, type LoginStartupStatus, type RemoteStatusDto, type SearchResultDto,
-  type HandlerStatus, type NetworkInterfaceDto, type SeriesTaskDto, type SettingsDto, type SourceDto, type SourceOutcomeDto, type TorrentDetailsDto,
+  type HandlerStatus, type NetworkInterfaceDto, type SeriesEpisodesDto, type SeriesTaskDto, type SettingsDto, type SourceDto, type SourceOutcomeDto, type TorrentDetailsDto,
   type ReleasesDto, type TransferStatusDto, type UpdateStatusDto, type WatchDto,
 } from './model.ts'
 
@@ -87,6 +87,12 @@ export const RPC_PARAMS = {
   'watches.download': id,
   /** The show's poster from TVmaze, base64 JPEG, or null. */
   'series.poster': id,
+  /** A page of one rule's episodes, by number from `offset`. */
+  'series.episodes': z.strictObject({
+    id: z.number().int(),
+    offset: z.number().int().min(0).optional(),
+    limit: z.number().int().min(1).max(EPISODES_PAGE_MAX).optional(),
+  }),
 
   'settings.get': none,
   'settings.update': SettingsPatch,
@@ -180,6 +186,7 @@ export interface RpcResults {
   'series.delete': null
   'series.checkNow': SeriesTaskDto
   'series.poster': { data: string | null }
+  'series.episodes': SeriesEpisodesDto
   'watches.list': WatchDto[]
   'watches.create': WatchDto
   'watches.update': WatchDto
@@ -232,6 +239,7 @@ export interface RpcEvents {
   /** Once a second: the rows whose numbers changed. */
   'downloads.updated': DownloadDto[]
   'transfer.changed': TransferStatusDto
+  /** Every rule, each with its episodes; sent only when something in it changed. */
   'series.changed': SeriesTaskDto[]
   'watches.changed': WatchDto[]
   'search.results': { searchId: string; results: SearchResultDto[] }
