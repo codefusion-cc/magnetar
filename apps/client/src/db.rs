@@ -473,6 +473,79 @@ mod tests {
         assert!(tasks.iter().all(|t| t.show_episodes.is_empty()));
     }
 
+    /// A library at `version`, made by the migrations before it.
+    fn library_at(path: &Path, version: usize) -> Connection {
+        let conn = Connection::open(path).unwrap();
+        for migration in &MIGRATIONS[..version] {
+            conn.execute_batch(migration).unwrap();
+        }
+        conn.pragma_update(None, "user_version", version as i64).unwrap();
+        conn
+    }
+
+    fn columns(conn: &Connection, table: &str) -> Vec<String> {
+        let statement = conn.prepare(&format!("SELECT * FROM {table}")).unwrap();
+        statement.column_names().into_iter().map(String::from).collect()
+    }
+
+    #[test]
+    fn a_migration_that_fails_half_way_leaves_the_library_as_it_was() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("magnetar.db");
+        {
+            let conn = library_at(&path, 7);
+            conn.execute_batch(
+                "INSERT INTO series_tasks (name, query, created_at, show_checked_at)
+                   VALUES ('Show', 'Show', '2026-10-01T00:00:00.000Z', '2026-10-12T06:00:00.000Z');
+                 ALTER TABLE downloads ADD COLUMN season INTEGER;",
+            )
+            .unwrap();
+        }
+        // Migration 8's last step finds its column already there, after its first steps ran.
+        assert!(Db::open(&path).is_err());
+        let conn = Connection::open(&path).unwrap();
+        assert_eq!(conn.pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0)).unwrap(), 7);
+        assert!(!columns(&conn, "series_tasks").contains(&"show_episodes".to_owned()));
+        assert!(!columns(&conn, "downloads").contains(&"last_episode".to_owned()));
+        let checked: Option<String> = conn.query_row("SELECT show_checked_at FROM series_tasks", [], |r| r.get(0)).unwrap();
+        assert_eq!(checked.as_deref(), Some("2026-10-12T06:00:00.000Z"), "nothing of it stays");
+    }
+
+    #[test]
+    fn a_build_from_before_episodes_still_works_on_an_upgraded_library() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("magnetar.db");
+        drop(library_at(&path, 7));
+        drop(Db::open(&path).unwrap());
+        // What version 7's build writes, word for word; it runs no migration on a newer library.
+        let conn = Connection::open(&path).unwrap();
+        conn.execute(
+            "INSERT INTO series_tasks (name, query, provider, title_filter, season, start_episode, end_episode, download_folder,
+               check_interval_minutes, enabled, created_at, resolution, min_seeders, max_size_mb, prefer_words, exclude_words)
+             VALUES ('Show', 'Show', NULL, NULL, 1, 1, NULL, NULL, 60, 1, '2026-10-01T00:00:00.000Z', NULL, 1, NULL, NULL, NULL)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE series_tasks SET name = 'Show', show_info = NULL, show_checked_at = '2026-10-12T00:00:00.000Z' WHERE id = 1",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO downloads (name, name_is_placeholder, magnet_uri, info_hash, save_path, source, status, added_at,
+               series_task_id, episode)
+             VALUES ('Show.S01E01E02.1080p', 0, 'magnet:?xt=urn:btih:aa', 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', '/dl', 'Nyaa',
+               'Queued', '2026-10-12T00:00:00.000Z', 1, 1)",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+        // And this build opens it again as it left it.
+        let db = Db::open(&path).unwrap();
+        let version: i64 = db.lock().pragma_query_value(None, "user_version", |r| r.get(0)).unwrap();
+        assert_eq!(version, MIGRATIONS.len() as i64);
+    }
+
     #[cfg(unix)]
     #[test]
     fn replacing_a_file_keeps_or_restricts_its_permissions_and_leaves_nothing_behind() {
