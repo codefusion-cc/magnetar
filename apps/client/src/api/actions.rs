@@ -347,7 +347,7 @@ impl Actions {
         self.series.save(&task)?;
         if renamed {
             // What TVmaze said was of the old name: none of it is shown for the new one.
-            self.series.save_show(task.id, None, &[], None)?;
+            self.series.save_show(task.id, None, None, &[], None)?;
             self.refresh_show_later(task.id);
         }
         Ok(self.series.dto(&self.series.get(id)?))

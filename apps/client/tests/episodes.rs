@@ -193,6 +193,10 @@ async fn when_tvmaze_fails_what_it_said_before_stays_and_it_is_asked_again_later
         (StatusCode::OK, r#"{"id":7,"name":"Show","_embedded":{"episodes":[{"season":1"#.to_owned()),
         (StatusCode::OK, "<html>maintenance</html>".to_owned()),
         (StatusCode::OK, r#"{"name":"Show"}"#.to_owned()),
+        // A show, but without the episodes asked for, or with none of them readable.
+        (StatusCode::OK, r#"{"id":7,"name":"Show"}"#.to_owned()),
+        (StatusCode::OK, r#"{"id":7,"name":"Show","_embedded":{"nextepisode":null}}"#.to_owned()),
+        (StatusCode::OK, r#"{"id":7,"name":"Show","_embedded":{"episodes":["one",2,{"season":"x"}]}}"#.to_owned()),
         // A show, but larger than any: refused before it is read.
         (StatusCode::OK, format!(r#"{{"id":7,"name":"Show","padding":"{}"}}"#, "x".repeat(32 * 1024 * 1024))),
     ] {
@@ -573,4 +577,36 @@ async fn an_episode_whose_torrent_details_are_gone_is_had_only_while_its_file_is
     assert_eq!(states(&listed(&app).episodes)[0], (1, EpisodeState::Have { download_id: id }));
     std::fs::write(&file, vec![0u8; size as usize + 1]).unwrap();
     assert_eq!(states(&listed(&app).episodes)[0], (1, EpisodeState::Missed));
+}
+
+#[tokio::test]
+async fn an_answer_about_a_name_the_rule_no_longer_has_is_never_kept() {
+    let (tvmaze, api) = Tvmaze::start().await;
+    tvmaze.answer(StatusCode::INTERNAL_SERVER_ERROR, "");
+    let dir = tempfile::tempdir().unwrap();
+    let app = app_in(dir.path(), &[], &api);
+    let task = app.actions.create_series(rule(Some(1))).await.unwrap();
+    tvmaze.asked_at_least(1).await;
+    let patch: SeriesTaskPatch = serde_json::from_value(json!({ "name": "Another show" })).unwrap();
+    app.actions.update_series(task.id, patch).unwrap();
+    tvmaze.asked_at_least(2).await;
+    // A look-up of the old name ends now, after its poster came, and writes what it found.
+    let old = magnetar::protocol::ShowInfoDto {
+        tvmaze_id: 7,
+        name: "Show".into(),
+        url: None,
+        status: None,
+        premiered: None,
+        network: None,
+        has_poster: false,
+        next_episode: None,
+        previous_episode: None,
+    };
+    let episodes = [magnetar::series::tvmaze::ShowEpisode { season: 1, number: 1, name: Some("Old".into()), airstamp: None }];
+    assert!(!app.series.save_show(task.id, Some("Show"), Some(&old), &episodes, Some("2026-10-12T00:00:00.000Z")).unwrap());
+    let now = app.actions.get_series(task.id).unwrap();
+    assert_eq!((now.show, names(&now.episodes)), (None, vec![None]));
+    // The rule's own name is kept.
+    assert!(app.series.save_show(task.id, Some("Another show"), Some(&old), &episodes, None).unwrap());
+    assert_eq!(names(&app.actions.get_series(task.id).unwrap().episodes), [Some("Old")]);
 }

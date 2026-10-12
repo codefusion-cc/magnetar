@@ -51,8 +51,8 @@ struct Image {
 struct Embedded {
     nextepisode: Option<Episode>,
     previousepisode: Option<Episode>,
-    #[serde(default)]
-    episodes: Vec<Lenient<ListedEpisode>>,
+    /// Always there when asked for; `[]` for a show with none yet.
+    episodes: Option<Vec<Lenient<ListedEpisode>>>,
 }
 
 /// One entry of a list that may hold entries of another shape; those are skipped, not fatal.
@@ -133,20 +133,25 @@ pub async fn lookup(http: &reqwest::Client, api: &str, name: &str) -> anyhow::Re
     }
     anyhow::ensure!(response.status().is_success(), "TVmaze answered HTTP {}", response.status().as_u16());
     let body = read_body(response, MAX_SHOW_BYTES).await?;
-    Ok(Some(parse(serde_json::from_slice(&body)?)))
+    parse(serde_json::from_slice(&body)?).map(Some)
 }
 
-fn parse(show: Show) -> Found {
+/// What TVmaze said, or an error when it isn't a show with its episode list: an answer without the list,
+/// or with entries none of which can be read, would otherwise stand for a show without episodes.
+fn parse(show: Show) -> anyhow::Result<Found> {
     let embedded = show.embedded.unwrap_or_default();
     let poster = show.image.and_then(|i| i.medium).filter(|u| u.starts_with("https://"));
-    let mut episodes: Vec<ShowEpisode> = embedded
-        .episodes
+    let listed = embedded.episodes.ok_or_else(|| anyhow::anyhow!("TVmaze sent the show without its episodes"))?;
+    let total = listed.len();
+    let read: Vec<ListedEpisode> = listed
         .into_iter()
         .filter_map(|e| match e {
-            Lenient::Read(e) => e.numbered(),
+            Lenient::Read(e) => Some(e),
             Lenient::Unreadable(_) => None,
         })
         .collect();
+    anyhow::ensure!(total == 0 || !read.is_empty(), "TVmaze sent episodes of a shape it never used");
+    let mut episodes: Vec<ShowEpisode> = read.into_iter().filter_map(ListedEpisode::numbered).collect();
     episodes.sort_by_key(|e| (e.season, e.number));
     // One place listed twice keeps its first entry.
     episodes.dedup_by_key(|e| (e.season, e.number));
@@ -161,7 +166,7 @@ fn parse(show: Show) -> Found {
         next_episode: embedded.nextepisode.map(Into::into),
         previous_episode: embedded.previousepisode.map(Into::into),
     };
-    Found { info, poster, episodes }
+    Ok(Found { info, poster, episodes })
 }
 
 pub fn poster_path(posters: &Path, tvmaze_id: i64) -> PathBuf {
@@ -197,8 +202,9 @@ mod tests {
             "status":"Running","premiered":"2021-01-11","network":null,"webChannel":{"name":"Crunchyroll"},
             "image":{"medium":"https://static.tvmaze.com/uploads/images/medium_portrait/1/2.jpg","original":"x"},
             "_embedded":{"nextepisode":{"season":3,"number":15,"name":"N","airstamp":"2026-10-02T15:00:00+00:00"},
-                         "previousepisode":{"season":3,"number":14,"name":"P","airstamp":"2026-09-25T15:00:00+00:00"}}}"#;
-        let Found { info, poster, .. } = parse(serde_json::from_str(json).unwrap());
+                         "previousepisode":{"season":3,"number":14,"name":"P","airstamp":"2026-09-25T15:00:00+00:00"},
+                         "episodes":[]}}"#;
+        let Found { info, poster, .. } = parse(serde_json::from_str(json).unwrap()).unwrap();
         assert_eq!(
             (info.tvmaze_id, info.network.as_deref(), info.status.as_deref()),
             (44778, Some("Crunchyroll"), Some("Running"))
@@ -211,14 +217,36 @@ mod tests {
     #[test]
     fn an_ended_show_without_extras_still_reads() {
         let Found { info, poster, episodes } = parse(
-            serde_json::from_str(r#"{"id":1,"name":"Old","status":"Ended","image":{"medium":"http://insecure/x.jpg"}}"#).unwrap(),
-        );
+            serde_json::from_str(
+                r#"{"id":1,"name":"Old","status":"Ended","image":{"medium":"http://insecure/x.jpg"},"_embedded":{"episodes":[]}}"#,
+            )
+            .unwrap(),
+        )
+        .unwrap();
         assert!(info.next_episode.is_none() && info.network.is_none() && episodes.is_empty());
         assert_eq!(poster, None, "only https posters");
     }
 
+    #[test]
+    fn a_show_without_its_episode_list_is_no_answer() {
+        for json in [
+            r#"{"id":1,"name":"S"}"#,
+            r#"{"id":1,"name":"S","_embedded":{"nextepisode":null}}"#,
+            r#"{"id":1,"name":"S","_embedded":{"episodes":null}}"#,
+            r#"{"id":1,"name":"S","_embedded":{"episodes":["x",{"season":"one"}]}}"#,
+        ] {
+            assert!(parse(serde_json::from_str(json).unwrap()).is_err(), "{json}");
+        }
+        // Specials only: read, and none of them numbered.
+        let specials =
+            r#"{"id":1,"name":"S","_embedded":{"episodes":[{"season":1,"number":null,"type":"significant_special"}]}}"#;
+        assert!(parse(serde_json::from_str(specials).unwrap()).unwrap().episodes.is_empty());
+    }
+
     fn episodes(list: &str) -> Vec<ShowEpisode> {
-        parse(serde_json::from_str(&format!(r#"{{"id":1,"name":"S","_embedded":{{"episodes":{list}}}}}"#)).unwrap()).episodes
+        parse(serde_json::from_str(&format!(r#"{{"id":1,"name":"S","_embedded":{{"episodes":{list}}}}}"#)).unwrap())
+            .unwrap()
+            .episodes
     }
 
     fn place(e: &ShowEpisode) -> (i64, i64) {

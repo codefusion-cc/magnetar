@@ -259,23 +259,28 @@ impl SeriesStore {
         Ok(())
     }
 
-    /// What TVmaze said of the rule's show, all at once: a failed look-up never leaves half of it.
+    /// What TVmaze said of the rule's show, all at once: a failed look-up never leaves half of it. With
+    /// `named`, only while the rule still has that name, in the same write: an answer about a name the
+    /// rule no longer has is never kept. Whether it was saved.
     pub fn save_show(
         &self,
         id: i64,
+        named: Option<&str>,
         show: Option<&ShowInfoDto>,
         episodes: &[ShowEpisode],
         checked_at: Option<&str>,
-    ) -> ApiResult<()> {
+    ) -> ApiResult<bool> {
         let json = |value: serde_json::Result<String>| value.map_err(|e| ApiError::internal(e.to_string()));
         let show = show.map(|show| json(serde_json::to_string(show))).transpose()?;
         let episodes = if episodes.is_empty() { None } else { Some(json(serde_json::to_string(episodes))?) };
-        self.db.lock().execute(
-            "UPDATE series_tasks SET show_info = ?, show_episodes = ?, show_checked_at = ? WHERE id = ?",
-            params![show, episodes, checked_at, id],
-        )?;
-        self.changed();
-        Ok(())
+        let saved = self.db.lock().execute(
+            "UPDATE series_tasks SET show_info = ?, show_episodes = ?, show_checked_at = ? WHERE id = ? AND (?5 IS NULL OR name = ?5)",
+            params![show, episodes, checked_at, id, named],
+        )? > 0;
+        if saved {
+            self.changed();
+        }
+        Ok(saved)
     }
 
     /// Its downloads are kept and become manual downloads (the foreign key sets them to null).

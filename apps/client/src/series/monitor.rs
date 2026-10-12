@@ -297,21 +297,19 @@ impl SeriesMonitor {
     /// the time it said it; the show is asked again after `SHOW_RETRY`.
     pub async fn refresh_show(&self, id: i64) -> ApiResult<()> {
         let Some(posters) = &self.posters else { return Ok(()) };
-        let name = self.store.get(id)?.name.trim().to_owned();
+        let name = self.store.get(id)?.name;
         let api = self.tvmaze_api.get_or_init(|| tvmaze::API.into());
-        let found = if name.is_empty() {
+        let found = if name.trim().is_empty() {
             None
         } else {
-            tvmaze::lookup(&self.http, api, &name).await.inspect_err(|_| {
+            tvmaze::lookup(&self.http, api, name.trim()).await.inspect_err(|_| {
                 self.failures().insert(id, Instant::now());
             })?
         };
         self.failures().remove(&id);
-        if self.store.get(id)?.name.trim() != name {
-            // Renamed meanwhile: this answer is of the old name, and the new one has its own look-up.
-            return Ok(());
-        }
-        let Some(mut found) = found else { return self.store.save_show(id, None, &[], Some(&now_iso())) };
+        // Each write is kept only if the rule still has the name asked about: renamed meanwhile, the new
+        // name has its own look-up.
+        let Some(mut found) = found else { return self.store.save_show(id, Some(&name), None, &[], Some(&now_iso())).map(drop) };
         let path = tvmaze::poster_path(posters, found.info.tvmaze_id);
         if let Some(url) = found.poster
             && let Err(error) = tvmaze::save_poster(&self.http, &url, &path).await
@@ -319,7 +317,7 @@ impl SeriesMonitor {
             tracing::warn!("Could not save the poster for '{name}': {error:#}");
         }
         found.info.has_poster = path.exists();
-        self.store.save_show(id, Some(&found.info), &found.episodes, Some(&now_iso()))
+        self.store.save_show(id, Some(&name), Some(&found.info), &found.episodes, Some(&now_iso())).map(drop)
     }
 
     /// When each show last failed to load, by rule.
