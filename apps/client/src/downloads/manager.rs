@@ -92,6 +92,12 @@ struct EpisodeFile {
     size: u64,
 }
 
+/// A series download collected under the lock, with the file to look for on disk once outside it.
+struct Unchecked {
+    download: EpisodeDownload,
+    on_disk: Option<(PathBuf, EpisodeFile)>,
+}
+
 impl Item {
     fn from_row(row: &Row<'_>) -> rusqlite::Result<Self> {
         let status: String = row.get("status")?;
@@ -635,14 +641,14 @@ impl DownloadManager {
             .filter(|i| wanted(i.series_task_id) && i.episode.is_some() && finished(i.status) && i.episode_file.is_none())
             .map(|i| (i.id, i.info_hash.clone(), i.selected_files.clone()))
             .collect();
-        let looked_up: Vec<(i64, Option<Vec<usize>>, Option<EpisodeFile>)> = unknown
+        let looked_up: Vec<_> = unknown
             .into_iter()
             .map(|(id, hash, selected)| {
                 let file = self.metadata(&hash).and_then(|m| episode_file(&m, selected.as_deref()));
                 (id, selected, file)
             })
             .collect();
-        let mut found: HashMap<i64, Vec<(EpisodeDownload, Option<(PathBuf, EpisodeFile)>)>> = HashMap::new();
+        let mut found: HashMap<i64, Vec<Unchecked>> = HashMap::new();
         {
             let mut items = self.items();
             for (id, selected, file) in looked_up {
@@ -663,7 +669,7 @@ impl DownloadManager {
                     .map(|file| (PathBuf::from(&item.save_path), file));
                 let last = item.last_episode.unwrap_or(first).max(first);
                 let download = EpisodeDownload { id: item.id, first, last, status: item.status, on_disk: true };
-                found.entry(task).or_default().push((download, on_disk));
+                found.entry(task).or_default().push(Unchecked { download, on_disk });
             }
         }
         found
@@ -671,8 +677,8 @@ impl DownloadManager {
             .map(|(task, downloads)| {
                 let downloads = downloads
                     .into_iter()
-                    .map(|(download, file)| EpisodeDownload {
-                        on_disk: file.is_none_or(|(save_path, f)| length_inside(&save_path, &f.relative) == Some(f.size)),
+                    .map(|Unchecked { download, on_disk }| EpisodeDownload {
+                        on_disk: on_disk.is_none_or(|(save_path, f)| length_inside(&save_path, &f.relative) == Some(f.size)),
                         ..download
                     })
                     .collect();
