@@ -1328,6 +1328,8 @@ echo "$version" >> "$here/started"
         let url = format!("{}/stream", streamed.url);
         assert_eq!(download_to(&http, &url, &path, 4096).await.unwrap().len(), 64);
         assert!(download_to(&http, &url, &path, 4095).await.unwrap_err().to_string().contains("larger than any release"));
+        assert_eq!(download_small(&http, &url, 4096).await.unwrap(), big);
+        assert!(download_small(&http, &url, 4095).await.is_err());
 
         // A manifest past what one could be is not read in whole.
         let server = server(vec![("manifest", vec![b'a'; MAX_MANIFEST as usize + 1])]).await;

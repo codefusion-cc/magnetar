@@ -355,10 +355,11 @@ async fn of_two_changes_at_once_the_last_message_is_the_latest_state() {
 
 #[tokio::test]
 async fn an_episode_whose_file_is_removed_from_disk_is_missed() {
-    let (_tvmaze, api) = Tvmaze::start().await;
+    let (tvmaze, api) = Tvmaze::start().await;
     let dir = tempfile::tempdir().unwrap();
     let app = app_in(dir.path(), &[], &api);
     let task = app.actions.create_series(rule(Some(1))).await.unwrap();
+    tvmaze.asked_at_least(1).await;
     let added = app.downloads.add_torrent_file(common::torrent_of_size(2_000, "Show.S01E01.mkv"), "File", None).unwrap();
     let size = app.downloads.files(added.id).unwrap()[0].size;
     app.db
@@ -368,7 +369,8 @@ async fn an_episode_whose_file_is_removed_from_disk_is_missed() {
             rusqlite::params![task.id, size as i64],
         )
         .unwrap();
-    app.db.lock().execute("UPDATE series_tasks SET last_downloaded_episode = 1", []).unwrap();
+    // Paused, so no check of the rule says anything: only the round's look at the disk can.
+    app.db.lock().execute("UPDATE series_tasks SET last_downloaded_episode = 1, enabled = 0", []).unwrap();
     let file = dir.path().join("dl").join("Show.S01E01.mkv");
     std::fs::write(&file, vec![0u8; size as usize]).unwrap();
     drop(app);
