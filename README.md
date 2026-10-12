@@ -136,7 +136,8 @@ claude mcp add --transport http --scope user magnetar http://localhost:47820/mcp
 
 The resolved URLs and bearer token are also written to `endpoint.json` in the data folder (owner-only). REST lives
 under `/api`, described at `/openapi/v1.json`. Tools and routes: search (rate limited; a source by its name or its
-short id, `tpb`, `1337x`, `nyaa`, `eztv`, `rarbg`, `torrents-csv`), details, start/pause/resume/delete downloads, series-task CRUD with `PATCH` (partial) and `PUT` (complete) updates, "check now", and read-only
+short id, `tpb`, `1337x`, `nyaa`, `eztv`, `rarbg`, `torrents-csv`), details, start/pause/resume/delete downloads, series-task CRUD with `PATCH` (partial) and `PUT` (complete) updates, "check now", a task's episodes (air times and
+which are downloaded, downloading, expected or missed, in pages), and read-only
 settings. Agent-chosen save folders must be inside the download folder, symlinks included, because an agent picks
 arguments after reading untrusted torrent titles and descriptions.
 

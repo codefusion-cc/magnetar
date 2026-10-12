@@ -114,6 +114,16 @@ ALTER TABLE browser_keys ADD COLUMN expires_at TEXT;
     r"
 ALTER TABLE browser_keys ADD COLUMN pair_of TEXT;
 ",
+    // Every episode of a rule's show with its air time, kept with the show. Shows are looked up again
+    // at once to fill it, rather than when their details next fall due. A download may hold more than
+    // its first episode (a double episode, a pack): last_episode, null when it holds one. season is the
+    // one its title names. Older rows have neither, and are read from their title (`Item::from_row`).
+    r"
+ALTER TABLE series_tasks ADD COLUMN show_episodes TEXT;
+UPDATE series_tasks SET show_checked_at = NULL;
+ALTER TABLE downloads ADD COLUMN last_episode INTEGER;
+ALTER TABLE downloads ADD COLUMN season INTEGER;
+",
 ];
 
 /// The app database. Statements are short, so one connection behind a mutex serves every service.
@@ -365,6 +375,176 @@ impl SecretStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Every row of `table`, every column but `except`, in order: what a migration must keep.
+    fn rows(conn: &Connection, table: &str, except: &[&str]) -> Vec<Vec<rusqlite::types::Value>> {
+        let mut statement = conn.prepare(&format!("SELECT * FROM {table} ORDER BY rowid")).unwrap();
+        let keep: Vec<usize> =
+            (0..statement.column_count()).filter(|&i| !except.contains(&statement.column_name(i).unwrap())).collect();
+        statement
+            .query_map([], |row| keep.iter().map(|&i| row.get::<_, rusqlite::types::Value>(i)).collect())
+            .unwrap()
+            .map(Result::unwrap)
+            .collect()
+    }
+
+    #[test]
+    fn a_library_from_before_episodes_upgrades_without_losing_anything() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("magnetar.db");
+        let before = 7;
+        let show = r#"{"tvmazeId":44778,"name":"Mushoku Tensei: Jobless Reincarnation","url":"https://www.tvmaze.com/shows/44778/x","status":"Running","premiered":"2021-01-11","network":"Crunchyroll","hasPoster":true,"nextEpisode":{"season":3,"number":15,"name":"N","airstamp":"2026-10-16T15:00:00+00:00"},"previousEpisode":{"season":3,"number":14,"name":"P","airstamp":"2026-10-09T15:00:00+00:00"}}"#;
+        let (tables, old) = {
+            let conn = Connection::open(&path).unwrap();
+            for migration in &MIGRATIONS[..before] {
+                conn.execute_batch(migration).unwrap();
+            }
+            conn.pragma_update(None, "user_version", before as i64).unwrap();
+            conn.execute_batch(&format!(
+                "INSERT INTO series_tasks (name, query, provider, title_filter, season, start_episode, end_episode, download_folder,
+                   last_downloaded_episode, check_interval_minutes, enabled, last_checked_at, created_at, resolution, min_seeders,
+                   max_size_mb, prefer_words, exclude_words, show_info, show_checked_at)
+                 VALUES ('Mushoku Tensei', 'Mushoku Tensei S3', NULL, 'SubsPlease', 3, 1, 24, '/Users/someone/Anime', 14, 60, 1,
+                   '2026-10-12T08:00:00.000Z', '2026-09-01T10:00:00.000Z', '1080p', 5, 2000, 'SubsPlease', 'HEVC', '{{}}',
+                   '2026-10-12T06:00:00.000Z'),
+                  ('Old show', 'Old show', 'Nyaa', NULL, NULL, 1, NULL, NULL, 0, 1440, 0, NULL, '2025-01-01T00:00:00.000Z', NULL, 1,
+                   NULL, NULL, NULL, NULL, NULL);
+                 INSERT INTO downloads (name, name_is_placeholder, magnet_uri, info_hash, save_path, source, status, progress,
+                   total_bytes, added_at, completed_at, error, start_notification_sent, complete_notification_sent, series_task_id,
+                   uploaded_bytes, selected_files, episode)
+                 VALUES ('[SubsPlease] Mushoku Tensei S3 - 13 (1080p).mkv', 0, 'magnet:?xt=urn:btih:aa', 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+                   '/Users/someone/Anime', 'Nyaa', 'Completed', 100, 1450000000, '2026-10-02T16:00:00.000Z', '2026-10-02T16:20:00.000Z',
+                   NULL, 1, 1, 1, 2900000000, NULL, 13),
+                  ('[SubsPlease] Mushoku Tensei S3 - 14 (1080p).mkv', 0, 'magnet:?xt=urn:btih:bb', 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
+                   '/Users/someone/Anime', 'Nyaa', 'Error', 0, 0, '2026-10-09T16:00:00.000Z', NULL,
+                   'No peers found — the torrent may be dead or have no seeders.', 1, 0, 1, 0, NULL, 14),
+                  ('ubuntu-26.04-desktop-amd64.iso', 0, 'magnet:?xt=urn:btih:cc', 'CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC',
+                   '/Users/someone/Downloads', 'Magnet', 'Seeding', 100, 6000000000, '2026-10-10T09:00:00.000Z',
+                   '2026-10-10T09:30:00.000Z', NULL, 1, 1, NULL, 123, '[0,2]', NULL);
+                 INSERT INTO series_rejects (task_id, info_hash) VALUES (1, 'dddddddddddddddddddddddddddddddddddddddd');
+                 INSERT INTO watches (query, resolution, auto_download, check_interval_minutes, enabled, created_at, found, download_id)
+                   VALUES ('Dune Part Three 2160p', '2160p', 1, 360, 0, '2026-09-20T00:00:00.000Z', '{{}}', 3);
+                 UPDATE series_tasks SET show_info = '{show}' WHERE id = 1;"
+            ))
+            .unwrap();
+            let tables = ["series_tasks", "downloads", "series_rejects", "watches", "browser_keys", "settings", "secrets", "kv"];
+            let old: Vec<_> = tables.iter().map(|t| rows(&conn, t, &["show_checked_at"])).collect();
+            (tables, old)
+        };
+
+        let db = Db::open(&path).unwrap();
+        let conn = db.lock();
+        let version: i64 = conn.pragma_query_value(None, "user_version", |r| r.get(0)).unwrap();
+        assert_eq!(version, MIGRATIONS.len() as i64);
+        for (table, old) in tables.iter().zip(old) {
+            let added: &[&str] = match *table {
+                "series_tasks" => &["show_checked_at", "show_episodes"],
+                "downloads" => &["last_episode", "season"],
+                _ => &[],
+            };
+            assert_eq!(rows(&conn, table, added), old, "{table}");
+        }
+        let added: Vec<(Option<String>, Option<String>)> = conn
+            .prepare("SELECT show_episodes, show_checked_at FROM series_tasks")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        assert_eq!(added, [(None, None), (None, None)], "every show is looked up again for its episodes");
+        let spans: Vec<Option<i64>> = conn
+            .prepare("SELECT last_episode FROM downloads")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        assert_eq!(spans, [None, None, None]);
+        // And the app reads the rules as before, with the show TVmaze described.
+        let tasks: Vec<crate::series::SeriesTask> = conn
+            .prepare("SELECT * FROM series_tasks ORDER BY id")
+            .unwrap()
+            .query_map([], crate::series::SeriesTask::from_row)
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        assert_eq!(tasks[0].show.as_ref().map(|s| s.tvmaze_id), Some(44778));
+        assert_eq!((tasks[0].last_downloaded_episode, tasks[0].season, tasks[1].enabled), (14, Some(3), false));
+        assert!(tasks.iter().all(|t| t.show_episodes.is_empty()));
+    }
+
+    /// A library at `version`, made by the migrations before it.
+    fn library_at(path: &Path, version: usize) -> Connection {
+        let conn = Connection::open(path).unwrap();
+        for migration in &MIGRATIONS[..version] {
+            conn.execute_batch(migration).unwrap();
+        }
+        conn.pragma_update(None, "user_version", version as i64).unwrap();
+        conn
+    }
+
+    fn columns(conn: &Connection, table: &str) -> Vec<String> {
+        let statement = conn.prepare(&format!("SELECT * FROM {table}")).unwrap();
+        statement.column_names().into_iter().map(String::from).collect()
+    }
+
+    #[test]
+    fn a_migration_that_fails_half_way_leaves_the_library_as_it_was() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("magnetar.db");
+        {
+            let conn = library_at(&path, 7);
+            conn.execute_batch(
+                "INSERT INTO series_tasks (name, query, created_at, show_checked_at)
+                   VALUES ('Show', 'Show', '2026-10-01T00:00:00.000Z', '2026-10-12T06:00:00.000Z');
+                 ALTER TABLE downloads ADD COLUMN season INTEGER;",
+            )
+            .unwrap();
+        }
+        // Migration 8's last step finds its column already there, after its first steps ran.
+        assert!(Db::open(&path).is_err());
+        let conn = Connection::open(&path).unwrap();
+        assert_eq!(conn.pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0)).unwrap(), 7);
+        assert!(!columns(&conn, "series_tasks").contains(&"show_episodes".to_owned()));
+        assert!(!columns(&conn, "downloads").contains(&"last_episode".to_owned()));
+        let checked: Option<String> = conn.query_row("SELECT show_checked_at FROM series_tasks", [], |r| r.get(0)).unwrap();
+        assert_eq!(checked.as_deref(), Some("2026-10-12T06:00:00.000Z"), "nothing of it stays");
+    }
+
+    #[test]
+    fn a_build_from_before_episodes_still_works_on_an_upgraded_library() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("magnetar.db");
+        drop(library_at(&path, 7));
+        drop(Db::open(&path).unwrap());
+        // What version 7's build writes, word for word; it runs no migration on a newer library.
+        let conn = Connection::open(&path).unwrap();
+        conn.execute(
+            "INSERT INTO series_tasks (name, query, provider, title_filter, season, start_episode, end_episode, download_folder,
+               check_interval_minutes, enabled, created_at, resolution, min_seeders, max_size_mb, prefer_words, exclude_words)
+             VALUES ('Show', 'Show', NULL, NULL, 1, 1, NULL, NULL, 60, 1, '2026-10-01T00:00:00.000Z', NULL, 1, NULL, NULL, NULL)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE series_tasks SET name = 'Show', show_info = NULL, show_checked_at = '2026-10-12T00:00:00.000Z' WHERE id = 1",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO downloads (name, name_is_placeholder, magnet_uri, info_hash, save_path, source, status, added_at,
+               series_task_id, episode)
+             VALUES ('Show.S01E01E02.1080p', 0, 'magnet:?xt=urn:btih:aa', 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', '/dl', 'Nyaa',
+               'Queued', '2026-10-12T00:00:00.000Z', 1, 1)",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+        // And this build opens it again as it left it.
+        let db = Db::open(&path).unwrap();
+        let version: i64 = db.lock().pragma_query_value(None, "user_version", |r| r.get(0)).unwrap();
+        assert_eq!(version, MIGRATIONS.len() as i64);
+    }
 
     #[cfg(unix)]
     #[test]

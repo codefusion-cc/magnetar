@@ -21,8 +21,8 @@ use crate::error::{ApiError, ApiResult, ErrorCode};
 use crate::protocol::device_name::is_device_name;
 use crate::protocol::encoding::{from_base64, random_id, to_base64};
 use crate::protocol::{
-    AgentConnectResultDto, AppInfoDto, NotificationEvent, SeriesTaskInput, SeriesTaskPatch, SettingsPatch, StartDownloadInput,
-    WatchInput,
+    AgentConnectResultDto, AppInfoDto, NotificationEvent, SeriesEpisodesQuery, SeriesTaskInput, SeriesTaskPatch, SettingsPatch,
+    StartDownloadInput, WatchInput,
 };
 use crate::search::cache::to_result_dto;
 use crate::system;
@@ -577,6 +577,10 @@ async fn dispatch(
             let download = app.monitor.download_found(&found)?;
             app.monitor.watches.set_download(id, download);
             ok(app.downloads.get(download)?)
+        }
+        "series.episodes" => {
+            let SeriesEpisodesQuery { id, after, limit } = parse(params)?;
+            ok(a.series_episodes(id, after, limit)?)
         }
         "series.poster" => {
             let poster = app.monitor.poster(parse::<IdParams>(params)?.id)?;

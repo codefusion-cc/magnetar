@@ -88,7 +88,7 @@ impl App {
         let notifications = Arc::new(NotificationDispatcher::new(settings.clone(), events.clone(), http.clone()));
         let search = Arc::new(SearchService::new(providers, settings.clone(), http.clone()));
         let downloads = DownloadManager::new(db.clone(), engine, settings.clone(), notifications.clone(), events.clone(), &paths);
-        let series = Arc::new(SeriesStore::new(db.clone(), events.clone()));
+        let series = Arc::new(SeriesStore::new(db.clone(), events.clone(), downloads.clone()));
         let posters = show_lookups.then(|| paths.posters.clone());
         let watches = Arc::new(WatchStore::new(db.clone(), events.clone()));
         let monitor = SeriesMonitor::new(

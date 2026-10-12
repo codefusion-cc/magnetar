@@ -14,3 +14,6 @@ export const TORRENT_UPLOAD_CHUNK = 512 * 1024
 
 /** Entries one `fs.browse` page holds at most (`system::folders::MAX_PAGE` on the device). */
 export const FOLDER_PAGE_MAX = 200
+
+/** Episodes one `series.episodes` page holds at most (`series::episodes::PAGE_MAX` on the device). */
+export const EPISODES_PAGE_MAX = 200

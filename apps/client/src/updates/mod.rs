@@ -606,14 +606,8 @@ fn plain_file_name(name: &str) -> Option<&str> {
 
 /// Downloads `url` into memory, refusing more than `max` bytes.
 async fn download_small(http: &reqwest::Client, url: &str, max: u64) -> anyhow::Result<Vec<u8>> {
-    let mut response = http.get(url).timeout(Duration::from_secs(30)).send().await?.error_for_status()?;
-    anyhow::ensure!(response.content_length().is_none_or(|length| length <= max), "{url} is too large");
-    let mut body = Vec::new();
-    while let Some(chunk) = response.chunk().await? {
-        body.extend_from_slice(&chunk);
-        anyhow::ensure!(body.len() as u64 <= max, "{url} is too large");
-    }
-    Ok(body)
+    let response = http.get(url).timeout(Duration::from_secs(30)).send().await?.error_for_status()?;
+    crate::config::read_body(response, max).await
 }
 
 /// Downloads `url` to `path`, at most `max` bytes, and returns its SHA-256 in hex.
@@ -1334,6 +1328,8 @@ echo "$version" >> "$here/started"
         let url = format!("{}/stream", streamed.url);
         assert_eq!(download_to(&http, &url, &path, 4096).await.unwrap().len(), 64);
         assert!(download_to(&http, &url, &path, 4095).await.unwrap_err().to_string().contains("larger than any release"));
+        assert_eq!(download_small(&http, &url, 4096).await.unwrap(), big);
+        assert!(download_small(&http, &url, 4095).await.is_err());
 
         // A manifest past what one could be is not read in whole.
         let server = server(vec![("manifest", vec![b'a'; MAX_MANIFEST as usize + 1])]).await;

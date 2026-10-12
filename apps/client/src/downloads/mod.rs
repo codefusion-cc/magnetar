@@ -5,4 +5,4 @@ pub mod media;
 pub mod transfer;
 pub mod upload;
 
-pub use manager::{AddDownload, DownloadManager};
+pub use manager::{AddDownload, DownloadManager, SeriesEpisodes};

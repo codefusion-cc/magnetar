@@ -24,6 +24,11 @@ impl DownloadStatus {
         DOWNLOAD_STATUSES[self as usize]
     }
 
+    /// Done downloading: its files are whole on disk (and maybe still shared).
+    pub fn is_finished(self) -> bool {
+        matches!(self, Self::Completed | Self::Seeding)
+    }
+
     /// Belongs in the engine: not finished, failed or paused.
     pub fn wants_engine(self) -> bool {
         !matches!(self, Self::Completed | Self::Error | Self::Paused)
@@ -220,6 +225,8 @@ pub struct SeriesTaskDto {
     pub exclude_words: Option<String>,
     /// From TVmaze, once the show has been found there.
     pub show: Option<ShowInfoDto>,
+    /// The rule's episodes around where it stands; `series.episodes` pages through the rest.
+    pub episodes: SeriesEpisodesDto,
 }
 
 /// A show as TVmaze describes it.
@@ -246,6 +253,51 @@ pub struct AiringDto {
     pub number: Option<i64>,
     pub name: Option<String>,
     pub airstamp: Option<String>,
+}
+
+/// One episode of a series rule and where it stands (`SeriesEpisodeDto` in model.ts says what each state means).
+#[derive(Serialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SeriesEpisodeDto {
+    /// In the rule's season, or counted across the whole show when the rule has none.
+    pub number: i64,
+    pub name: Option<String>,
+    /// UTC, `…Z`; None until TVmaze has a date.
+    pub airstamp: Option<String>,
+    #[serde(flatten)]
+    pub state: EpisodeState,
+}
+
+#[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(tag = "state", rename_all = "camelCase", rename_all_fields = "camelCase")]
+pub enum EpisodeState {
+    Have { download_id: i64 },
+    Downloading { download_id: i64 },
+    Expected,
+    Missed,
+}
+
+/// Which of a rule's episodes `series.episodes` returns: `limit` (1 to `series::episodes::PAGE_MAX`,
+/// `WINDOW` if left out) of those numbered after `after`, from the first if left out.
+#[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SeriesEpisodesQuery {
+    pub id: i64,
+    pub after: Option<i64>,
+    pub limit: Option<usize>,
+}
+
+/// A slice of a rule's episodes, by number: `episodes` are those from `offset` of `total`.
+#[derive(Serialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SeriesEpisodesDto {
+    pub total: usize,
+    pub offset: usize,
+    pub episodes: Vec<SeriesEpisodeDto>,
+    /// The same for every slice of one list of the rule's episodes, and different once any episode changed.
+    pub version: String,
+    /// When TVmaze last answered for the show; None if never.
+    pub air_dates_checked_at: Option<String>,
 }
 
 /// A release a watch found.
@@ -960,5 +1012,37 @@ impl SettingsPatch {
             }
         }
         if problems.is_empty() { Ok(self) } else { Err(ApiError::bad(problems.join("; "))) }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The dashboard reads episodes with the zod schema `SeriesEpisodesDto`, which parses this same
+    /// file (`packages/protocol/src/model.test.ts`): what the app writes is what the schema takes.
+    #[test]
+    fn episodes_are_written_as_the_dashboard_reads_them() {
+        let vector: serde_json::Value =
+            serde_json::from_str(include_str!("../../../../packages/protocol/src/series-episodes-vector.json")).unwrap();
+        let episode = |number, name: Option<&str>, airstamp: Option<&str>, state| SeriesEpisodeDto {
+            number,
+            name: name.map(Into::into),
+            airstamp: airstamp.map(Into::into),
+            state,
+        };
+        let written = SeriesEpisodesDto {
+            total: 5,
+            offset: 1,
+            episodes: vec![
+                episode(2, Some("The Long Night"), Some("2026-10-02T15:00:00.000Z"), EpisodeState::Have { download_id: 41 }),
+                episode(3, None, Some("2026-10-09T15:00:00.000Z"), EpisodeState::Downloading { download_id: 42 }),
+                episode(4, Some("Ćma i ogień"), None, EpisodeState::Expected),
+                episode(5, None, None, EpisodeState::Missed),
+            ],
+            version: "3f9a0c71d2e4b856".into(),
+            air_dates_checked_at: Some("2026-10-12T08:30:00.000Z".into()),
+        };
+        assert_eq!(serde_json::to_value(written).unwrap(), vector);
     }
 }
