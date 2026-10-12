@@ -212,6 +212,18 @@ async fn when_tvmaze_fails_what_it_said_before_stays_and_it_is_asked_again_later
     tvmaze.answer(StatusCode::OK, show(&[(1, Some(1), Some("2026-10-02T15:00:00Z"))]));
     app.monitor.refresh_show(task.id).await.unwrap();
     assert_eq!(names(&listed(&app).episodes), [Some("Episode 1")], "episode 2 is no longer listed");
+
+    // Thirteen hours on, the round asks again, and the next episode has its date.
+    let asked = tvmaze.asked();
+    let earlier = magnetar::protocol::encoding::iso(chrono::Utc::now() - chrono::Duration::hours(13));
+    app.db.lock().execute("UPDATE series_tasks SET show_checked_at = ?", [&earlier]).unwrap();
+    tvmaze
+        .answer(StatusCode::OK, show(&[(1, Some(1), Some("2026-10-02T15:00:00Z")), (1, Some(2), Some("2026-10-09T15:00:00Z"))]));
+    app.monitor.check_all().await;
+    assert_eq!(tvmaze.asked(), asked + 1);
+    let fresh = listed(&app).episodes;
+    assert_eq!(names(&fresh), [Some("Episode 1"), Some("Episode 2")]);
+    assert!(fresh.air_dates_checked_at.as_deref() > Some(earlier.as_str()), "says the dates are new");
 }
 
 #[tokio::test]
