@@ -307,8 +307,7 @@ impl SeriesStore {
 
     /// The rule with its episodes around where it stands.
     pub fn dto(&self, task: &SeriesTask) -> SeriesTaskDto {
-        let downloads = self.downloads.series_downloads(Some(task.id)).remove(&task.id).unwrap_or_default();
-        task.to_dto(episodes::window(task.episodes(&downloads), WINDOW, task.show_checked_at.clone()))
+        task.to_dto(episodes::window(task.episodes(&self.made_by(task.id)), WINDOW, task.show_checked_at.clone()))
     }
 
     /// Every rule, each with its share of `episodes::LIST_BUDGET`.
@@ -331,8 +330,12 @@ impl SeriesStore {
             return Err(ApiError::bad(format!("limit must be 1 to {PAGE_MAX}.")));
         }
         let task = self.get(id)?;
-        let downloads = self.downloads.series_downloads(Some(id)).remove(&id).unwrap_or_default();
-        Ok(episodes::page(task.episodes(&downloads), offset, limit, task.show_checked_at.clone()))
+        Ok(episodes::page(task.episodes(&self.made_by(id)), offset, limit, task.show_checked_at.clone()))
+    }
+
+    /// The downloads the rule made.
+    fn made_by(&self, id: i64) -> Vec<EpisodeDownload> {
+        self.downloads.series_downloads(Some(id)).remove(&id).unwrap_or_default()
     }
 
     /// Until cancelled, tells the dashboard when a download changes what a rule's episodes are: one

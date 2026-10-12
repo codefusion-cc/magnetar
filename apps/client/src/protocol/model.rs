@@ -24,6 +24,11 @@ impl DownloadStatus {
         DOWNLOAD_STATUSES[self as usize]
     }
 
+    /// Done downloading: its files are whole on disk (and maybe still shared).
+    pub fn is_finished(self) -> bool {
+        matches!(self, Self::Completed | Self::Seeding)
+    }
+
     /// Belongs in the engine: not finished, failed or paused.
     pub fn wants_engine(self) -> bool {
         !matches!(self, Self::Completed | Self::Error | Self::Paused)

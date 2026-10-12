@@ -50,35 +50,39 @@ pub fn episodes(task: &SeriesTask, show: &[ShowEpisode], downloads: &[EpisodeDow
     for number in task.start_episode.max(frontier.saturating_sub(MAX_RANGE - 1))..=frontier {
         listed.entry(number).or_default();
     }
+    // Of several downloads holding an episode (one replaced a dead release, or brought better
+    // quality), the newest of its kind: (finished and on disk, under way).
+    let mut held: BTreeMap<i64, (Option<i64>, Option<i64>)> = BTreeMap::new();
     for download in downloads {
         for number in download.first..=download.last {
             listed.entry(number).or_default();
+            let (have, under_way) = held.entry(number).or_default();
+            if !download.status.is_finished() {
+                *under_way = (*under_way).max(Some(download.id));
+            } else if download.on_disk {
+                *have = (*have).max(Some(download.id));
+            }
         }
     }
     listed
         .into_iter()
         .filter(|(number, _)| *number >= 1)
-        .map(|(number, (name, airstamp))| SeriesEpisodeDto { number, name, airstamp, state: state(task, number, downloads) })
+        .map(|(number, (name, airstamp))| {
+            let state = state(task, number, held.get(&number).copied().unwrap_or_default());
+            SeriesEpisodeDto { number, name, airstamp, state }
+        })
         .collect()
 }
 
-fn state(task: &SeriesTask, number: i64, downloads: &[EpisodeDownload]) -> EpisodeState {
-    let holding = || downloads.iter().filter(|d| (d.first..=d.last).contains(&number));
-    // Of several (one replaced a dead release, or brought better quality), the newest of its kind.
-    let newest = |of: &dyn Fn(&EpisodeDownload) -> bool| holding().filter(|d| of(d)).map(|d| d.id).max();
-    if let Some(id) = newest(&|d| finished(d.status) && d.on_disk) {
-        return EpisodeState::Have { download_id: id };
+fn state(task: &SeriesTask, number: i64, (have, under_way): (Option<i64>, Option<i64>)) -> EpisodeState {
+    if let Some(download_id) = have {
+        return EpisodeState::Have { download_id };
     }
-    if let Some(id) = newest(&|d| !finished(d.status)) {
-        return EpisodeState::Downloading { download_id: id };
+    if let Some(download_id) = under_way {
+        return EpisodeState::Downloading { download_id };
     }
     let ahead = number >= task.next_episode() && task.end_episode.is_none_or(|end| number <= end);
     if ahead { EpisodeState::Expected } else { EpisodeState::Missed }
-}
-
-/// Done downloading: its files are whole on disk (and maybe still shared).
-fn finished(status: DownloadStatus) -> bool {
-    matches!(status, DownloadStatus::Completed | DownloadStatus::Seeding)
 }
 
 /// `limit` episodes from `offset`.
@@ -92,7 +96,6 @@ pub fn page(all: Vec<SeriesEpisodeDto>, offset: usize, limit: usize, checked_at:
 /// to come (or under way), so the season so far and what comes next are both in it. The last ones
 /// when nothing is to come.
 pub fn window(all: Vec<SeriesEpisodeDto>, size: usize, checked_at: Option<String>) -> SeriesEpisodesDto {
-    let size = size.min(PAGE_MAX);
     let to_come = all.iter().position(|e| matches!(e.state, EpisodeState::Expected | EpisodeState::Downloading { .. }));
     let anchor = to_come.unwrap_or(all.len());
     let offset = anchor.saturating_sub(size / 4).min(all.len().saturating_sub(size));

@@ -94,11 +94,20 @@ struct EpisodeFile {
 
 /// A series download collected under the lock, with the file to look for on disk once outside it.
 struct Unchecked {
-    download: EpisodeDownload,
-    on_disk: Option<(PathBuf, EpisodeFile)>,
+    id: i64,
+    first: i64,
+    last: i64,
+    status: DownloadStatus,
+    file: Option<(PathBuf, EpisodeFile)>,
 }
 
 impl Item {
+    /// The first and last episode a series download holds.
+    fn episodes(&self) -> Option<(i64, i64)> {
+        let first = self.episode?;
+        Some((first, self.last_episode.unwrap_or(first).max(first)))
+    }
+
     fn from_row(row: &Row<'_>) -> rusqlite::Result<Self> {
         let status: String = row.get("status")?;
         let selected: Option<String> = row.get("selected_files")?;
@@ -352,7 +361,7 @@ impl DownloadManager {
             for mut item in self.load_rows() {
                 if item.status == DownloadStatus::Paused && paused_for_update.contains(&item.id) {
                     item.status = DownloadStatus::Queued;
-                } else if item.progress >= 100.0 && !matches!(item.status, DownloadStatus::Completed | DownloadStatus::Seeding) {
+                } else if item.progress >= 100.0 && !item.status.is_finished() {
                     // Saved at 100 (`percent`) with every byte there, but stopped before it was marked finished.
                     item.status = DownloadStatus::Completed;
                     item.completed_at.get_or_insert_with(now_iso);
@@ -624,10 +633,7 @@ impl DownloadManager {
             .values()
             .filter(|i| i.series_task_id == Some(series_task_id) && i.status == DownloadStatus::Error)
             .filter(|i| i.error.as_deref().is_some_and(|e| e.starts_with(NO_PEERS)))
-            .filter_map(|i| {
-                let first = i.episode?;
-                Some((i.id, first, i.last_episode.unwrap_or(first).max(first), i.info_hash.clone()))
-            })
+            .filter_map(|i| i.episodes().map(|(first, last)| (i.id, first, last, i.info_hash.clone())))
             .collect()
     }
 
@@ -636,12 +642,11 @@ impl DownloadManager {
     /// gone can't be checked and counts as there.
     pub fn series_downloads(&self, only: Option<i64>) -> HashMap<i64, Vec<EpisodeDownload>> {
         let wanted = |task: Option<i64>| task.is_some_and(|task| only.is_none_or(|only| only == task));
-        let finished = |status: DownloadStatus| matches!(status, DownloadStatus::Completed | DownloadStatus::Seeding);
         // The episode's file of a finished download, looked up once from its torrent, outside the lock.
         let unknown: Vec<(i64, String, Option<Vec<usize>>)> = self
             .items()
             .values()
-            .filter(|i| wanted(i.series_task_id) && i.episode.is_some() && finished(i.status) && i.episode_file.is_none())
+            .filter(|i| wanted(i.series_task_id) && i.episode.is_some() && i.status.is_finished() && i.episode_file.is_none())
             .map(|i| (i.id, i.info_hash.clone(), i.selected_files.clone()))
             .collect();
         let looked_up: Vec<_> = unknown
@@ -651,7 +656,7 @@ impl DownloadManager {
                 (id, selected, file)
             })
             .collect();
-        let mut found: HashMap<i64, Vec<Unchecked>> = HashMap::new();
+        let mut unchecked = Vec::new();
         {
             let mut items = self.items();
             for (id, selected, file) in looked_up {
@@ -661,33 +666,25 @@ impl DownloadManager {
                 }
             }
             for item in items.values() {
-                let (Some(task), Some(first)) = (item.series_task_id.filter(|t| wanted(Some(*t))), item.episode) else {
+                let (Some(task), Some((first, last))) = (item.series_task_id.filter(|t| wanted(Some(*t))), item.episodes())
+                else {
                     continue;
                 };
-                let on_disk = item
+                let file = item
                     .episode_file
                     .clone()
                     .flatten()
-                    .filter(|_| finished(item.status))
+                    .filter(|_| item.status.is_finished())
                     .map(|file| (PathBuf::from(&item.save_path), file));
-                let last = item.last_episode.unwrap_or(first).max(first);
-                let download = EpisodeDownload { id: item.id, first, last, status: item.status, on_disk: true };
-                found.entry(task).or_default().push(Unchecked { download, on_disk });
+                unchecked.push((task, Unchecked { id: item.id, first, last, status: item.status, file }));
             }
         }
+        let mut found: HashMap<i64, Vec<EpisodeDownload>> = HashMap::new();
+        for (task, Unchecked { id, first, last, status, file }) in unchecked {
+            let on_disk = file.is_none_or(|(save_path, f)| length_inside(&save_path, &f.relative) == Some(f.size));
+            found.entry(task).or_default().push(EpisodeDownload { id, first, last, status, on_disk });
+        }
         found
-            .into_iter()
-            .map(|(task, downloads)| {
-                let downloads = downloads
-                    .into_iter()
-                    .map(|Unchecked { download, on_disk }| EpisodeDownload {
-                        on_disk: on_disk.is_none_or(|(save_path, f)| length_inside(&save_path, &f.relative) == Some(f.size)),
-                        ..download
-                    })
-                    .collect();
-                (task, downloads)
-            })
-            .collect()
     }
 
     /// Adds a magnet, or returns the download already tracking that torrent.

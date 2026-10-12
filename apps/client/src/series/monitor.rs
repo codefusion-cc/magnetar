@@ -298,11 +298,14 @@ impl SeriesMonitor {
         let Some(posters) = &self.posters else { return Ok(()) };
         let name = self.store.get(id)?.name.trim().to_owned();
         let api = self.tvmaze_api.get_or_init(|| tvmaze::API.into());
-        let found = match name.is_empty() {
-            true => None,
-            false => tvmaze::lookup(&self.http, api, &name).await.inspect_err(|_| self.show_failed(id, true))?,
+        let found = if name.is_empty() {
+            None
+        } else {
+            tvmaze::lookup(&self.http, api, &name).await.inspect_err(|_| {
+                self.failures().insert(id, Instant::now());
+            })?
         };
-        self.show_failed(id, false);
+        self.failures().remove(&id);
         if self.store.get(id)?.name.trim() != name {
             // Renamed meanwhile: this answer is of the old name, and the new one has its own look-up.
             return Ok(());
@@ -318,18 +321,13 @@ impl SeriesMonitor {
         self.store.save_show(id, Some(&found.info), &found.episodes, Some(&now_iso()))
     }
 
-    fn show_failed(&self, id: i64, failed: bool) {
-        let mut failures = self.show_failures.lock().unwrap_or_else(|e| e.into_inner());
-        if failed {
-            failures.insert(id, Instant::now());
-        } else {
-            failures.remove(&id);
-        }
+    /// When each show last failed to load, by rule.
+    fn failures(&self) -> std::sync::MutexGuard<'_, HashMap<i64, Instant>> {
+        self.show_failures.lock().unwrap_or_else(|e| e.into_inner())
     }
 
     fn show_resting(&self, id: i64) -> bool {
-        let failures = self.show_failures.lock().unwrap_or_else(|e| e.into_inner());
-        failures.get(&id).is_some_and(|at| at.elapsed() < SHOW_RETRY)
+        self.failures().get(&id).is_some_and(|at| at.elapsed() < SHOW_RETRY)
     }
 
     async fn refresh_stale_shows(&self) {

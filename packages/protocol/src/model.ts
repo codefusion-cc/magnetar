@@ -209,9 +209,11 @@ export interface ShowInfoDto {
   previousEpisode: AiringDto | null
 }
 
+const episode = z.number().int().min(1)
+
 const episodeFields = {
   /** In the rule's season, or counted across the whole show when the rule has none. */
-  number: z.number().int().min(1),
+  number: episode,
   name: z.string().nullable(),
   /** When it airs or aired, in UTC (`…Z`); null until TVmaze has a date. */
   airstamp: z.iso.datetime().nullable(),
@@ -328,7 +330,6 @@ export const MAX_CHECK_INTERVAL_MINUTES = 10_080
 export const MIN_WATCH_INTERVAL_MINUTES = 15
 const seriesInterval = z.number().int().min(1).max(MAX_CHECK_INTERVAL_MINUTES)
 
-const episode = z.number().int().min(1)
 const optionalText = z.string().trim().transform(v => (v === '' ? null : v)).nullable()
 const resolution = z.enum(['720p', '1080p', '2160p'])
 const words = z.string().trim().max(200).transform(v => (v === '' ? null : v)).nullable()
