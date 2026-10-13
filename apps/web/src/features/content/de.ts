@@ -1,6 +1,5 @@
 import { DEVICE_NAME_MAX_LENGTH } from '@magnetar/protocol/device-name'
 import { MAX_TORRENT_FILE, MIN_SPEED_LIMIT } from '@magnetar/protocol/limits'
-import { plural } from '@codefusion-cc/i18n'
 import type { FeaturesContent } from './types.ts'
 
 const torrentMb = MAX_TORRENT_FILE / 1024 / 1024
@@ -13,22 +12,16 @@ export const content: FeaturesContent = {
   },
   header: { language: 'Sprache', signIn: 'Anmelden', devices: 'Deine Geräte', home: 'Magnetar-Startseite' },
   hero: {
-    badge: 'Kostenlos für macOS, Windows und Linux',
-    title: 'Deine Downloads – ',
-    accent: 'von überall',
+    title: 'Deine Downloads, von überall',
     lead: 'Magnetar durchsucht sechs Torrent-Quellen gleichzeitig, lädt auf deinem eigenen Computer herunter und verfolgt deine Serien. Öffne es in jedem Browser oder auf dem Handy: Alles dazwischen ist Ende-zu-Ende-verschlüsselt. Jeder Screenshot auf dieser Seite zeigt die echte App.',
     primary: 'Zu den Funktionen',
     secondary: 'App herunterladen',
   },
-  stats: { features: n => plural('de', n, { one: 'Funktion', other: 'Funktionen' }), screenshots: n => plural('de', n, { one: 'Screenshot der App', other: 'Screenshots der App' }), sources: n => plural('de', n, { one: 'Torrent-Quelle in einer Suche', other: 'Torrent-Quellen in einer Suche' }), languages: n => plural('de', n, { one: 'Sprache', other: 'Sprachen' }) },
   copy: {
     skipToFeatures: 'Zu den Funktionen springen',
     sectionsLabel: 'Abschnitte der Seite',
-    overview: { label: 'Überblick', title: 'Alles, was es kann, auf einen Blick', lead: 'Wähle eine Funktion, um ihre Screenshots und Details zu sehen.', count: n => `${n} ${n === 1 ? 'Funktion' : 'Funktionen'}` },
-    contents: 'Inhalt',
-    whatItGives: 'Das bringt es: ',
+    overview: { title: 'Alles, was es kann, auf einen Blick', lead: 'Wähle eine Funktion, um ihre Screenshots und Details zu sehen.' },
     moreDetails: n => `Mehr Details (${n})`,
-    fewerDetails: 'Weniger Details',
     featureLink: 'Link zu dieser Funktion',
     shots: {
       group: title => `Screenshots: ${title}`,
@@ -384,7 +377,6 @@ export const content: FeaturesContent = {
   closing: {
     title: 'Magnetar ausprobieren',
     lead: 'Lade die kostenlose App für deinen Computer herunter und melde dich dann hier an, um ihn von überall zu erreichen.',
-    download: 'App herunterladen',
     signIn: 'Anmelden',
   },
 }

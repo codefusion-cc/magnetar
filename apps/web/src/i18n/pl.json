@@ -559,7 +559,7 @@
     "get.others": "Inne systemy",
     "get.releaseNotes": "Nowości i wszystkie pliki",
     "get.first.macos": "Rozpakuj i przenieś Magnetar do Aplikacji. Działa na pasku menu, a panel otwiera się w przeglądarce.",
-    "get.first.windows": "Uruchom — działa w obszarze powiadomień i otwiera panel w przeglądarce. Jeśli Windows ostrzeże, wybierz Więcej informacji → Uruchom mimo to.",
+    "get.first.windows": "Uruchom Magnetar. Działa w obszarze powiadomień i otwiera panel w przeglądarce. Jeśli Windows ostrzeże, wybierz Więcej informacji → Uruchom mimo to.",
     "get.first.linux": "Nadaj prawa wykonywania (chmod +x) i uruchom; panel otworzy się w przeglądarce.",
     "settings.handlers": "Linki magnet i pliki .torrent",
     "settings.handlersHint": "Otwieraj je w Magnetarze: kliknięcie pokaże tu okno dodawania.",

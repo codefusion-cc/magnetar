@@ -5,29 +5,46 @@
  */
 import '@codefusion-cc/features-page/styles.css'
 import './features.css'
-import { countFeatures } from '@codefusion-cc/features-page'
+import { sectionLinks } from '@codefusion-cc/features-page'
 import { applyDocumentLocale } from '@codefusion-cc/i18n/browser'
-import { FeatureCards, FeatureNames, FeaturesClosing, FeaturesHero, FeaturesPage as Page, shotUrls } from '@codefusion-cc/features-page/react'
+import { FeatureList, Features, FeaturesIndex, FeaturesNav, ShotFrame, ShotsProvider, shotUrls, useScrollToHash, type FeatureClassNames } from '@codefusion-cc/features-page/react'
 import { useTheme } from '@codefusion-cc/theme/react'
-import { ArrowRight, Download, Globe, Images, Languages, ListTree, Lock, LogIn, Search, Sparkles } from 'lucide-react'
+import { ArrowRight, Languages, LogIn } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router'
 import { useAccount } from '../cloud/CloudApp.tsx'
-import { ThemeToggle } from '../cloud/CloudFrame.tsx'
+import { SiteFooter, ThemeToggle } from '../cloud/CloudFrame.tsx'
 import { DownloadApp } from '../cloud/DownloadApp.tsx'
 import { browserLanguage, I18nProvider, LANGUAGES } from '../lib/i18n.tsx'
 import { BrandMark } from '../ui/BrandMark.tsx'
 import { Loading } from '../ui/Loading.tsx'
 import { theme } from '../ui/theme.ts'
-import { featureGroups, FEATURE_LANGUAGES, loadContent, loadedContent } from './content/index.ts'
+import { builtOnEntries, featureGroups, FEATURE_LANGUAGES, loadContent, loadedContent, privacyEntries } from './content/index.ts'
 import type { FeaturesContent } from './content/types.ts'
-import { BUILT_ON, HERO_SHOTS, PRIVACY } from './outline.ts'
+import { HERO_SHOT } from './outline.ts'
 import SIZES from './shots.json'
 import { MAGNETAR_REPO } from '@magnetar/protocol/cloud'
 
 const shotUrl = shotUrls(import.meta.glob<string>('./shots/*.webp', { eager: true, query: '?url', import: 'default' }))
-const SOURCES = 6
 const REPOSITORY = `https://github.com/${MAGNETAR_REPO}`
+
+/** The features: a row each, the text beside its screenshots on a wide screen. */
+const ROWS: FeatureClassNames = {
+  group: 'fp-section',
+  groupTitle: 'fp-h2',
+  groupLead: 'fp-lead',
+  list: 'fp-rows',
+  item: 'fp-row',
+  title: 'fp-title',
+  gain: 'fp-gain',
+  text: 'fp-text',
+  points: 'fp-points',
+  more: 'fp-more',
+  aside: 'fp-aside',
+}
+
+/** The short entries (what it keeps, what it is built on): a title and a line under it. */
+const ENTRIES: FeatureClassNames = { list: 'fp-entries', item: 'fp-entry', title: 'fp-entry-title', text: 'fp-text' }
 
 /** The language the address names (null for one the page isn't written in), else the browser's. */
 function pageLanguage(param: string | undefined): string | null {
@@ -57,7 +74,7 @@ export default function FeaturesRoute() {
   if (!shown) return <Loading screen />
   return (
     <I18nProvider language={shown.language}>
-      <Features language={shown.language} content={shown.content} />
+      <FeaturesView language={shown.language} content={shown.content} />
     </I18nProvider>
   )
 }
@@ -76,62 +93,68 @@ function usePageMeta(language: string, meta: FeaturesContent['meta']) {
   }, [language, meta])
 }
 
-function Features({ language, content }: { language: string; content: FeaturesContent }) {
+function FeaturesView({ language, content }: { language: string; content: FeaturesContent }) {
   const mode = useTheme(theme).resolved
   const groups = useMemo(() => featureGroups(content), [content])
-  usePageMeta(language, content.meta)
-
+  const privacy = useMemo(() => privacyEntries(content), [content])
+  const builtOn = useMemo(() => builtOnEntries(content), [content])
+  const links = useMemo(() => [
+    ...sectionLinks(groups),
+    { id: 'privacy', label: content.privacy.label },
+    { id: 'built-on', label: content.builtOn.label },
+  ], [groups, content])
   const shots = useMemo(() => ({ sizes: SIZES, url: shotUrl, mode }), [mode])
-  // Every shot in shots.json is on the page (features.test.ts).
-  const stats = ([
-    ['features', countFeatures(groups), Sparkles],
-    ['screenshots', Object.keys(SIZES).length, Images],
-    ['sources', SOURCES, Search],
-    ['languages', LANGUAGES.length, Languages],
-  ] as const).map(([key, value, icon]) => ({ value, label: content.stats[key](value), icon }))
+  usePageMeta(language, content.meta)
+  useScrollToHash()
 
   return (
-    <Page
-      copy={content.copy}
-      groups={groups}
-      shots={shots}
-      header={<Header language={language} content={content} />}
-      hero={
-        <FeaturesHero
-          badge={content.hero.badge}
-          title={<>{content.hero.title}<mark>{content.hero.accent}</mark></>}
-          lead={content.hero.lead}
-          actions={(
-            <>
-              <a href="#overview" className="btn btn-primary btn-lg"><ListTree size={20} aria-hidden />{content.hero.primary}</a>
-              <a href="#get-app" className="btn btn-lg"><Download size={20} aria-hidden />{content.hero.secondary}</a>
-            </>
-          )}
-          shots={HERO_SHOTS}
-          stats={stats}
-        />
-      }
-      sections={[
-        {
-          id: 'privacy',
-          label: content.privacy.label,
-          icon: Lock,
-          title: content.privacy.title,
-          lead: content.privacy.lead,
-          children: <FeatureCards items={PRIVACY.map(item => ({ icon: item.icon, ...content.privacy.items[item.id] }))} />,
-        },
-        {
-          id: 'built-on',
-          label: content.builtOn.label,
-          icon: Globe,
-          title: content.builtOn.title,
-          lead: <>{content.builtOn.lead} <a className="link" href={REPOSITORY}>{REPOSITORY.replace('https://', '')}</a></>,
-          children: <FeatureNames items={BUILT_ON.map(id => content.builtOn.items[id])} />,
-        },
-      ]}
-      closing={<Closing content={content} />}
-      footer={<Footer />}
-    />
+    <ShotsProvider library={shots}>
+      <div className="features-page">
+        <a href="#overview" className="fp-skip">{content.copy.skipToFeatures}</a>
+        <Header language={language} content={content} />
+        <main>
+          <div className="fp-wrap fp-intro">
+            <div>
+              <h1>{content.hero.title}</h1>
+              <p className="fp-lead">{content.hero.lead}</p>
+              <p className="fp-actions">
+                <a href="#overview" className="btn btn-primary btn-lg">{content.hero.primary}</a>
+                <a href="#get-app" className="btn btn-lg">{content.hero.secondary}</a>
+              </p>
+            </div>
+            {/* The app itself, beside the opening on a wide screen; its alt text is with the feature that shows it. */}
+            <div className="fp-intro-shot" aria-hidden><ShotFrame src={HERO_SHOT} /></div>
+          </div>
+
+          <FeaturesNav label={content.copy.sectionsLabel} links={links} className="fp-nav" />
+
+          <div className="fp-wrap">
+            <section id="overview" aria-labelledby="overview-title" className="fp-section">
+              <h2 id="overview-title" className="fp-h2">{content.copy.overview.title}</h2>
+              <p className="fp-lead">{content.copy.overview.lead}</p>
+              <FeaturesIndex groups={groups} level={3} className="fp-index" />
+            </section>
+
+            <Features groups={groups} copy={content.copy} classNames={ROWS} linkTitles />
+
+            <section id="privacy" aria-labelledby="privacy-title" className="fp-section">
+              <h2 id="privacy-title" className="fp-h2">{content.privacy.title}</h2>
+              <p className="fp-lead">{content.privacy.lead}</p>
+              <FeatureList features={privacy} level={3} classNames={ENTRIES} />
+            </section>
+
+            <section id="built-on" aria-labelledby="built-on-title" className="fp-section">
+              <h2 id="built-on-title" className="fp-h2">{content.builtOn.title}</h2>
+              <p className="fp-lead">{content.builtOn.lead} <a className="link" href={REPOSITORY}>{REPOSITORY.replace('https://', '')}</a></p>
+              <FeatureList features={builtOn} level={3} classNames={ENTRIES} />
+            </section>
+
+            <Closing content={content} />
+          </div>
+        </main>
+        <SiteFooter column="fp-wrap" />
+      </div>
+    </ShotsProvider>
   )
 }
 
@@ -145,8 +168,8 @@ function Header({ language, content }: { language: string; content: FeaturesCont
   const navigate = useNavigate()
   const account = useAccountLink(content)
   return (
-    <header className="sticky top-0 z-40 border-b border-base-300 bg-base-100/90 backdrop-blur">
-      <div className="cf-fp-container flex h-14 items-center gap-2">
+    <header className="fp-header">
+      <div className="fp-wrap flex h-14 items-center gap-2">
         <Link to="/" className="flex min-h-10 flex-1 items-center gap-2.5 rounded-field" aria-label={content.header.home}>
           <BrandMark />
           <span className="font-semibold tracking-tight">Magnetar</span>
@@ -170,29 +193,13 @@ function Header({ language, content }: { language: string; content: FeaturesCont
 function Closing({ content }: { content: FeaturesContent }) {
   const account = useAccountLink(content)
   return (
-    <FeaturesClosing
-      id="get-app"
-      title={content.closing.title}
-      lead={content.closing.lead}
-      actions={(
-        <div className="flex w-full flex-col items-center gap-4">
-          <div className="w-full max-w-md text-left"><DownloadApp /></div>
-          <Link to={account.to} className="btn btn-ghost">
-            {account.signedIn ? account.label : content.closing.signIn}<ArrowRight size={16} aria-hidden />
-          </Link>
-        </div>
-      )}
-    />
-  )
-}
-
-function Footer() {
-  return (
-    <footer className="border-t border-base-300">
-      <div className="cf-fp-container muted flex flex-wrap items-center justify-between gap-3 py-6 text-sm">
-        <span>Magnetar · MIT</span>
-        <a className="link link-hover" href={REPOSITORY}>GitHub</a>
-      </div>
-    </footer>
+    <section id="get-app" aria-labelledby="get-app-title" className="fp-section fp-get">
+      <h2 id="get-app-title" className="fp-h2">{content.closing.title}</h2>
+      <p className="fp-lead">{content.closing.lead}</p>
+      <div className="fp-download"><DownloadApp /></div>
+      <Link to={account.to} className="btn mt-6">
+        {account.signedIn ? account.label : content.closing.signIn}<ArrowRight size={16} aria-hidden />
+      </Link>
+    </section>
   )
 }

@@ -110,9 +110,15 @@ body {
   box-shadow: none;
 }
 
-/* Secondary text, one step quieter than the body (and still above 4.5:1 contrast). */
+/* Secondary text, one step quieter than the body (and still above 4.5:1 contrast). Set where a theme is, so it
+   follows the theme's colours. */
+:root,
+[data-theme] {
+  --muted: color-mix(in oklab, var(--color-base-content) 64%, var(--color-base-100));
+}
+
 .muted {
-  color: color-mix(in oklab, var(--color-base-content) 64%, var(--color-base-100));
+  color: var(--muted);
 }
 
 /* Room below the content for the phone tab bar and the home indicator. */

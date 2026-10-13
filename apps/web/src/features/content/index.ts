@@ -2,9 +2,8 @@
  * The features page's words in each language: English is in the bundle, the others load when someone opens the
  * page in them, as the dashboard's catalogs do (lib/i18n.tsx).
  */
-import type { FeatureGroup } from '@codefusion-cc/features-page'
-import type { IconComponent } from '@codefusion-cc/features-page/react'
-import { OUTLINE, type ShotName } from '../outline.ts'
+import type { Feature, FeatureGroup } from '@codefusion-cc/features-page'
+import { BUILT_ON, OUTLINE, PRIVACY, type ShotName } from '../outline.ts'
 import { en } from './en.ts'
 import type { FeaturesContent, FeatureText } from './types.ts'
 
@@ -37,7 +36,7 @@ export function loadedContent(language: string): FeaturesContent | undefined {
 }
 
 /** The outline's groups in the words of one language, as the page shows them. */
-export function featureGroups(content: FeaturesContent): FeatureGroup<IconComponent, ShotName>[] {
+export function featureGroups(content: FeaturesContent): FeatureGroup<ShotName>[] {
   return OUTLINE.map(group => {
     const words = content.groups[group.id]
     return {
@@ -45,13 +44,21 @@ export function featureGroups(content: FeaturesContent): FeatureGroup<IconCompon
       title: words.title,
       label: words.label,
       lead: words.lead,
-      icon: group.icon,
       features: group.features.map(feature => ({
         id: feature.id,
-        icon: feature.icon,
         ...(words.features as Record<string, FeatureText>)[feature.id]!,
         shots: feature.shots.map(src => ({ src, alt: content.shots[src] })),
       })),
     }
   })
+}
+
+/** What the page keeps and never does, as a flat list; the anchors cannot meet a feature's. */
+export function privacyEntries(content: FeaturesContent): Feature[] {
+  return PRIVACY.map(id => ({ id: `privacy-${id}`, ...content.privacy.items[id] }))
+}
+
+/** What the page says it is built on, as a flat list. */
+export function builtOnEntries(content: FeaturesContent): Feature[] {
+  return BUILT_ON.map(id => ({ id: `built-on-${id}`, title: content.builtOn.items[id].name, text: content.builtOn.items[id].text }))
 }

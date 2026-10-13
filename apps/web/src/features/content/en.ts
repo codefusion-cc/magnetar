@@ -1,6 +1,5 @@
 import { DEVICE_NAME_MAX_LENGTH } from '@magnetar/protocol/device-name'
 import { MAX_TORRENT_FILE, MIN_SPEED_LIMIT } from '@magnetar/protocol/limits'
-import { plural } from '@codefusion-cc/i18n'
 import type { FeaturesContent } from './types.ts'
 
 const torrentMb = MAX_TORRENT_FILE / 1024 / 1024
@@ -13,22 +12,16 @@ export const en: FeaturesContent = {
   },
   header: { language: 'Language', signIn: 'Sign in', devices: 'Your devices', home: 'Magnetar home' },
   hero: {
-    badge: 'Free for macOS, Windows and Linux',
-    title: 'Your downloads, ',
-    accent: 'from anywhere',
+    title: 'Your downloads, from anywhere',
     lead: 'Magnetar searches six torrent sources at once, downloads on your own computer and follows your series. Open it from any browser or phone: everything between them is end-to-end encrypted. Every screenshot on this page is the real app.',
     primary: 'See the features',
     secondary: 'Get the app',
   },
-  stats: { features: n => plural('en', n, { one: 'feature', other: 'features' }), screenshots: n => plural('en', n, { one: 'screenshot of the app', other: 'screenshots of the app' }), sources: n => plural('en', n, { one: 'torrent source in one search', other: 'torrent sources in one search' }), languages: n => plural('en', n, { one: 'language', other: 'languages' }) },
   copy: {
     skipToFeatures: 'Skip to the features',
     sectionsLabel: 'Page sections',
-    overview: { label: 'Overview', title: 'Everything it does, at a glance', lead: 'Pick a feature to see its screenshots and details.', count: n => `${n} ${n === 1 ? 'feature' : 'features'}` },
-    contents: 'Contents',
-    whatItGives: 'What it gives: ',
+    overview: { title: 'Everything it does, at a glance', lead: 'Pick a feature to see its screenshots and details.' },
     moreDetails: n => `More details (${n})`,
-    fewerDetails: 'Fewer details',
     featureLink: 'Link to this feature',
     shots: {
       group: title => `Screenshots: ${title}`,
@@ -384,7 +377,6 @@ export const en: FeaturesContent = {
   closing: {
     title: 'Try Magnetar',
     lead: 'Download the free app for your computer, then sign in here to reach it from anywhere.',
-    download: 'Get the app',
     signIn: 'Sign in',
   },
 }

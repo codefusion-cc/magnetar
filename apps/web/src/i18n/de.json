@@ -559,7 +559,7 @@
     "get.others": "Andere Systeme",
     "get.releaseNotes": "Neuigkeiten und alle Dateien",
     "get.first.macos": "Entpacken und Magnetar in „Programme“ ziehen. Die App sitzt in der Menüleiste; das Dashboard öffnet sich im Browser.",
-    "get.first.windows": "Starte sie – sie sitzt im Infobereich und öffnet das Dashboard im Browser. Warnt Windows, wähle „Weitere Informationen“ → „Trotzdem ausführen“.",
+    "get.first.windows": "Starte sie. Sie sitzt im Infobereich und öffnet das Dashboard im Browser. Warnt Windows, wähle „Weitere Informationen“ → „Trotzdem ausführen“.",
     "get.first.linux": "Mach sie ausführbar (chmod +x) und starte sie; das Dashboard öffnet sich im Browser.",
     "settings.handlers": "Magnet-Links und .torrent-Dateien",
     "settings.handlersHint": "Mit Magnetar öffnen: Ein Klick darauf zeigt hier den Hinzufügen-Dialog.",

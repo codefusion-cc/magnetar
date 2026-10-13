@@ -68,7 +68,7 @@ export function DownloadApp() {
           <Icon size={20} />
           <span className="flex flex-col items-start leading-tight">
             <span>{t('get.for', NAMES[visitor.platform])}</span>
-            <span className="text-xs font-normal opacity-80">{ARCH_NAMES[visitor.platform][main.arch]} · v{release!.version} · {formatBytes(main.size)}</span>
+            <span className="text-xs font-normal opacity-80">{ARCH_NAMES[visitor.platform][main.arch]}, v{release!.version}, {formatBytes(main.size)}</span>
           </span>
         </a>
       ) : (
@@ -88,7 +88,7 @@ export function DownloadApp() {
                 <li key={asset!.name}>
                   <a className="flex items-center gap-2 rounded-field px-2 py-1.5 hover:bg-base-200" href={asset!.url}>
                     <OtherIcon size={16} className="muted" />
-                    <span className="flex-1">{NAMES[platform]} · {ARCH_NAMES[platform][arch]}</span>
+                    <span className="flex-1">{NAMES[platform]}, {ARCH_NAMES[platform][arch]}</span>
                     <span className="muted tabular-nums">{formatBytes(asset!.size)}</span>
                   </a>
                 </li>
