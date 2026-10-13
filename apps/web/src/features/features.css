@@ -2,7 +2,6 @@
    classes are @codefusion-cc/features-page's; this is the page's width, rhythm and the rows of features. */
 
 .features-page {
-  --muted: color-mix(in oklab, var(--color-base-content) 64%, var(--color-base-100));
   --cf-fp-surface: var(--color-base-100);
   --cf-fp-ink: var(--color-base-content);
   --cf-fp-line: var(--color-base-300);

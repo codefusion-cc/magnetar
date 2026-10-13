@@ -10,6 +10,13 @@ const FILES = Object.keys(import.meta.glob('./shots/*.webp'))
 /** The page's own anchors besides the features: the overview, its sections and the download. */
 const SECTIONS = ['overview', 'privacy', 'built-on', 'get-app']
 
+/** Long dashes, the middle dot and the bullet. */
+const MARKS = /[\u2013\u2014\u00b7\u2022]/
+/** The dashboard's words the page shows: the download card's. */
+const PAGE_KEYS = /^(get\.|devices\.download$)/
+const CATALOGS = import.meta.glob<{ strings: Record<string, string> }>('../i18n/*.json', { eager: true, import: 'default' })
+const PAGE_SOURCES = import.meta.glob<string>(['./FeaturesPage.tsx', '../cloud/DownloadApp.tsx'], { eager: true, query: '?raw', import: 'default' })
+
 const contents = Object.fromEntries(await Promise.all(FEATURE_LANGUAGES.map(async code => [code, (await loadContent(code)).content] as const))) as Record<string, FeaturesContent>
 const { en } = contents
 
@@ -55,8 +62,16 @@ describe('the features page', () => {
   })
 
   test.each(FEATURE_LANGUAGES)('uses none of the marks that make a page read as generated (%s)', code => {
-    const marks = strings(contents[code]).filter(([, text]) => /[\u2013\u2014\u00b7\u2022]/.test(text))
+    const marks = strings(contents[code]).filter(([, text]) => MARKS.test(text))
     expect(marks).toEqual([])
+  })
+
+  test.each(FEATURE_LANGUAGES)('shows none of those marks from the dashboard\'s words or its own markup either (%s)', code => {
+    const catalog = CATALOGS[`../i18n/${code}.json`]!.strings
+    const words = Object.entries(catalog).filter(([key, text]) => PAGE_KEYS.test(key) && MARKS.test(text))
+    expect(words).toEqual([])
+    const markup = Object.entries(PAGE_SOURCES).filter(([, source]) => MARKS.test(source)).map(([file]) => file)
+    expect(markup).toEqual([])
   })
 
   test.each(FEATURE_LANGUAGES)('loads %s as itself, not as English', async code => {

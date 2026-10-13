@@ -13,7 +13,7 @@ import { ArrowRight, Languages, LogIn } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router'
 import { useAccount } from '../cloud/CloudApp.tsx'
-import { ThemeToggle } from '../cloud/CloudFrame.tsx'
+import { SiteFooter, ThemeToggle } from '../cloud/CloudFrame.tsx'
 import { DownloadApp } from '../cloud/DownloadApp.tsx'
 import { browserLanguage, I18nProvider, LANGUAGES } from '../lib/i18n.tsx'
 import { BrandMark } from '../ui/BrandMark.tsx'
@@ -135,7 +135,7 @@ function FeaturesView({ language, content }: { language: string; content: Featur
               <FeaturesIndex groups={groups} level={3} className="fp-index" />
             </section>
 
-            <Features groups={groups} copy={content.copy} shots={shots} classNames={ROWS} linkTitles />
+            <Features groups={groups} copy={content.copy} classNames={ROWS} linkTitles />
 
             <section id="privacy" aria-labelledby="privacy-title" className="fp-section">
               <h2 id="privacy-title" className="fp-h2">{content.privacy.title}</h2>
@@ -152,6 +152,7 @@ function FeaturesView({ language, content }: { language: string; content: Featur
             <Closing content={content} />
           </div>
         </main>
+        <SiteFooter column="fp-wrap" />
       </div>
     </ShotsProvider>
   )

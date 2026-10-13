@@ -559,7 +559,7 @@
     "get.others": "Other systems",
     "get.releaseNotes": "What's new, and every file",
     "get.first.macos": "Unzip it and move Magnetar to Applications. It lives in the menu bar; your dashboard opens in the browser.",
-    "get.first.windows": "Run it — it lives in the notification area and opens your dashboard in the browser. If Windows warns you, choose More info → Run anyway.",
+    "get.first.windows": "Run it. It lives in the notification area and opens your dashboard in the browser. If Windows warns you, choose More info → Run anyway.",
     "get.first.linux": "Make it executable (chmod +x) and run it; your dashboard opens in the browser.",
     "settings.handlers": "Magnet links and .torrent files",
     "settings.handlersHint": "Open them with Magnetar: clicking one shows the add dialog here.",

@@ -1,7 +1,7 @@
 import { useTheme } from '@codefusion-cc/theme/react'
 import { MonitorDown, LogOut, Moon, Sparkles, Sun } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { Link } from 'react-router'
+import { Link, NavLink } from 'react-router'
 import { useT } from '../lib/i18n.tsx'
 import { useInstallOffer } from '../lib/install.ts'
 import { theme } from '../ui/theme.ts'
@@ -34,15 +34,23 @@ export function CloudFrame({ children, wide = false }: { children: ReactNode; wi
         </div>
       </header>
       <main className={`mx-auto w-full flex-1 px-4 py-8 sm:py-12 ${wide ? 'max-w-5xl' : 'max-w-3xl'}`}>{children}</main>
-      <footer className="border-t border-base-300">
-        <div className={`muted mx-auto flex w-full flex-wrap items-center gap-x-4 gap-y-1 px-4 py-4 text-xs ${wide ? 'max-w-5xl' : 'max-w-3xl'}`}>
-          <span>Magnetar <BuildVersion repo={MAGNETAR_REPO} className="tabular-nums" commitClassName="link link-hover font-mono" version={BUILD.version} commit={BUILD.commit} /></span>
-          <Link to="/features" className="link link-hover">{t('footer.features')}</Link>
-          <Link to="/about" className="link link-hover">{t('footer.whatsNew')}</Link>
-          <a href={`https://github.com/${MAGNETAR_REPO}`} className="link link-hover" target="_blank" rel="noreferrer noopener">GitHub</a>
-        </div>
-      </footer>
+      <SiteFooter column={`mx-auto w-full px-4 ${wide ? 'max-w-5xl' : 'max-w-3xl'}`} />
     </div>
+  )
+}
+
+/** The website's footer: the build, the features, what's new and the source. `column` sizes its row like the page's. */
+export function SiteFooter({ column }: { column: string }) {
+  const t = useT()
+  return (
+    <footer className="border-t border-base-300">
+      <div className={`muted flex flex-wrap items-center gap-x-4 gap-y-1 py-4 text-xs ${column}`}>
+        <span>Magnetar <BuildVersion repo={MAGNETAR_REPO} className="tabular-nums" commitClassName="link link-hover font-mono" version={BUILD.version} commit={BUILD.commit} /></span>
+        <NavLink to="/features" className="link link-hover">{t('footer.features')}</NavLink>
+        <Link to="/about" className="link link-hover">{t('footer.whatsNew')}</Link>
+        <a href={`https://github.com/${MAGNETAR_REPO}`} className="link link-hover" target="_blank" rel="noreferrer noopener">GitHub</a>
+      </div>
+    </footer>
   )
 }
 
