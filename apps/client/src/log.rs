@@ -2,13 +2,14 @@
 //! Errors are also handed to the error sink (telemetry), except those the computer's surroundings caused
 //! (`SURROUNDINGS`), which are logged as warnings. Other crates only log warnings and up.
 
+use std::any::Any;
 use std::cell::Cell;
 use std::fmt::Write as _;
 use std::fs::{File, OpenOptions};
 use std::io::{self, ErrorKind, Write as _};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{LazyLock, Mutex, OnceLock};
+use std::sync::{LazyLock, Mutex, Once, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use regex::Regex;
@@ -41,6 +42,26 @@ pub fn disk_full_within(window: Duration) -> bool {
     let at = DISK_FULL_AT.load(Ordering::Relaxed);
     let now = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64);
     at != 0 && now.saturating_sub(at) <= window.as_millis() as u64
+}
+
+thread_local! {
+    /// Whether this thread is inside `FileLayer::on_event`, holding the log file's lock and perhaps stdout's.
+    static WRITING: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Marks the thread as writing a log line until dropped, also when a panic unwinds out of the write.
+struct Writing(bool);
+
+impl Writing {
+    fn begin() -> Self {
+        Self(WRITING.replace(true))
+    }
+}
+
+impl Drop for Writing {
+    fn drop(&mut self) {
+        WRITING.set(self.0);
+    }
 }
 
 struct FileLayer {
@@ -131,6 +152,7 @@ impl<S: Subscriber> Layer<S> for FileLayer {
         if level > threshold {
             return;
         }
+        let _writing = Writing::begin();
         let mut fields = Fields::default();
         event.record(&mut fields);
         let scope = scope(meta.target());
@@ -254,8 +276,42 @@ fn library_error_from_surroundings(message: &str) -> bool {
     named.peek().is_some() && named.all(|surroundings| surroundings)
 }
 
-/// Installs the logger. `logs` is None in tests, which only log to the console.
+/// What a panic was raised with, as text (`panic!("…")` carries a `&str` or a `String`).
+pub fn panic_message(payload: &(dyn Any + Send)) -> String {
+    payload
+        .downcast_ref::<&str>()
+        .map(|message| (*message).to_owned())
+        .or_else(|| payload.downcast_ref::<String>().cloned())
+        .unwrap_or_else(|| "(no message)".to_owned())
+}
+
+/// Makes every panic leave its message and place in the log, as an error, before the usual stderr
+/// report (which nobody sees in an app started from the Dock). A panic that ends the process, such
+/// as one inside a callback the system makes, otherwise leaves no trace. A panic raised while the
+/// same thread is writing a log line is not logged: the write holds the file's lock, and a second
+/// one would wait on it forever or panic inside the hook, which aborts.
+fn install_panic_hook() {
+    static INSTALLED: Once = Once::new();
+    INSTALLED.call_once(|| {
+        let usual = std::panic::take_hook();
+        std::panic::set_hook(Box::new(move |info| {
+            if WRITING.get() {
+                return usual(info);
+            }
+            let thread = std::thread::current();
+            let place = info.location().map_or_else(String::new, |at| format!(" at {}:{}", at.file(), at.line()));
+            tracing::error!(target: "magnetar::panic", "Thread '{}' panicked{place}: {}", thread.name().unwrap_or("unnamed"), panic_message(info.payload()));
+            usual(info);
+        }));
+    });
+}
+
+/// Installs the logger, and with a log folder the hook that logs panics. `logs` is None in tests,
+/// which only log to the console and keep the usual panic report.
 pub fn init(logs: Option<PathBuf>, verbose: bool) {
+    if logs.is_some() {
+        install_panic_hook();
+    }
     let layer = FileLayer {
         dir: logs,
         min_level: if verbose { Level::DEBUG } else { Level::INFO },
@@ -455,6 +511,55 @@ mod tests {
     static REPORTED: Mutex<Vec<(String, String)>> = Mutex::new(Vec::new());
 
     #[test]
+    fn a_panic_leaves_its_message_and_place_in_the_log() {
+        super::install_panic_hook();
+        let dir = tempfile::tempdir().unwrap();
+        let layer = FileLayer { dir: Some(dir.path().to_path_buf()), min_level: tracing::Level::INFO, file: Mutex::default() };
+        let subscriber = tracing_subscriber::layer::SubscriberExt::with(tracing_subscriber::registry(), layer);
+        tracing::subscriber::with_default(subscriber, || {
+            let _ = std::panic::catch_unwind(|| panic!("no such window: {}", 7));
+            let _ = std::panic::catch_unwind(|| panic!("plain text"));
+        });
+        let mut files: Vec<_> = std::fs::read_dir(dir.path()).unwrap().map(|e| e.unwrap().path()).collect();
+        files.sort();
+        let log: String = files.iter().map(|path| std::fs::read_to_string(path).unwrap()).collect();
+        let lines: Vec<_> = log.lines().collect();
+        assert_eq!(lines.len(), 2, "{log}");
+        assert!(lines[0].contains(" ERROR "), "{log}");
+        assert!(
+            lines[0].contains("[panic] Thread '") && lines[0].contains("panicked at ") && lines[0].contains("log.rs:"),
+            "{log}"
+        );
+        assert!(lines[0].ends_with(": no such window: 7"), "{log}");
+        assert!(lines[1].ends_with(": plain text"), "{log}");
+    }
+
+    #[test]
+    fn a_panic_while_the_thread_writes_the_log_is_not_logged_again() {
+        super::install_panic_hook();
+        let dir = tempfile::tempdir().unwrap();
+        let layer = FileLayer { dir: Some(dir.path().to_path_buf()), min_level: tracing::Level::INFO, file: Mutex::default() };
+        let subscriber = tracing_subscriber::layer::SubscriberExt::with(tracing_subscriber::registry(), layer);
+        tracing::subscriber::with_default(subscriber, || {
+            let writing = super::Writing::begin();
+            let _ = std::panic::catch_unwind(|| panic!("inside the writer"));
+            drop(writing);
+            let _ = std::panic::catch_unwind(|| panic!("outside the writer"));
+        });
+        let log: String =
+            std::fs::read_dir(dir.path()).unwrap().map(|e| std::fs::read_to_string(e.unwrap().path()).unwrap()).collect();
+        assert_eq!(log.lines().count(), 1, "{log}");
+        assert!(log.contains("outside the writer") && !log.contains("inside the writer"), "{log}");
+    }
+
+    #[test]
+    fn a_panic_payload_is_read_as_text_or_named_missing() {
+        assert_eq!(super::panic_message(&"static"), "static");
+        assert_eq!(super::panic_message(&String::from("owned")), "owned");
+        assert_eq!(super::panic_message(&42_u8), "(no message)");
+    }
+
+    #[test]
     fn the_logger_writes_the_surroundings_as_warnings_and_reports_only_faults() {
         super::set_error_sink(|scope, message| REPORTED.lock().unwrap().push((scope.to_owned(), message.to_owned())));
         let dir = tempfile::tempdir().unwrap();
@@ -479,7 +584,8 @@ mod tests {
             crate::log_failure!(&read_only, target: "magnetar::updates", "Update install failed: {read_only}");
         });
 
-        let reported: Vec<_> = REPORTED.lock().unwrap().clone();
+        // The panic tests run beside this one and report to the same sink.
+        let reported: Vec<_> = REPORTED.lock().unwrap().iter().filter(|(scope, _)| scope != "panic").cloned().collect();
         assert_eq!(
             reported,
             [

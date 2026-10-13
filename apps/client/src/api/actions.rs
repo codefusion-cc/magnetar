@@ -5,16 +5,17 @@ use tokio_util::sync::CancellationToken;
 
 use super::rate_limiter::RateLimiter;
 use super::save_folder::{resolve_agent_folder, resolve_remote_folder};
-use crate::downloads::{AddDownload, DownloadManager};
+use crate::downloads::{AddDownload, DownloadManager, SeriesEpisodes};
 use crate::error::{ApiError, ApiResult, ErrorCode};
 use crate::protocol::{
-    DOWNLOAD_STATUSES, DownloadDto, DownloadStatus, SearchResponse, SeriesTaskDto, SeriesTaskInput, SeriesTaskPatch, SettingsDto,
-    SettingsPatch, SourceDto, StartDownloadInput, StartFrom, TorrentDetailsDto,
+    DOWNLOAD_STATUSES, DownloadDto, DownloadStatus, SearchResponse, SeriesEpisodesDto, SeriesTaskDto, SeriesTaskInput,
+    SeriesTaskPatch, SettingsDto, SettingsPatch, SourceDto, StartDownloadInput, StartFrom, TorrentDetailsDto,
 };
 use crate::search::SearchService;
 use crate::search::cache::{SearchResultCache, to_result_dto};
 use crate::search::types::SharedResult;
 use crate::series::episode::EpisodeRule;
+use crate::series::episodes;
 use crate::series::{SeriesMonitor, SeriesStore};
 use crate::settings::SettingsService;
 use crate::system::folders;
@@ -51,7 +52,7 @@ pub async fn start_from_result(
     search: &SearchService,
     downloads: &Arc<DownloadManager>,
     shared: SharedResult,
-    series: Option<(i64, i64)>,
+    series: Option<SeriesEpisodes>,
     save_folder: Option<String>,
     cancel: &CancellationToken,
 ) -> ApiResult<DownloadDto> {
@@ -62,14 +63,7 @@ pub async fn start_from_result(
     if result.magnet_uri.is_empty() {
         return Err(ApiError::bad(format!("Could not resolve a magnet link for \"{}\" from {}.", result.title, result.source)));
     }
-    downloads.add(AddDownload {
-        name: result.title,
-        magnet_uri: result.magnet_uri,
-        source: result.source,
-        series_task_id: series.map(|(task, _)| task),
-        episode: series.map(|(_, episode)| episode),
-        save_folder,
-    })
+    downloads.add(AddDownload { name: result.title, magnet_uri: result.magnet_uri, source: result.source, series, save_folder })
 }
 
 /// Everything that can be done to the app, in one place. The dashboard RPC, REST and MCP are thin
@@ -185,8 +179,7 @@ impl Actions {
                 name: String::new(),
                 magnet_uri: magnet.to_owned(),
                 source: source.into(),
-                series_task_id: None,
-                episode: None,
+                series: None,
                 save_folder: folder,
             })?;
             tracing::info!("Started download from a supplied magnet: {}", item.name);
@@ -272,8 +265,13 @@ impl Actions {
         self.series.dtos()
     }
 
+    /// A page of a rule's episodes: those numbered after `after`, from the first when None.
+    pub fn series_episodes(&self, id: i64, after: Option<i64>, limit: Option<usize>) -> ApiResult<SeriesEpisodesDto> {
+        self.series.episodes(id, after, limit.unwrap_or(episodes::WINDOW))
+    }
+
     pub fn get_series(&self, id: i64) -> ApiResult<SeriesTaskDto> {
-        Ok(self.series.get(id)?.to_dto())
+        Ok(self.series.dto(&self.series.get(id)?))
     }
 
     /// Creates a rule. Starting from the latest episode, or with new ones only, first asks the
@@ -296,7 +294,7 @@ impl Actions {
             self.series.save(&task)?;
         }
         self.refresh_show_later(task.id);
-        Ok(task.to_dto())
+        Ok(self.series.dto(&self.series.get(task.id)?))
     }
 
     /// Looks the show up on TVmaze in the background; the card fills in when it answers.
@@ -348,9 +346,11 @@ impl Actions {
         task.apply(merged);
         self.series.save(&task)?;
         if renamed {
+            // What TVmaze said was of the old name: none of it is shown for the new one.
+            self.series.save_show(task.id, None, None, &[], None)?;
             self.refresh_show_later(task.id);
         }
-        Ok(task.to_dto())
+        Ok(self.series.dto(&self.series.get(id)?))
     }
 
     pub fn delete_series(&self, id: i64) -> ApiResult<Done> {
@@ -363,7 +363,7 @@ impl Actions {
         self.limit("series check")?;
         let task = self.series.get(id)?;
         self.require_available_source(task.provider.as_deref())?;
-        Ok(self.monitor.check_now(id).await?.to_dto())
+        Ok(self.series.dto(&self.monitor.check_now(id).await?))
     }
 
     /// The settings an agent may know about: nothing secret, nothing about notifications.

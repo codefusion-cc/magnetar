@@ -26,6 +26,8 @@ use crate::protocol::{
     TransferStatusDto,
 };
 use crate::search::magnet::{build_magnet, extract_info_hash, magnet_name, normalize_info_hash};
+use crate::series::episode::parse_episode;
+use crate::series::episodes::EpisodeDownload;
 use crate::settings::{AppSettings, SettingsService};
 use crate::system::folders::normalize;
 
@@ -58,6 +60,10 @@ struct Item {
     series_task_id: Option<i64>,
     /// The series episode this download is, so a dead torrent can be replaced by another release.
     episode: Option<i64>,
+    /// The last episode it holds, when it is more than `episode` (a double episode, a pack).
+    last_episode: Option<i64>,
+    /// The season its title names, if any.
+    season: Option<i64>,
     uploaded_bytes: u64,
     /// Indexes of the torrent's files to download; None is all of them.
     selected_files: Option<Vec<usize>>,
@@ -78,15 +84,60 @@ struct Item {
     attaching: Option<CancellationToken>,
     /// Bumped on every attach and detach, so a slow attach can tell it has been superseded.
     attempt: u64,
+    /// For a series download, the file of each episode it holds: read once from its torrent, None until then.
+    episode_files: Option<Arc<EpisodeFiles>>,
+}
+
+/// Each episode a download holds, with its file.
+type EpisodeFiles = Vec<(i64, Option<EpisodeFile>)>;
+
+/// An episode's file on disk: `relative` to the save folder, and how long it is when whole.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct EpisodeFile {
+    relative: PathBuf,
+    size: u64,
+}
+
+/// A series download collected under the lock, with each episode's file to look for once outside it.
+struct Unchecked {
+    id: i64,
+    held: SeriesEpisodes,
+    status: DownloadStatus,
+    save_path: PathBuf,
+    files: Arc<EpisodeFiles>,
 }
 
 impl Item {
+    /// The episodes a series download holds.
+    fn series(&self) -> Option<SeriesEpisodes> {
+        let first = self.episode?;
+        Some(SeriesEpisodes {
+            task: self.series_task_id?,
+            season: self.season,
+            first,
+            last: self.last_episode.unwrap_or(first).max(first),
+        })
+    }
+
     fn from_row(row: &Row<'_>) -> rusqlite::Result<Self> {
         let status: String = row.get("status")?;
         let selected: Option<String> = row.get("selected_files")?;
+        let name: String = row.get("name")?;
+        let episode: Option<i64> = row.get("episode")?;
+        let (mut season, mut last_episode): (Option<i64>, Option<i64>) = (row.get("season")?, row.get("last_episode")?);
+        // A download made before seasons and spans were kept (or by such a build) has neither: its title,
+        // the release the rule chose, says what the rule took it for.
+        if let Some(first) = episode
+            && season.is_none()
+            && last_episode.is_none()
+            && let Some(parsed) = parse_episode(&name).filter(|parsed| parsed.episode == first)
+        {
+            season = parsed.season;
+            last_episode = (parsed.through > first).then_some(parsed.through);
+        }
         Ok(Self {
             id: row.get("id")?,
-            name: row.get("name")?,
+            name,
             name_is_placeholder: row.get("name_is_placeholder")?,
             magnet_uri: row.get("magnet_uri")?,
             info_hash: row.get("info_hash")?,
@@ -101,7 +152,9 @@ impl Item {
             start_notification_sent: row.get("start_notification_sent")?,
             complete_notification_sent: row.get("complete_notification_sent")?,
             series_task_id: row.get("series_task_id")?,
-            episode: row.get("episode")?,
+            episode,
+            last_episode,
+            season,
             uploaded_bytes: row.get::<_, i64>("uploaded_bytes")?.max(0) as u64,
             selected_files: selected.and_then(|json| serde_json::from_str(&json).ok()),
             file_count: None,
@@ -114,6 +167,7 @@ impl Item {
             handle: None,
             attaching: None,
             attempt: 0,
+            episode_files: None,
         })
     }
 
@@ -186,9 +240,25 @@ pub struct AddDownload {
     pub name: String,
     pub magnet_uri: String,
     pub source: String,
-    pub series_task_id: Option<i64>,
-    pub episode: Option<i64>,
+    pub series: Option<SeriesEpisodes>,
     pub save_folder: Option<String>,
+}
+
+/// The episodes of a series rule a download is made for: `first` through `last` of `season`, None when
+/// its title names no season.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SeriesEpisodes {
+    pub task: i64,
+    pub season: Option<i64>,
+    pub first: i64,
+    pub last: i64,
+}
+
+impl SeriesEpisodes {
+    /// Whether these are episodes of `season` (any, when None). A title that names no season may be any.
+    pub fn of_season(&self, season: Option<i64>) -> bool {
+        season.is_none() || self.season.is_none_or(|own| Some(own) == season)
+    }
 }
 
 /// Where the download manager's torrent engine comes from.
@@ -325,7 +395,7 @@ impl DownloadManager {
             for mut item in self.load_rows() {
                 if item.status == DownloadStatus::Paused && paused_for_update.contains(&item.id) {
                     item.status = DownloadStatus::Queued;
-                } else if item.progress >= 100.0 && !matches!(item.status, DownloadStatus::Completed | DownloadStatus::Seeding) {
+                } else if item.progress >= 100.0 && !item.status.is_finished() {
                     // Saved at 100 (`percent`) with every byte there, but stopped before it was marked finished.
                     item.status = DownloadStatus::Completed;
                     item.completed_at.get_or_insert_with(now_iso);
@@ -591,14 +661,68 @@ impl DownloadManager {
         unfinished
     }
 
-    /// Series downloads that died for want of peers: (download id, episode, info hash).
-    pub fn dead_episodes(&self, series_task_id: i64) -> Vec<(i64, i64, String)> {
+    /// Downloads of the rule's `season` that died for want of peers: (download id, its episodes, info hash).
+    pub fn dead_episodes(&self, series_task_id: i64, season: Option<i64>) -> Vec<(i64, SeriesEpisodes, String)> {
         self.items()
             .values()
-            .filter(|i| i.series_task_id == Some(series_task_id) && i.status == DownloadStatus::Error)
-            .filter(|i| i.error.as_deref().is_some_and(|e| e.starts_with(NO_PEERS)))
-            .filter_map(|i| Some((i.id, i.episode?, i.info_hash.clone())))
+            .filter(|i| i.status == DownloadStatus::Error && i.error.as_deref().is_some_and(|e| e.starts_with(NO_PEERS)))
+            .filter_map(|i| Some((i.id, i.series()?, i.info_hash.clone())))
+            .filter(|(_, held, _)| held.task == series_task_id && held.of_season(season))
             .collect()
+    }
+
+    /// The downloads series rules made, by rule, with the episodes each holds and, for a finished one,
+    /// which of them no longer have their own file whole on disk.
+    pub fn series_downloads(&self, only: Option<i64>) -> HashMap<i64, Vec<EpisodeDownload>> {
+        let wanted = |held: &SeriesEpisodes| only.is_none_or(|only| only == held.task);
+        // Each episode's file of a finished download, read once from its torrent, outside the lock. A
+        // torrent that can't be read is tried again next time.
+        let unknown: Vec<(i64, String, Option<Vec<usize>>, SeriesEpisodes)> = self
+            .items()
+            .values()
+            .filter(|i| i.status.is_finished() && i.episode_files.is_none())
+            .filter_map(|i| Some((i.id, i.info_hash.clone(), i.selected_files.clone(), i.series().filter(wanted)?)))
+            .collect();
+        let looked_up: Vec<_> = unknown
+            .into_iter()
+            .filter_map(|(id, hash, selected, held)| {
+                let files = episode_files(&*self.metadata(&hash)?, selected.as_deref(), &held);
+                Some((id, selected, Arc::new(files)))
+            })
+            .collect();
+        let mut unchecked = Vec::new();
+        {
+            let mut items = self.items();
+            for (id, selected, files) in looked_up {
+                // Unless its files were chosen anew meanwhile.
+                if let Some(item) = items.get_mut(&id).filter(|i| i.selected_files == selected) {
+                    item.episode_files = Some(files);
+                }
+            }
+            for item in items.values() {
+                let Some(held) = item.series().filter(wanted) else { continue };
+                // Without its torrent, a download's name is its one file's, as long as it says.
+                let by_name = || {
+                    let file = Some(EpisodeFile { relative: PathBuf::from(&item.name), size: item.total_bytes });
+                    Arc::new((held.first..=held.last).map(|number| (number, file.clone())).collect())
+                };
+                let files = match (item.status.is_finished(), &item.episode_files) {
+                    (false, _) => Arc::default(),
+                    (true, Some(files)) => files.clone(),
+                    (true, None) => by_name(),
+                };
+                let (id, status, save_path) = (item.id, item.status, PathBuf::from(&item.save_path));
+                unchecked.push(Unchecked { id, held, status, save_path, files });
+            }
+        }
+        let mut found: HashMap<i64, Vec<EpisodeDownload>> = HashMap::new();
+        for Unchecked { id, held, status, save_path, files } in unchecked {
+            let whole = |file: &EpisodeFile| length_inside(&save_path, &file.relative) == Some(file.size);
+            let gone = files.iter().filter(|(_, file)| !file.as_ref().is_some_and(whole)).map(|(number, _)| *number).collect();
+            let SeriesEpisodes { task, season, first, last } = held;
+            found.entry(task).or_default().push(EpisodeDownload { id, season, first, last, status, gone });
+        }
+        found
     }
 
     /// Adds a magnet, or returns the download already tracking that torrent.
@@ -623,8 +747,8 @@ impl DownloadManager {
             .unwrap_or_else(|| hash.clone());
         let mut item = self.db.lock().query_row(
             "INSERT INTO downloads (name, name_is_placeholder, magnet_uri, info_hash, save_path, source, status, added_at,
-               series_task_id, episode)
-             VALUES (?, ?, ?, ?, ?, ?, 'Queued', ?, ?, ?) RETURNING *",
+               series_task_id, episode, last_episode, season)
+             VALUES (?, ?, ?, ?, ?, ?, 'Queued', ?, ?, ?, ?, ?) RETURNING *",
             params![
                 display_name,
                 display_name == hash,
@@ -633,8 +757,10 @@ impl DownloadManager {
                 save_path,
                 input.source,
                 now_iso(),
-                input.series_task_id,
-                input.episode
+                input.series.map(|s| s.task),
+                input.series.map(|s| s.first),
+                input.series.and_then(|s| (s.last > s.first).then_some(s.last)),
+                input.series.and_then(|s| s.season)
             ],
             Item::from_row,
         )?;
@@ -669,14 +795,7 @@ impl DownloadManager {
         let name = metadata.name.clone().unwrap_or_default();
         let trackers: Vec<&str> = trackers.iter().map(String::as_str).collect();
         let magnet = build_magnet(&hash, &name, &trackers).ok_or_else(|| ApiError::bad("That is not a valid .torrent file."))?;
-        self.add(AddDownload {
-            magnet_uri: magnet.uri,
-            name,
-            source: source.to_owned(),
-            series_task_id: None,
-            episode: None,
-            save_folder,
-        })
+        self.add(AddDownload { magnet_uri: magnet.uri, name, source: source.to_owned(), series: None, save_folder })
     }
 
     pub async fn pause(&self, id: i64) -> ApiResult<DownloadDto> {
@@ -814,6 +933,7 @@ impl DownloadManager {
             item.total_bytes = (0..count).filter(chosen).map(|i| metadata.file_sizes[i]).sum();
             item.selected_files = selection.clone();
             item.file_count = Some(count);
+            item.episode_files = None;
             if item.status == DownloadStatus::Completed && missing {
                 let have: u64 = (0..count).filter(chosen).map(|i| done[i]).sum();
                 item.progress = percent(have, item.total_bytes);
@@ -1347,6 +1467,48 @@ pub fn media_kind(path: &Path) -> Option<&'static str> {
     ["video", "audio"].into_iter().find(|media| kind.starts_with(&format!("{media}/")))
 }
 
+/// The file of each episode `held` holds, None for one whose file is not chosen or can't be told. The
+/// episode's video or audio file, never a sample (any file, when there is none): for a pack, the one whose name says it
+/// is that episode, or, when no name says, the pack's files in order if there is one per episode; for a
+/// single episode, the largest.
+fn episode_files(metadata: &Metadata, selected: Option<&[usize]>, held: &SeriesEpisodes) -> EpisodeFiles {
+    let folder = metadata.content_folder().unwrap_or(Path::new(""));
+    let all: Vec<(usize, &PathBuf, u64)> =
+        metadata.files.iter().zip(&metadata.file_sizes).enumerate().map(|(index, (path, &size))| (index, path, size)).collect();
+    let sample = |path: &Path| path.to_string_lossy().to_lowercase().contains("sample");
+    let media: Vec<_> = all.iter().filter(|(_, path, _)| media_kind(path).is_some() && !sample(path)).copied().collect();
+    let mut candidates = if media.is_empty() { all } else { media };
+    let file = |found: Option<&(usize, &PathBuf, u64)>| {
+        found
+            .filter(|(index, ..)| selected.is_none_or(|s| s.contains(index)))
+            .map(|(_, path, size)| EpisodeFile { relative: folder.join(path), size: *size })
+    };
+    let numbers = held.first..=held.last;
+    if held.first == held.last {
+        return vec![(held.first, file(candidates.iter().max_by_key(|(.., size)| *size)))];
+    }
+    let named = |number: i64| {
+        candidates
+            .iter()
+            .filter(|(_, path, _)| {
+                let name = path.file_name().map(|n| n.to_string_lossy()).unwrap_or_default();
+                parse_episode(&name).is_some_and(|p| {
+                    (p.episode..=p.through).contains(&number)
+                        && p.season.is_none_or(|season| held.season.is_none_or(|own| own == season))
+                })
+            })
+            .max_by_key(|(.., size)| *size)
+    };
+    if numbers.clone().any(|number| named(number).is_some()) {
+        return numbers.map(|number| (number, file(named(number)))).collect();
+    }
+    if candidates.len() as i64 == held.last - held.first + 1 {
+        candidates.sort_by(|a, b| a.1.cmp(b.1));
+        return numbers.zip(&candidates).map(|(number, found)| (number, file(Some(found)))).collect();
+    }
+    numbers.map(|number| (number, None)).collect()
+}
+
 fn write_item(db: &rusqlite::Connection, item: &Item) -> rusqlite::Result<usize> {
     db.execute(
         "UPDATE downloads SET name = ?, name_is_placeholder = ?, status = ?, progress = ?, total_bytes = ?,
@@ -1393,6 +1555,53 @@ mod tests {
             piece_length: 1,
             seen_peers: Vec::new(),
         }
+    }
+
+    /// Which file `episode_files` takes for each episode, by name; None for none.
+    fn files_of(
+        files: &[(&str, u64)],
+        selected: Option<&[usize]>,
+        season: Option<i64>,
+        first: i64,
+        last: i64,
+    ) -> Vec<(i64, Option<String>)> {
+        let mut metadata = metadata("Pack", &files.iter().map(|(name, _)| *name).collect::<Vec<_>>());
+        metadata.file_sizes = files.iter().map(|(_, size)| *size).collect();
+        let held = SeriesEpisodes { task: 1, season, first, last };
+        episode_files(&metadata, selected, &held)
+            .into_iter()
+            .map(|(number, file)| (number, file.map(|f| f.relative.file_name().unwrap().to_string_lossy().into_owned())))
+            .collect()
+    }
+
+    #[test]
+    fn each_episode_of_a_download_is_its_own_file() {
+        let some = |name: &str| Some(name.to_owned());
+        // By name, a subtitle or sample beside it is not the episode, and a file of another season isn't either.
+        let pack = [
+            ("Show.S01E02.srt", 10),
+            ("Show.S01E01.mkv", 500),
+            ("Show.S01E02.mkv", 400),
+            ("Sample/Show.S01E02.sample.mkv", 900),
+            ("Show.S02E03.mkv", 700),
+        ];
+        assert_eq!(files_of(&pack, None, Some(1), 1, 3), [(1, some("Show.S01E01.mkv")), (2, some("Show.S01E02.mkv")), (3, None)]);
+        // A double episode in one file is that file for both.
+        assert_eq!(
+            files_of(&[("Show.S01E01E02.mkv", 5)], None, Some(1), 1, 2),
+            [(1, some("Show.S01E01E02.mkv")), (2, some("Show.S01E01E02.mkv"))]
+        );
+        // Names that say nothing: one file per episode, in order; otherwise nothing can be told.
+        let plain = [("02.mkv", 5), ("01.mkv", 9), ("info.txt", 1)];
+        assert_eq!(files_of(&plain, None, Some(1), 1, 2), [(1, some("01.mkv")), (2, some("02.mkv"))]);
+        assert_eq!(files_of(&plain, None, Some(1), 1, 3), [(1, None), (2, None), (3, None)]);
+        // A file not chosen is not kept, so it is no episode's.
+        assert_eq!(files_of(&plain, Some(&[0, 2]), Some(1), 1, 2), [(1, None), (2, some("02.mkv"))]);
+        // One episode: its largest video, wherever it is; when that one isn't chosen, none.
+        let single = [("Show.S01E01.mkv", 500), ("Show.S01E01.nfo", 9000)];
+        assert_eq!(files_of(&single, None, Some(1), 1, 1), [(1, some("Show.S01E01.mkv"))]);
+        assert_eq!(files_of(&single, Some(&[1]), Some(1), 1, 1), [(1, None)]);
+        assert_eq!(files_of(&[("readme", 3), ("data.bin", 7)], None, None, 4, 4), [(4, some("data.bin"))]);
     }
 
     #[test]

@@ -1,12 +1,21 @@
+use std::sync::{Arc, Mutex};
+
 use rusqlite::{OptionalExtension, Row, params};
+use tokio::sync::broadcast::error::{RecvError, TryRecvError};
+use tokio_util::sync::CancellationToken;
 
 use super::episode::EpisodeRule;
+use super::episodes::{self, EpisodeDownload, EpisodeList, LIST_BYTES, PAGE_MAX, WINDOW};
 use super::quality::QualityRule;
+use super::tvmaze::ShowEpisode;
 use crate::db::Db;
+use crate::downloads::DownloadManager;
 use crate::error::{ApiError, ApiResult};
 use crate::events::EventBus;
 use crate::protocol::encoding::now_iso;
-use crate::protocol::{MAX_CHECK_INTERVAL_MINUTES, SeriesTaskDto, SeriesTaskInput, ShowInfoDto, StartFrom};
+use crate::protocol::{
+    MAX_CHECK_INTERVAL_MINUTES, SeriesEpisodeDto, SeriesEpisodesDto, SeriesTaskDto, SeriesTaskInput, ShowInfoDto, StartFrom,
+};
 
 #[derive(Clone, Debug)]
 pub struct SeriesTask {
@@ -29,11 +38,14 @@ pub struct SeriesTask {
     pub prefer_words: Option<String>,
     pub exclude_words: Option<String>,
     pub show: Option<ShowInfoDto>,
+    /// When TVmaze last answered for the show (or said it knows none).
     pub show_checked_at: Option<String>,
+    /// The show's numbered episodes as TVmaze last listed them, in order.
+    pub show_episodes: Vec<ShowEpisode>,
 }
 
 impl SeriesTask {
-    fn from_row(row: &Row<'_>) -> rusqlite::Result<Self> {
+    pub(crate) fn from_row(row: &Row<'_>) -> rusqlite::Result<Self> {
         Ok(Self {
             id: row.get("id")?,
             name: row.get("name")?,
@@ -56,6 +68,10 @@ impl SeriesTask {
             exclude_words: row.get("exclude_words")?,
             show: row.get::<_, Option<String>>("show_info")?.and_then(|json| serde_json::from_str(&json).ok()),
             show_checked_at: row.get("show_checked_at")?,
+            show_episodes: row
+                .get::<_, Option<String>>("show_episodes")?
+                .and_then(|json| serde_json::from_str(&json).ok())
+                .unwrap_or_default(),
         })
     }
 
@@ -121,7 +137,16 @@ impl SeriesTask {
         self.exclude_words = input.exclude_words;
     }
 
-    pub fn to_dto(&self) -> SeriesTaskDto {
+    /// Every episode of the rule, given the downloads it made.
+    pub fn episodes(&self, downloads: &[EpisodeDownload]) -> Vec<SeriesEpisodeDto> {
+        episodes::episodes(self, &self.show_episodes, downloads)
+    }
+
+    fn episode_list(&self, downloads: &[EpisodeDownload]) -> EpisodeList {
+        EpisodeList::new(self.episodes(downloads), self.show_checked_at.clone())
+    }
+
+    fn to_dto(&self, episodes: SeriesEpisodesDto) -> SeriesTaskDto {
         SeriesTaskDto {
             id: self.id,
             name: self.name.clone(),
@@ -144,6 +169,7 @@ impl SeriesTask {
             prefer_words: self.prefer_words.clone(),
             exclude_words: self.exclude_words.clone(),
             show: self.show.clone(),
+            episodes,
         }
     }
 }
@@ -151,11 +177,15 @@ impl SeriesTask {
 pub struct SeriesStore {
     db: Db,
     events: EventBus,
+    downloads: Arc<DownloadManager>,
+    /// What `series.changed` last said; held while the next is worked out, so two changes at once
+    /// are sent in the order they were seen and an unchanged list isn't sent again.
+    sent: Mutex<Option<serde_json::Value>>,
 }
 
 impl SeriesStore {
-    pub fn new(db: Db, events: EventBus) -> Self {
-        Self { db, events }
+    pub fn new(db: Db, events: EventBus, downloads: Arc<DownloadManager>) -> Self {
+        Self { db, events, downloads, sent: Mutex::default() }
     }
 
     pub fn all(&self) -> Vec<SeriesTask> {
@@ -201,12 +231,12 @@ impl SeriesStore {
         Ok(task)
     }
 
+    /// Saves the rule and where it stands; what TVmaze said of the show is `save_show`'s.
     pub fn save(&self, task: &SeriesTask) -> ApiResult<()> {
         self.db.lock().execute(
             "UPDATE series_tasks SET name = ?, query = ?, provider = ?, title_filter = ?, season = ?, start_episode = ?,
                end_episode = ?, download_folder = ?, last_downloaded_episode = ?, check_interval_minutes = ?, enabled = ?,
-               last_checked_at = ?, resolution = ?, min_seeders = ?, max_size_mb = ?, prefer_words = ?, exclude_words = ?,
-               show_info = ?, show_checked_at = ?
+               last_checked_at = ?, resolution = ?, min_seeders = ?, max_size_mb = ?, prefer_words = ?, exclude_words = ?
              WHERE id = ?",
             params![
                 task.name,
@@ -226,13 +256,35 @@ impl SeriesStore {
                 task.max_size_mb,
                 task.prefer_words,
                 task.exclude_words,
-                task.show.as_ref().map(|show| serde_json::to_string(show).unwrap_or_default()),
-                task.show_checked_at,
                 task.id
             ],
         )?;
         self.changed();
         Ok(())
+    }
+
+    /// What TVmaze said of the rule's show, all at once: a failed look-up never leaves half of it. With
+    /// `named`, only while the rule still has that name, in the same write: an answer about a name the
+    /// rule no longer has is never kept. Whether it was saved.
+    pub fn save_show(
+        &self,
+        id: i64,
+        named: Option<&str>,
+        show: Option<&ShowInfoDto>,
+        episodes: &[ShowEpisode],
+        checked_at: Option<&str>,
+    ) -> ApiResult<bool> {
+        let json = |value: serde_json::Result<String>| value.map_err(|e| ApiError::internal(e.to_string()));
+        let show = show.map(|show| json(serde_json::to_string(show))).transpose()?;
+        let episodes = if episodes.is_empty() { None } else { Some(json(serde_json::to_string(episodes))?) };
+        let saved = self.db.lock().execute(
+            "UPDATE series_tasks SET show_info = ?, show_episodes = ?, show_checked_at = ? WHERE id = ? AND (?5 IS NULL OR name = ?5)",
+            params![show, episodes, checked_at, id, named],
+        )? > 0;
+        if saved {
+            self.changed();
+        }
+        Ok(saved)
     }
 
     /// Its downloads are kept and become manual downloads (the foreign key sets them to null).
@@ -262,11 +314,73 @@ impl SeriesStore {
             .unwrap_or_default()
     }
 
-    pub fn dtos(&self) -> Vec<SeriesTaskDto> {
-        self.all().iter().map(SeriesTask::to_dto).collect()
+    /// The rule with its episodes around where it stands.
+    pub fn dto(&self, task: &SeriesTask) -> SeriesTaskDto {
+        task.to_dto(task.episode_list(&self.made_by(task.id)).window(WINDOW))
     }
 
+    /// Every rule, each with as many of its episodes as all of them together leave room for in one
+    /// message (`LIST_BYTES`).
+    pub fn dtos(&self) -> Vec<SeriesTaskDto> {
+        let tasks = self.all();
+        let mut downloads = self.downloads.series_downloads(None);
+        let lists: Vec<EpisodeList> =
+            tasks.iter().map(|task| task.episode_list(&downloads.remove(&task.id).unwrap_or_default())).collect();
+        let bare =
+            |task: &SeriesTask, list: &EpisodeList| serde_json::to_vec(&task.to_dto(list.window(0))).map_or(0, |json| json.len());
+        let sized: Vec<(usize, &EpisodeList)> = tasks.iter().zip(&lists).map(|(task, list)| (bare(task, list), list)).collect();
+        let size = episodes::fit(&sized, LIST_BYTES);
+        if size == 0 && !tasks.is_empty() {
+            tracing::warn!("The series rules alone are more than one message holds: they are sent without episodes");
+        }
+        tasks.iter().zip(&lists).map(|(task, list)| task.to_dto(list.window(size))).collect()
+    }
+
+    /// Up to `limit` (1 to `PAGE_MAX`) of the rule's episodes, numbered after `after` (from the first when None).
+    pub fn episodes(&self, id: i64, after: Option<i64>, limit: usize) -> ApiResult<SeriesEpisodesDto> {
+        if !(1..=PAGE_MAX).contains(&limit) {
+            return Err(ApiError::bad(format!("limit must be 1 to {PAGE_MAX}.")));
+        }
+        let task = self.get(id)?;
+        Ok(task.episode_list(&self.made_by(id)).page(after, limit))
+    }
+
+    /// The downloads the rule made.
+    fn made_by(&self, id: i64) -> Vec<EpisodeDownload> {
+        self.downloads.series_downloads(Some(id)).remove(&id).unwrap_or_default()
+    }
+
+    /// Until cancelled, tells the dashboard when a download changes what a rule's episodes are: one
+    /// starting, finishing, failing or being deleted. A burst of changes is looked at once.
+    pub async fn follow_downloads(self: Arc<Self>, cancel: CancellationToken) {
+        let mut events = self.events.subscribe();
+        loop {
+            let event = tokio::select! {
+                _ = cancel.cancelled() => return,
+                event = events.recv() => event,
+            };
+            match event {
+                Ok(event) if event.name != "downloads.changed" => continue,
+                Err(RecvError::Closed) => return,
+                // Missed some: one of them may have been a download change.
+                Ok(_) | Err(RecvError::Lagged(_)) => {}
+            }
+            while !matches!(events.try_recv(), Err(TryRecvError::Empty | TryRecvError::Closed)) {}
+            let store = self.clone();
+            let _ = tokio::task::spawn_blocking(move || store.changed()).await;
+        }
+    }
+
+    /// Sends `series.changed` if the rules or their episodes differ from what it last said.
     pub fn changed(&self) {
-        self.events.emit("series.changed", self.dtos());
+        let mut sent = self.sent.lock().unwrap_or_else(|e| e.into_inner());
+        let now = match serde_json::to_value(self.dtos()) {
+            Ok(now) => now,
+            Err(error) => return tracing::error!("Could not write the series list: {error}"),
+        };
+        if sent.as_ref() != Some(&now) {
+            self.events.emit("series.changed", &now);
+            *sent = Some(now);
+        }
     }
 }

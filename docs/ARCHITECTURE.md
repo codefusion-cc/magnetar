@@ -208,9 +208,23 @@ builds (debug builds read `apps/web/dist` from disk). `src/app.rs` wires the ser
   most 448 KiB a read, to stay under the relay's frame size).
 - **Series and watches**: `SeriesMonitor` checks due series tasks and watches every minute. Each episode takes the
   best release its task's quality rules allow (`series/quality.rs`); a download that found no peers is replaced by the
-  next best and its release remembered in `series_rejects`. Tasks can start from the newest episode already out.
+  next best (a dead pack once each of its episodes has another release) and its release remembered in
+  `series_rejects`. Tasks can start from the newest episode already out.
   Show details and posters come from TVmaze (`series/tvmaze.rs`), refreshed twice a day, posters served to browsers
-  by `series.poster`. A watch reports (or downloads) the first release its rules allow, then rests.
+  by `series.poster`; the show's episode list comes in the same answer and is kept with the task
+  (`series_tasks.show_episodes`). A failed or malformed answer keeps what TVmaze said before, and the show rests 30
+  minutes; an answer without the episode list is a failed one. `series/episodes.rs` gives each task's episodes a
+  state from that list, the task and its downloads: had (a finished download whose own file for that episode is whole
+  on disk; without its .torrent, the file named as the download), downloading (under way, paused or failed), expected
+  (the task fetches it once out) or missed. An episode is its season and number: a download records the season its
+  title names (`downloads.season`) and every episode it holds (`downloads.last_episode`; `S01E01E02`, `S01E01-E12`,
+  not `S01E01E03`), so a task moved to another season doesn't count the old season's downloads; rows from before have
+  both read from their title. Every task carries a window of its episodes, at most 100, all windows shrinking alike
+  until the whole list fits one relay message (`LIST_BYTES`); `series.episodes` pages through the rest by number
+  (`after` the last one seen), and each slice's `version` changes whenever any of the task's episodes does.
+  `series.changed` is sent only when it differs from the last one: on a task's change, a download's
+  (`SeriesStore::follow_downloads`), and once a round, which notices files removed from disk.
+  A watch reports (or downloads) the first release its rules allow, then rests.
 - **Browser push**: a linked browser subscribes with the Worker's VAPID public key and gives the subscription to the
   device over the encrypted channel (`push_subscriptions`, removed with the browser's key). Each notification is
   sealed on the device for that subscription (RFC 8291, `protocol/webpush.rs`) and posted to the Worker, which adds

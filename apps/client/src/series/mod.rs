@@ -1,4 +1,5 @@
 pub mod episode;
+pub mod episodes;
 pub mod monitor;
 pub mod quality;
 pub mod store;

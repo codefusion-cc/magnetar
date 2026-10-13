@@ -93,5 +93,6 @@ describe('in a repository', () => {
     expect(plan(cwd, 'plan')).toContain('tag=v1.3.1')
     // A queued older merge is already inside the newer release.
     expect(plan(cwd, 'plan', '--sha', 'HEAD~1')).toContain('release=false')
-  })
+    // About thirty git and node processes: Windows runners need seconds for them, more than Vitest's default five.
+  }, 30_000)
 })

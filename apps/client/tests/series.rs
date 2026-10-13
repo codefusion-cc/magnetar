@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use magnetar::app::{App, AppOptions};
 use magnetar::downloads::manager::EngineSource;
 use magnetar::paths::Paths;
-use magnetar::protocol::{DownloadStatus, SeriesTaskInput, StartFrom};
+use magnetar::protocol::{DownloadStatus, EpisodeState, SeriesTaskInput, StartFrom};
 use magnetar::search::types::{Provider, TorrentSearchResult};
 use tokio_util::sync::CancellationToken;
 
@@ -168,6 +168,8 @@ async fn a_release_nobody_seeds_is_replaced_by_the_next_best() {
     let downloads = app.downloads.list();
     assert_eq!(downloads.iter().map(|d| d.name.as_str()).collect::<Vec<_>>(), ["[Preferred] Show - 01 (1080p)"]);
     assert_eq!(downloads[0].status, DownloadStatus::Queued);
+    let episode = |app: &App| app.actions.list_series()[0].episodes.episodes[0].state;
+    assert_eq!(episode(&app), EpisodeState::Downloading { download_id: downloads[0].id }, "the episode follows the new release");
 
     // It dies too: nothing left that the rules allow, so the failure stays for the user to see.
     app.db.lock().execute("UPDATE downloads SET status = 'Error', error = 'No peers found — dead'", []).unwrap();
@@ -179,6 +181,7 @@ async fn a_release_nobody_seeds_is_replaced_by_the_next_best() {
     assert_eq!(downloads.len(), 1);
     assert_eq!((downloads[0].name.as_str(), downloads[0].status), ("[Preferred] Show - 01 (1080p)", DownloadStatus::Error));
     assert_eq!(app.actions.list_series()[0].next_episode, 2, "the episode still counts as taken");
+    assert_eq!(episode(&app), EpisodeState::Downloading { download_id: downloads[0].id }, "its failed download is shown");
 }
 
 #[tokio::test]
@@ -315,4 +318,88 @@ async fn one_broken_rule_never_stops_the_others_from_being_checked() {
     assert_eq!(*source.details_asked.lock().unwrap(), 2);
     assert!(app.actions.check_series_now(boom.id).await.is_err(), "Check now reports the failure instead of hanging");
     assert_eq!(*source.details_asked.lock().unwrap(), 3);
+}
+
+/// Whatever releases the test lists, for every query.
+struct Listed(Mutex<Vec<TorrentSearchResult>>);
+
+#[async_trait]
+impl Provider for Listed {
+    fn name(&self) -> &'static str {
+        "Scripted"
+    }
+
+    fn id(&self) -> &'static str {
+        "scripted"
+    }
+
+    async fn search(&self, _: &reqwest::Client, _: &str, _: &CancellationToken) -> anyhow::Result<Vec<TorrentSearchResult>> {
+        Ok(self.0.lock().unwrap().clone())
+    }
+}
+
+#[tokio::test]
+async fn a_dead_pack_makes_way_only_once_every_episode_it_held_has_another_release() {
+    let dir = tempfile::tempdir().unwrap();
+    let paths = Paths::new(dir.path().join("data")).unwrap();
+    let hash = "ab".repeat(20);
+    let pack = TorrentSearchResult {
+        info_hash: hash.clone(),
+        magnet_uri: format!("magnet:?xt=urn:btih:{hash}"),
+        seeders: 900,
+        size_bytes: 4_000_000_000,
+        ..TorrentSearchResult::new("[Popular] Show S01E01-E03 (1080p)", "Scripted")
+    };
+    let source = Arc::new(Listed(Mutex::new(vec![pack])));
+    let make = || {
+        App::new(AppOptions {
+            paths: paths.clone(),
+            engine: EngineSource::Off,
+            providers: vec![source.clone()],
+            legacy_database: None,
+            show_lookups: false,
+        })
+        .unwrap()
+    };
+    let app = make();
+    app.settings.update(|s| s.download_folder = dir.path().join("dl").display().to_string()).unwrap();
+    let task = app.actions.create_series(input(StartFrom::Episode)).await.unwrap();
+    app.actions.check_series_now(task.id).await.unwrap();
+    assert_eq!(titles(&app), ["[Popular] Show S01E01-E03 (1080p)"]);
+    assert_eq!(app.actions.list_series()[0].next_episode, 4, "the pack holds three episodes");
+
+    let die = |app: &App| {
+        app.db
+            .lock()
+            .execute("UPDATE downloads SET status = 'Error', error = 'No peers found — dead' WHERE lower(info_hash) = ?", [&hash])
+            .unwrap();
+    };
+    // The pack dies; only episodes 1 and 2 are out on their own.
+    die(&app);
+    *source.0.lock().unwrap() = vec![release(1, "Popular", "1080p", 500), release(2, "Popular", "1080p", 500)];
+    drop(app);
+    let app = make();
+    app.start();
+    app.actions.check_series_now(task.id).await.unwrap();
+    assert_eq!(
+        titles(&app),
+        ["[Popular] Show - 01 (1080p)", "[Popular] Show - 02 (1080p)", "[Popular] Show S01E01-E03 (1080p)"],
+        "the pack stays while episode 3 has nothing else"
+    );
+    let states = |app: &App| -> Vec<(i64, bool)> {
+        app.actions.list_series()[0]
+            .episodes
+            .episodes
+            .iter()
+            .map(|e| (e.number, matches!(e.state, EpisodeState::Downloading { .. })))
+            .collect()
+    };
+    assert_eq!(states(&app)[..3], [(1, true), (2, true), (3, true)]);
+
+    // Episode 3 comes out alone: the pack makes way, and nothing is added twice.
+    source.0.lock().unwrap().push(release(3, "Popular", "1080p", 500));
+    app.actions.check_series_now(task.id).await.unwrap();
+    assert_eq!(titles(&app), ["[Popular] Show - 01 (1080p)", "[Popular] Show - 02 (1080p)", "[Popular] Show - 03 (1080p)"]);
+    assert_eq!(states(&app)[..3], [(1, true), (2, true), (3, true)]);
+    assert_eq!(app.actions.list_series()[0].next_episode, 4);
 }

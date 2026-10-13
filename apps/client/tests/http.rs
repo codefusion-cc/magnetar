@@ -137,8 +137,24 @@ async fn rest_routes_validate_and_report_errors() {
     let id = created["id"].as_i64().unwrap();
     let partial = http.put(format!("{base}/api/series/{id}")).json(&json!({ "name": "Renamed" })).send().await.unwrap();
     assert_eq!(partial.status(), 400);
+    // A rule's episodes, in pages.
+    let episodes = |query: &str| http.get(format!("{base}/api/series/{id}/episodes{query}")).send();
+    let page: Value = episodes("?limit=5").await.unwrap().json().await.unwrap();
+    assert_eq!(
+        (&page["total"], &page["episodes"][0]["number"], &page["episodes"][0]["state"]),
+        (&json!(1), &json!(1), &json!("expected"))
+    );
+    assert!(page["version"].as_str().is_some_and(|v| !v.is_empty()));
+    let next: Value = episodes("?after=1&limit=5").await.unwrap().json().await.unwrap();
+    assert_eq!((&next["episodes"], &next["offset"], &next["version"]), (&json!([]), &json!(1), &page["version"]));
+    for query in ["?limit=0", "?limit=201", "?limit=many", "?after=1.5", "?after=one"] {
+        assert_eq!(episodes(query).await.unwrap().status(), 400, "{query}");
+    }
+    assert_eq!(http.get(format!("{base}/api/series/{}/episodes", id + 100)).send().await.unwrap().status(), 404);
+    assert_eq!(http.post(format!("{base}/api/series/{id}/episodes")).send().await.unwrap().status(), 405);
     let openapi: Value = http.get(format!("{base}/openapi/v1.json")).send().await.unwrap().json().await.unwrap();
     assert_eq!(openapi["openapi"], "3.1.0");
+    assert_eq!(openapi["paths"]["/api/series/{id}/episodes"]["get"]["parameters"][2]["schema"]["maximum"], 200);
     // A check interval is a minute to a week, as the schema says and the API holds to.
     let create = &openapi["paths"]["/api/series"]["post"]["requestBody"]["content"]["application/json"]["schema"];
     assert_eq!(create["properties"]["checkIntervalMinutes"], json!({ "type": "integer", "minimum": 1, "maximum": 10_080 }));
@@ -181,6 +197,15 @@ async fn mcp_initializes_lists_and_calls_tools() {
     };
     assert_eq!(interval("create_series_task"), (json!(1), json!(10_080)));
     assert_eq!(interval("update_series_task"), (json!(1), json!(10_080)));
+    let episodes = |id: i64, arguments: Value| {
+        rpc(
+            json!({ "jsonrpc": "2.0", "id": id, "method": "tools/call", "params": { "name": "list_series_episodes", "arguments": arguments } }),
+        )
+    };
+    let missing: Value = episodes(5, json!({ "id": 42 })).await.unwrap().json().await.unwrap();
+    assert!(missing["result"]["content"][0]["text"].as_str().unwrap().contains("No series task with id 42"));
+    let unknown: Value = episodes(6, json!({ "id": 42, "season": 1 })).await.unwrap().json().await.unwrap();
+    assert_eq!(unknown["result"]["isError"], true, "an argument it doesn't take is refused");
 
     let settings: Value =
         rpc(json!({ "jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": { "name": "get_settings", "arguments": {} } }))
@@ -334,6 +359,36 @@ mod dashboard_socket {
 
         let too_large = call(&mut socket, 1, "downloads.start", padded(MAX_RELAY_FRAME + 1)).await;
         assert_eq!(too_large, None, "the socket closes");
+    }
+
+    #[tokio::test]
+    async fn the_dashboard_pages_a_rules_episodes_and_is_refused_a_page_too_large() {
+        let (app, base, _dir) = start().await;
+        let input = serde_json::from_value(json!({ "name": "Show", "query": "Show", "startEpisode": 3 })).unwrap();
+        let task = app.series.create(&input).unwrap();
+        let mut socket = open(&base).await;
+        let page = call(&mut socket, 1, "series.episodes", json!({ "id": task.id })).await.unwrap();
+        let version = page["result"]["version"].clone();
+        assert_eq!(
+            page["result"],
+            json!({
+                "total": 1, "offset": 0, "airDatesCheckedAt": null, "version": version,
+                "episodes": [{ "number": 3, "name": null, "airstamp": null, "state": "expected" }],
+            })
+        );
+        let after = call(&mut socket, 5, "series.episodes", json!({ "id": task.id, "after": 2 })).await.unwrap();
+        assert_eq!(after["result"], page["result"], "numbered after 2: from 3");
+        for (id, params) in [
+            (2, json!({ "id": task.id, "limit": 201 })),
+            (3, json!({ "id": task.id, "page": 2 })),
+            (4, json!({ "id": task.id, "offset": 0 })),
+            (6, json!({ "id": task.id, "after": "2" })),
+        ] {
+            let refused = call(&mut socket, id, "series.episodes", params.clone()).await.unwrap();
+            assert_eq!(refused["error"]["code"], "bad_request", "{params}");
+        }
+        let listed = call(&mut socket, 5, "series.list", json!({})).await.unwrap();
+        assert_eq!(listed["result"][0]["episodes"], page["result"]);
     }
 
     #[tokio::test]

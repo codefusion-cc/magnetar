@@ -1,8 +1,8 @@
 use std::collections::{HashMap, HashSet};
 use std::panic::AssertUnwindSafe;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
 use futures::FutureExt;
 use tokio_util::sync::CancellationToken;
@@ -12,8 +12,7 @@ use super::store::{SeriesStore, SeriesTask};
 use super::tvmaze;
 use super::watch::{self, WatchStore};
 use crate::api::actions::start_from_result;
-use crate::downloads::AddDownload;
-use crate::downloads::DownloadManager;
+use crate::downloads::{AddDownload, DownloadManager, SeriesEpisodes};
 use crate::error::{ApiError, ApiResult};
 use crate::notifications::NotificationDispatcher;
 use crate::protocol::encoding::{now_iso, parse_iso};
@@ -27,6 +26,12 @@ const STARTUP_DELAY: Duration = Duration::from_secs(10);
 const MAX_EPISODES_PER_CHECK: usize = 25;
 /// Show details (next air date) are looked up again this often.
 const SHOW_REFRESH: chrono::Duration = chrono::Duration::hours(12);
+/// After TVmaze failed for a show, it is asked again no sooner than this; what it said before stays.
+const SHOW_RETRY: Duration = Duration::from_secs(30 * 60);
+/// Shows whose details fell due that one round looks up, those checked longest ago first: TVmaze allows
+/// 20 calls in ten seconds, and a library whose every show fell due at once (after an upgrade) is
+/// looked up over a few rounds instead.
+pub const SHOW_LOOKUPS_PER_ROUND: usize = 15;
 
 /// Periodically checks due series tasks and queues their new episodes: the best release each task's
 /// quality rules allow, replacing one that turned out dead with the next best.
@@ -41,6 +46,12 @@ pub struct SeriesMonitor {
     posters: Option<PathBuf>,
     cancel: CancellationToken,
     running: Mutex<HashSet<i64>>,
+    /// TVmaze's API, `tvmaze::API` unless set first (a test's own TVmaze).
+    pub tvmaze_api: OnceLock<String>,
+    /// When TVmaze last failed for a rule's show, by rule.
+    show_failures: Mutex<HashMap<i64, Instant>>,
+    /// Until when TVmaze asked not to be called (`tvmaze::Busy`).
+    tvmaze_busy_until: Mutex<Option<Instant>>,
 }
 
 impl SeriesMonitor {
@@ -64,10 +75,14 @@ impl SeriesMonitor {
             posters,
             cancel: CancellationToken::new(),
             running: Mutex::default(),
+            tvmaze_api: OnceLock::new(),
+            show_failures: Mutex::default(),
+            tvmaze_busy_until: Mutex::default(),
         })
     }
 
     pub fn start(self: &Arc<Self>) {
+        tokio::spawn(self.store.clone().follow_downloads(self.cancel.clone()));
         let monitor = self.clone();
         tokio::spawn(async move {
             let mut delay = STARTUP_DELAY;
@@ -99,6 +114,9 @@ impl SeriesMonitor {
         self.check_due().await;
         self.check_due_watches().await;
         self.refresh_stale_shows().await;
+        // An episode's file removed from disk tells nobody: this round looks.
+        let store = self.store.clone();
+        let _ = tokio::task::spawn_blocking(move || store.changed()).await;
     }
 
     async fn check_due(&self) {
@@ -147,20 +165,28 @@ impl SeriesMonitor {
     /// Episodes whose release nobody seeded get another one: the dead release is never picked
     /// again, and its download (which has no files) makes way for the new one.
     async fn replace_dead(&self, task: &SeriesTask, searches: &mut Searches) -> ApiResult<()> {
-        let dead = self.downloads.dead_episodes(task.id);
+        let dead = self.downloads.dead_episodes(task.id, task.season);
         if dead.is_empty() {
             return Ok(());
         }
-        for (_, _, hash) in &dead {
+        for (.., hash) in &dead {
             self.store.reject(task.id, hash);
         }
         let rejected = self.store.rejected(task.id);
-        for (download, episode, _) in dead {
-            let Some(result) = self.find_episode(task, episode, searches, &rejected).await? else { continue };
-            let title = result.title.clone();
-            self.queue(task, episode, result).await?;
-            self.downloads.delete(download, false).await?;
-            tracing::info!("Series '{}': episode {episode} had no seeders; trying {title}", task.name);
+        for (download, SeriesEpisodes { first, last, .. }, _) in dead {
+            // A dead pack or double episode may come back as several releases; it makes way once every
+            // episode it held has one. Until then the next check tries again, and a release already
+            // queued is found by its torrent rather than added twice.
+            let mut episode = first;
+            while episode <= last {
+                let Some(result) = self.find_episode(task, episode, searches, &rejected).await? else { break };
+                let title = result.title.clone();
+                tracing::info!("Series '{}': episode {episode} had no seeders; trying {title}", task.name);
+                episode = self.queue(task, episode, result).await? + 1;
+            }
+            if episode > last {
+                self.downloads.delete(download, false).await?;
+            }
         }
         Ok(())
     }
@@ -179,8 +205,7 @@ impl SeriesMonitor {
             let episode = task.next_episode();
             let Some(result) = self.find_episode(task, episode, searches, &rejected).await? else { break };
             let title = result.title.clone();
-            self.queue(task, episode, result).await?;
-            task.last_downloaded_episode = episode;
+            task.last_downloaded_episode = self.queue(task, episode, result).await?;
             // Saved per episode: a failure hunting the next one must not lose the record that this
             // one was queued, or the next pass could add a second download of it.
             self.store.save(&self.fresh(task))?;
@@ -189,17 +214,21 @@ impl SeriesMonitor {
         Ok(())
     }
 
-    async fn queue(&self, task: &SeriesTask, episode: i64, result: TorrentSearchResult) -> ApiResult<()> {
+    /// Downloads `result` as `episode`, and returns the last episode it holds: more than `episode`
+    /// for a double episode or a pack, which then need no download of their own.
+    async fn queue(&self, task: &SeriesTask, episode: i64, result: TorrentSearchResult) -> ApiResult<i64> {
+        let parsed = parse_episode(&result.title).filter(|p| p.episode == episode);
+        let (season, last) = parsed.map_or((task.season, episode), |p| (p.season.or(task.season), p.through));
         start_from_result(
             &self.search,
             &self.downloads,
             Arc::new(Mutex::new(result)),
-            Some((task.id, episode)),
+            Some(SeriesEpisodes { task: task.id, season, first: episode, last }),
             task.download_folder.clone(),
             &self.cancel,
         )
         .await?;
-        Ok(())
+        Ok(last)
     }
 
     /// Re-reads the task and applies what this check changed. The user may edit the rule from the
@@ -270,28 +299,53 @@ impl SeriesMonitor {
             .unwrap_or(0))
     }
 
-    /// Looks the show up on TVmaze again: after a rename, and twice a day for air dates.
+    /// Looks the show up on TVmaze again: after a rename, and twice a day for air dates. When TVmaze
+    /// can't be asked, or answers with something that isn't a show, what it said before stays, with
+    /// the time it said it; the show is asked again after `SHOW_RETRY`.
     pub async fn refresh_show(&self, id: i64) -> ApiResult<()> {
         let Some(posters) = &self.posters else { return Ok(()) };
-        let task = self.store.get(id)?;
-        let name = task.name.trim();
-        let found = if name.is_empty() { None } else { tvmaze::lookup(&self.http, name).await? };
-        let mut latest = self.store.get(id)?;
-        latest.show_checked_at = Some(now_iso());
-        latest.show = match found {
-            Some((mut show, poster)) => {
-                let path = tvmaze::poster_path(posters, show.tvmaze_id);
-                if let Some(url) = poster
-                    && let Err(error) = tvmaze::save_poster(&self.http, &url, &path).await
-                {
-                    tracing::warn!("Could not save the poster for '{name}': {error:#}");
+        let name = self.store.get(id)?.name;
+        let api = self.tvmaze_api.get_or_init(|| tvmaze::API.into());
+        let found = if name.trim().is_empty() {
+            None
+        } else {
+            tvmaze::lookup(&self.http, api, name.trim()).await.inspect_err(|error| {
+                match error.downcast_ref::<tvmaze::Busy>() {
+                    // Too many calls says nothing about this show.
+                    Some(busy) => *self.busy_until() = Some(Instant::now() + busy.retry_after),
+                    None => drop(self.failures().insert(id, Instant::now())),
                 }
-                show.has_poster = path.exists();
-                Some(show)
-            }
-            None => None,
+            })?
         };
-        self.store.save(&latest)
+        self.failures().remove(&id);
+        // Each write is kept only if the rule still has the name asked about: renamed meanwhile, the new
+        // name has its own look-up.
+        let Some(mut found) = found else { return self.store.save_show(id, Some(&name), None, &[], Some(&now_iso())).map(drop) };
+        let path = tvmaze::poster_path(posters, found.info.tvmaze_id);
+        if let Some(url) = found.poster
+            && let Err(error) = tvmaze::save_poster(&self.http, &url, &path).await
+        {
+            tracing::warn!("Could not save the poster for '{name}': {error:#}");
+        }
+        found.info.has_poster = path.exists();
+        self.store.save_show(id, Some(&name), Some(&found.info), &found.episodes, Some(&now_iso())).map(drop)
+    }
+
+    /// When each show last failed to load, by rule.
+    fn failures(&self) -> std::sync::MutexGuard<'_, HashMap<i64, Instant>> {
+        self.show_failures.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    fn show_resting(&self, id: i64) -> bool {
+        self.failures().get(&id).is_some_and(|at| at.elapsed() < SHOW_RETRY)
+    }
+
+    fn busy_until(&self) -> std::sync::MutexGuard<'_, Option<Instant>> {
+        self.tvmaze_busy_until.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    fn tvmaze_busy(&self) -> bool {
+        self.busy_until().is_some_and(|until| Instant::now() < until)
     }
 
     async fn refresh_stale_shows(&self) {
@@ -299,12 +353,25 @@ impl SeriesMonitor {
             return;
         }
         let now = chrono::Utc::now();
-        for task in self.store.all() {
-            if is_due(task.show_checked_at.as_deref(), SHOW_REFRESH, now)
-                && !self.cancel.is_cancelled()
-                && let Err(error) = unless_panicked(self.refresh_show(task.id)).await
-            {
+        let mut due: Vec<SeriesTask> = self
+            .store
+            .all()
+            .into_iter()
+            .filter(|task| is_due(task.show_checked_at.as_deref(), SHOW_REFRESH, now) && !self.show_resting(task.id))
+            .collect();
+        // Never checked first, then the oldest (the times are ISO, so they sort as text).
+        due.sort_by(|a, b| a.show_checked_at.cmp(&b.show_checked_at));
+        for task in due.into_iter().take(SHOW_LOOKUPS_PER_ROUND) {
+            if self.cancel.is_cancelled() || self.tvmaze_busy() {
+                break;
+            }
+            let busy_before = *self.busy_until();
+            if let Err(error) = unless_panicked(self.refresh_show(task.id)).await {
                 tracing::debug!("TVmaze lookup for '{}' failed: {error}", task.name);
+            }
+            if *self.busy_until() != busy_before {
+                // Too many calls: the rest wait for the next round.
+                break;
             }
         }
     }
@@ -360,8 +427,7 @@ impl SeriesMonitor {
             name: release.title.clone(),
             magnet_uri: release.magnet_uri.clone(),
             source: release.source.clone(),
-            series_task_id: None,
-            episode: None,
+            series: None,
             save_folder: None,
         })?;
         Ok(added.id)
@@ -411,9 +477,6 @@ impl Drop for Running<'_> {
 async fn unless_panicked<T>(work: impl Future<Output = ApiResult<T>>) -> ApiResult<T> {
     match AssertUnwindSafe(work).catch_unwind().await {
         Ok(outcome) => outcome,
-        Err(panic) => {
-            let message = panic.downcast_ref::<&str>().map(|m| m.to_string()).or_else(|| panic.downcast_ref::<String>().cloned());
-            Err(ApiError::internal(format!("Magnetar ran into a bug: {}", message.unwrap_or_default())))
-        }
+        Err(panic) => Err(ApiError::internal(format!("Magnetar ran into a bug: {}", crate::log::panic_message(&*panic)))),
     }
 }

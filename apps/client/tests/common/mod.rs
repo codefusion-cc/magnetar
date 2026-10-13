@@ -29,3 +29,22 @@ pub fn torrent_of_size(size: usize, name: &str) -> Vec<u8> {
     assert_eq!(torrent.len(), size, "no comment length gives exactly {size} bytes");
     torrent
 }
+
+/// A valid .torrent of a folder `name` holding `files` (name, length).
+#[allow(dead_code, reason = "not every test binary uses it")]
+pub fn torrent_of_files(name: &str, files: &[(&str, usize)]) -> Vec<u8> {
+    const PIECE: usize = 16 * 1024;
+    let text = |s: &str| format!("{}:{s}", s.len());
+    let total: usize = files.iter().map(|(_, length)| length).sum();
+    let pieces = total.div_ceil(PIECE).max(1);
+    let mut info = String::from("d5:filesl");
+    for (file, length) in files {
+        info += &format!("d6:lengthi{length}e4:pathl{}ee", text(file));
+    }
+    info += &format!("e4:name{}12:piece lengthi{PIECE}e6:pieces{}:", text(name), pieces * 20);
+    let mut torrent = b"d4:info".to_vec();
+    torrent.extend(info.into_bytes());
+    torrent.extend((0..pieces * 20).map(|i| (i * 13 + name.len()) as u8));
+    torrent.extend(b"ee");
+    torrent
+}
