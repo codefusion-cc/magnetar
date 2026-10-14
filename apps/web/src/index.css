@@ -19,40 +19,17 @@
   name: "magnetar-light";
   default: true;
   color-scheme: light;
-  --color-base-100: var(--cf-surface);
-  --color-base-200: var(--cf-page);
-  --color-base-300: var(--cf-line);
-  --color-base-content: var(--cf-ink);
-  --color-primary: var(--cf-accent);
-  --color-primary-content: var(--cf-on-accent);
-  --color-secondary: var(--cf-muted);
-  --color-secondary-content: var(--cf-page);
-  --color-accent: var(--cf-accent-2);
-  --color-accent-content: var(--cf-page);
-  --color-neutral: var(--cf-inverse);
-  --color-neutral-content: var(--cf-on-inverse);
-  --color-info: var(--cf-info);
-  --color-info-content: var(--cf-page);
-  --color-success: var(--cf-ok);
-  --color-success-content: var(--cf-page);
-  --color-warning: var(--cf-warn);
-  --color-warning-content: var(--cf-page);
-  --color-error: var(--cf-danger);
-  --color-error-content: var(--cf-page);
-  --radius-selector: 0.5rem;
-  --radius-field: 0.5rem;
-  --radius-box: 0.625rem;
-  --size-selector: 0.25rem;
-  --size-field: 0.25rem;
-  --border: 1px;
-  --depth: 0;
-  --noise: 0;
 }
 
 @plugin "daisyui/theme" {
   name: "magnetar-dark";
   prefersdark: true;
   color-scheme: dark;
+}
+
+/* Both themes alike: each role already holds its light and its dark value, picked by color-scheme. */
+:root,
+[data-theme] {
   --color-base-100: var(--cf-surface);
   --color-base-200: var(--cf-page);
   --color-base-300: var(--cf-line);
@@ -73,9 +50,9 @@
   --color-warning-content: var(--cf-page);
   --color-error: var(--cf-danger);
   --color-error-content: var(--cf-page);
-  --radius-selector: 0.5rem;
-  --radius-field: 0.5rem;
-  --radius-box: 0.625rem;
+  --radius-selector: var(--cf-radius-ctl);
+  --radius-field: var(--cf-radius-ctl);
+  --radius-box: var(--cf-radius-card);
   --size-selector: 0.25rem;
   --size-field: 0.25rem;
   --border: 1px;
@@ -149,6 +126,16 @@ body {
 
 .scroll-strip::-webkit-scrollbar {
   display: none;
+}
+
+@layer components {
+  /* A strip whose chips reach 4px past its column, so their focus rings and edges are not cut: margin, padding and
+     width move together, or the strip ends up narrower than its chips and scrolls by the difference. */
+  .strip-bleed {
+    margin-inline: -0.25rem;
+    padding-inline: 0.25rem;
+    max-width: calc(100% + 0.5rem);
+  }
 }
 
 /* Focused fields and every focus ring in the look's focus colour. */

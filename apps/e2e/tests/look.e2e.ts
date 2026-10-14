@@ -1,7 +1,13 @@
+import { formatHex, lookColors } from '@codefusion-cc/ui/looks'
 import { expect, test, type Page } from '@playwright/test'
+import infall from '../../web/src/looks/infall.ts'
 
-/** The Infall look's page ground in each mode (apps/web/src/looks/infall.ts), as the browser computes it. */
-const ground = { light: 'rgb(242, 235, 225)', dark: 'rgb(7, 5, 5)' }
+/** The look's page ground in `mode`, as `pageGround` reads it. */
+function groundIn(mode: 'light' | 'dark'): string {
+  const hex = formatHex(lookColors(infall, mode).get('--cf-page')!)
+  return `rgb(${[1, 3, 5].map(at => parseInt(hex.slice(at, at + 2), 16)).join(', ')})`
+}
+const ground = { light: groundIn('light'), dark: groundIn('dark') }
 
 /** The body's background as it is painted, in sRGB: a computed colour may be written in lab() or oklch(). */
 const pageGround = (page: Page) =>

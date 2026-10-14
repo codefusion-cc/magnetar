@@ -57,6 +57,8 @@ export default defineConfig({
   },
   build: {
     target: 'es2023',
+    // A font stays a file, loaded only when its letters show, never inlined into the stylesheet every page waits for.
+    assetsInlineLimit: file => (file.endsWith('.woff2') ? false : undefined),
     chunkSizeWarningLimit: 800,
     rolldownOptions: {
       output: {

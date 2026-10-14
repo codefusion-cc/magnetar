@@ -16,7 +16,7 @@ export function Segmented<T extends string>({ label, value, options, onChange, s
   size?: 'xs' | 'sm'
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="scroll-strip -mx-1 flex max-w-[calc(100%+0.5rem)] gap-1 overflow-x-auto px-1">
+    <div role="radiogroup" aria-label={label} className="scroll-strip strip-bleed flex gap-1 overflow-x-auto">
       {options.map(option => {
         const selected = option.value === value
         return (

@@ -226,6 +226,8 @@ async function prepare(browser: Browser): Promise<Website> {
   await signIn(phone)
   const link = await rpc<{ url: string }>(main, 'remote.linkBrowser', { label: 'Alex’s iPhone' })
   await phone.goto(link.url)
+  // A phone's browser tab stops on "This browser is linked" (LinkPage: the installed app keeps its own storage).
+  await phone.getByRole('link', { name: 'Continue' }).click()
   await phone.waitForURL(`${WEBSITE}/${DEVICES_ON_ACCOUNT.main.name}`)
   return { desktop, phone }
 }

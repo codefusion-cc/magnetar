@@ -7,7 +7,7 @@ Design and security are in [ARCHITECTURE.md](ARCHITECTURE.md), deploy and signin
 
 - `packages/protocol/src/` the wire contract in TypeScript: `rpc.ts` (methods), `model.ts` (types), `e2e.ts` (crypto), `relay.ts`, `device-names.json` (reserved site words), `scrub.ts` (error-report scrubbing), `linkCode.ts` (the typed link code), `e2e-vector.json`, `link-code-vector.json`, `webpush-vector.json` and `scrub-vector.json` (test vectors the Rust side shares).
 - `apps/client/` the Rust app (crate `magnetar`). `src/rpc.rs` RPC handlers, `src/api/actions.rs` actions shared by REST, MCP and dashboard, `src/http/` local server (REST, MCP, assets, streaming), `src/downloads/` torrent engine and manager, `src/search/` providers, `src/series/` show monitoring (`episodes.rs`: each task's episodes and their state), `src/remote/` relay link, browser keys and push (`protocol/link_code.rs`: the typed link code), `src/system/folders.rs` the Files browser (only the download folder and folders added on the device; `api/save_folder.rs` confines folders agents and relayed browsers choose), `src/db.rs` SQLite and migrations, `src/settings.rs`, `src/updates/`. Tests in `apps/client/tests/`. `package.ts` builds the release executable.
-- `apps/web/src/` the dashboard, one build for both transports: `LocalApp.tsx` (in the app), `cloud/` (website: login, devices, pairing), `device/` (pages of one device), `lib/` (`rpcClient.ts`, `localConnection.ts`, `relayConnection.ts`, `keyStore.ts`, `linkDevice.ts`, `linkInput.ts`, `qrScanner.ts`, `installedApp.ts`), `ui/`, `i18n/` (8 catalogs), `features/` (features page).
+- `apps/web/src/` the dashboard, one build for both transports: `LocalApp.tsx` (in the app), `cloud/` (website: login, devices, pairing), `device/` (pages of one device), `lib/` (`rpcClient.ts`, `localConnection.ts`, `relayConnection.ts`, `keyStore.ts`, `linkDevice.ts`, `linkInput.ts`, `qrScanner.ts`, `installedApp.ts`), `ui/`, `i18n/` (8 catalogs), `features/` (features page), `looks/infall.ts` (the look: colours, fonts, radii, the star's `--mg-*` tokens, as `@codefusion-cc/ui` roles), `fonts.css` (bundled woff2 faces, no font host).
 - `apps/worker/src/` Cloudflare Worker: `index.ts` routes and `serveSinglePageApp`, `relay.ts` (`DeviceRelay` Durable Object), `auth.ts` (Google sign-in, sessions), `devices.ts`, `push.ts`, `releases.ts`, `console/`. `migrations/` D1 SQL, `test/` workerd tests, `wrangler.jsonc` (has an `env.dev`).
 - `apps/e2e/` Playwright (`tests/*.e2e.ts`) and `features/screenshots.ts`. `scripts/` release signing and `release-version.ts`. `Cargo.toml` is the workspace root; `vendor/librqbit-bencode` patches librqbit's bencode parser (`[patch.crates-io]`) until upstream releases the fix (`docs/upstream/`).
 
@@ -22,7 +22,7 @@ Design and security are in [ARCHITECTURE.md](ARCHITECTURE.md), deploy and signin
 
 ## @codefusion-cc packages
 
-`workers-http` (SPA serving, errors), `workers-crypto` (tokens), `base58` (readable ids), `google-sign-in`, `web-push`, `console` (telemetry, admin pages), `app-update` and `theme` and `i18n` (dashboard), `features-page` (`/features`).
+`workers-http` (SPA serving, errors), `workers-crypto` (tokens), `base58` (readable ids), `google-sign-in`, `web-push`, `console` (telemetry, admin pages), `app-update`, `theme`, `ui` (the look's roles as Tailwind classes; daisyUI's colours read them until the redesign's sweep) and `i18n` (dashboard), `features-page` (`/features`).
 
 ## Tests and checks
 

@@ -1,38 +1,40 @@
 import { defineAppTokens, defineLook } from '@codefusion-cc/ui/looks'
 
-/** The star's colours in each mode: the fallbacks of its tokens and the values Infall gives them. */
-const star = {
-  core: ['The star: the computer, lit.', '#1d1410', '#fff3dc'],
-  void: ['The inside of a star that is out.', '#fbf7f1', '#000000'],
-  ring: ['The edge of a star that is out.', 'rgb(60 30 15 / 0.6)', 'rgb(255 200 150 / 0.5)'],
-  far: ['A star out of reach: the computer while it cannot be reached.', '#a8261b', '#d2553a'],
-  'far-glow': ['The glow around a star out of reach.', 'rgb(168 38 27 / 0.3)', 'rgb(190 52 30 / 0.5)'],
-  h0: ['Heat far from the star: the cold end of a lane.', '#e0b79c', '#7a2414'],
-  h1: ['Heat on the way: what is moving now.', '#b8430f', '#ff7e30'],
-  h2: ['Heat at the star: white hot.', '#1d1410', '#fff4e0'],
-  seg: ['A lane or an arc not travelled yet.', '#d6c9ba', '#3a2c26'],
-} as const
-const glow = {
-  halo: ["The star's glow.", '0 0 8px 2px rgb(184 67 15 / 0.55), 0 0 26px 9px rgb(184 67 15 / 0.2)', '0 0 9px 3px #ffc27a, 0 0 30px 11px rgb(255 126 48 / 0.42)'],
-  'halo-small': ["A small star's glow, as in the mark.", '0 0 5px 1px rgb(184 67 15 / 0.55), 0 0 14px 5px rgb(184 67 15 / 0.2)', '0 0 6px 2px #ffc27a, 0 0 16px 6px rgb(255 126 48 / 0.4)'],
-} as const
-type StarName = keyof typeof star | keyof typeof glow
-const entries = [...Object.entries(star), ...Object.entries(glow)] as [StarName, readonly [string, string, string]][]
-const inMode = (mode: 1 | 2) => Object.fromEntries(entries.map(([name, values]) => [name, values[mode]])) as Record<StarName, string>
-
 /**
  * The star's own tokens, beside the contract's roles: what is drawn (the computer as a star, what falls into it, the
  * season's orbit). Heat runs from `h0` (far, cold) through `h1` to `h2` (white, at the star); `core` is the star,
- * `void` and `ring` a star that is out, `far` one out of reach, `seg` a lane or an arc not travelled yet.
+ * `void` and `ring` a star that is out, `far` one out of reach, `seg` a lane or an arc not travelled yet. Their values
+ * are Infall's, given once here as the fallbacks, and Infall takes them as they are (`starIn`).
  */
 export const mg = defineAppTokens(
   'mg',
   {
-    ...(Object.fromEntries(Object.entries(star).map(([name, [description, light, dark]]) => [name, { type: 'color', description, fallback: { light, dark } }])) as Record<keyof typeof star, { type: 'color'; description: string; fallback: { light: string; dark: string } }>),
-    ...(Object.fromEntries(Object.entries(glow).map(([name, [description, light, dark]]) => [name, { type: 'shadow', description, fallback: { light, dark } }])) as Record<keyof typeof glow, { type: 'shadow'; description: string; fallback: { light: string; dark: string } }>),
+    core: { type: 'color', description: 'The star: the computer, lit.', fallback: { light: '#1d1410', dark: '#fff3dc' } },
+    void: { type: 'color', description: 'The inside of a star that is out.', fallback: { light: '#fbf7f1', dark: '#000000' } },
+    ring: { type: 'color', description: 'The edge of a star that is out.', fallback: { light: 'rgb(60 30 15 / 0.6)', dark: 'rgb(255 200 150 / 0.5)' } },
+    far: { type: 'color', description: 'A star out of reach: the computer while it cannot be reached.', fallback: { light: '#a8261b', dark: '#d2553a' } },
+    'far-glow': { type: 'color', description: 'The glow around a star out of reach.', fallback: { light: 'rgb(168 38 27 / 0.3)', dark: 'rgb(190 52 30 / 0.5)' } },
+    h0: { type: 'color', description: 'Heat far from the star: the cold end of a lane.', fallback: { light: '#e0b79c', dark: '#7a2414' } },
+    h1: { type: 'color', description: 'Heat on the way: what is moving now.', fallback: { light: '#b8430f', dark: '#ff7e30' } },
+    h2: { type: 'color', description: 'Heat at the star: white hot.', fallback: { light: '#1d1410', dark: '#fff4e0' } },
+    seg: { type: 'color', description: 'A lane or an arc not travelled yet.', fallback: { light: '#d6c9ba', dark: '#3a2c26' } },
+    halo: {
+      type: 'shadow',
+      description: "The star's glow.",
+      fallback: { light: '0 0 8px 2px rgb(184 67 15 / 0.55), 0 0 26px 9px rgb(184 67 15 / 0.2)', dark: '0 0 9px 3px #ffc27a, 0 0 30px 11px rgb(255 126 48 / 0.42)' },
+    },
+    'halo-small': {
+      type: 'shadow',
+      description: "A small star's glow, as in the mark.",
+      fallback: { light: '0 0 5px 1px rgb(184 67 15 / 0.55), 0 0 14px 5px rgb(184 67 15 / 0.2)', dark: '0 0 6px 2px #ffc27a, 0 0 16px 6px rgb(255 126 48 / 0.4)' },
+    },
   },
   { pairs: [{ fg: '--mg-h1', bg: '--cf-page', kind: 'ui' }, { fg: '--mg-core', bg: '--cf-page', kind: 'ui' }] },
 )
+
+/** The star's fallbacks in one mode, as a look's values. */
+const starIn = (mode: 'light' | 'dark') =>
+  Object.fromEntries(Object.entries(mg.roles).map(([name, role]) => [name, role.fallback[mode]])) as { [K in keyof typeof mg.roles]: string }
 
 /**
  * Infall: everything downloaded falls into one star, the computer. Dark is black, and the only colour is heat: red far
@@ -112,5 +114,5 @@ export default defineLook({
     'ease-in': 'cubic-bezier(0.4, 0, 1, 1)',
     'ease-state': 'cubic-bezier(0.34, 1.3, 0.5, 1)',
   },
-  app: { tokens: mg, light: inMode(1), dark: inMode(2) },
+  app: { tokens: mg, light: starIn('light'), dark: starIn('dark') },
 })
