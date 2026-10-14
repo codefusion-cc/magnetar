@@ -3,12 +3,12 @@ import fc from 'fast-check'
 import { describe, expect, test } from 'vitest'
 import { isDeviceName } from '@magnetar/protocol/device-name'
 import rules from '../../../packages/protocol/src/device-names.json'
-import { insertDevice, signIn, userId } from './client.ts'
+import { deviceRow, insertDevice, signIn, userId } from './client.ts'
 
-/** Runs a migration again over rows written as they were before it. */
+/** Runs a migration again over rows written as they were before it, as one batch (one transaction, as D1 applies it). */
 async function rerun(name: string) {
   const migration = env.TEST_MIGRATIONS.find(m => m.name.startsWith(name))!
-  for (const query of migration.queries) await env.DB.prepare(query).run()
+  await env.DB.batch(migration.queries.map(query => env.DB.prepare(query)))
 }
 
 describe('0002: device names become addresses', () => {
@@ -87,11 +87,16 @@ describe('0002: names it numbers never meet another name', () => {
     // Few pieces, so names often meet: in any case, with a number, once spelled, once cut.
     const piece = fc.constantFrom('Mac', 'mac', 'MAC-2', 'mac 2', '-3', 'Łódź', 'Lodz', 'login', ' ', 'a'.repeat(37), 'A'.repeat(38))
     const name = fc.array(piece, { minLength: 1, maxLength: 3 }).map(parts => parts.join(''))
+    // One account whose devices each run replaces: the migration rewrites every device in the table, so rows left by
+    // earlier runs would make each run slower than the last (thirty seconds and more on Windows runners).
+    const user = await signIn().then(userId)
     await fc.assert(fc.asyncProperty(fc.array(name, { minLength: 1, maxLength: 20 }), async names => {
-      const user = await signIn().then(userId)
       // IF EXISTS: a failed run leaves it dropped, and fast-check runs again to shrink the failure.
-      await env.DB.prepare('DROP INDEX IF EXISTS devices_user_name').run()
-      for (const [i, legacy] of names.entries()) await insertDevice(`d_p${crypto.randomUUID().slice(0, 12)}`, user, legacy, i)
+      await env.DB.batch([
+        env.DB.prepare('DELETE FROM devices WHERE user_id = ?').bind(user),
+        env.DB.prepare('DROP INDEX IF EXISTS devices_user_name'),
+        ...names.map((legacy, i) => deviceRow(`d_p${crypto.randomUUID().slice(0, 12)}`, user, legacy, i)),
+      ])
       await rerun('0002')
       const after = (await env.DB.prepare('SELECT name FROM devices WHERE user_id = ?').bind(user).all<{ name: string }>()).results.map(r => r.name)
       expect(after).toHaveLength(names.length)

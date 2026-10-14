@@ -49,10 +49,13 @@ export async function signIn(email = `user${++users}.${crypto.randomUUID().slice
 export const userId = async (user: User) =>
   (await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(user.email).first<{ id: string }>())!.id
 
-/** A device row written straight to D1, bypassing the Worker's name rules (as rows written before a migration). */
-export const insertDevice = (id: string, owner: string, name: string, createdAt: number) =>
+/** The statement writing a device row straight to D1, bypassing the Worker's name rules; for a batch of them. */
+export const deviceRow = (id: string, owner: string, name: string, createdAt: number) =>
   env.DB.prepare('INSERT INTO devices (id, user_id, name, platform, version, token_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
-    .bind(id, owner, name, 'macos', '1.0.0', `hash-${id}`, createdAt).run()
+    .bind(id, owner, name, 'macos', '1.0.0', `hash-${id}`, createdAt)
+
+/** A device row written straight to D1, bypassing the Worker's name rules (as rows written before a migration). */
+export const insertDevice = (id: string, owner: string, name: string, createdAt: number) => deviceRow(id, owner, name, createdAt).run()
 
 interface Pairing {
   pairingId: string
