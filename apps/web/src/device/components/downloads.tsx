@@ -47,8 +47,12 @@ export const ratioOf = (d: DownloadDto) => (d.totalBytes > 0 ? d.uploadedBytes /
  * One download: name, progress, and a line of what is happening; the actions on the right. The
  * name opens its details. Memoized: once-a-second updates keep unchanged rows' objects.
  */
-export const DownloadRow = memo(function DownloadRow({ download: d, seriesName, onOpen }: {
+export const DownloadRow = memo(function DownloadRow({ download: d, down, up, eta, seriesName, onOpen }: {
   download: DownloadDto
+  /** The speeds and seconds left to show, steadied over the last pushes (lib/steadySpeed.ts). */
+  down: number
+  up: number
+  eta: number | null
   seriesName?: string
   onOpen: (id: number) => void
 }) {
@@ -59,8 +63,6 @@ export const DownloadRow = memo(function DownloadRow({ download: d, seriesName, 
   const status = STATUS[d.status]
   const percent = Math.round(d.progress * 10) / 10
   const done = isFinished(d)
-  const remaining = d.totalBytes * (1 - d.progress / 100)
-  const eta = d.status === 'Downloading' && d.downloadSpeed > 0 && d.totalBytes > 0 ? remaining / d.downloadSpeed : null
 
   const facts = [
     <span key="status" className={`font-medium ${status.text}`}>{t(status.key)}{d.status === 'Downloading' || d.status === 'Paused' ? ` · ${percent}%` : ''}</span>,
@@ -69,8 +71,8 @@ export const DownloadRow = memo(function DownloadRow({ download: d, seriesName, 
         {done ? formatBytes(d.totalBytes) : t('downloads.sizeOf', formatBytes(d.totalBytes * d.progress / 100), formatBytes(d.totalBytes))}
       </span>
     ),
-    d.downloadSpeed > 0 && <span key="down" className="inline-flex items-center gap-0.5 tabular-nums"><ArrowDown size={12} />{formatRate(d.downloadSpeed)}</span>,
-    d.uploadSpeed > 0 && <span key="up" className="inline-flex items-center gap-0.5 tabular-nums"><ArrowUp size={12} />{formatRate(d.uploadSpeed)}</span>,
+    down > 0 && <span key="down" className="inline-flex items-center gap-0.5 tabular-nums"><ArrowDown size={12} />{formatRate(down)}</span>,
+    up > 0 && <span key="up" className="inline-flex items-center gap-0.5 tabular-nums"><ArrowUp size={12} />{formatRate(up)}</span>,
     eta !== null && <span key="eta" className="inline-flex items-center gap-1"><Clock size={12} />{formatEta(eta)}</span>,
     isActive(d) && d.peers > 0 && <span key="peers" className="inline-flex items-center gap-1 tabular-nums"><Users size={12} />{d.peers}</span>,
     d.status === 'Seeding' && d.uploadedBytes > 0 && <span key="ratio" className="tabular-nums">{t('downloads.ratio', ratioOf(d).toFixed(2))}</span>,
