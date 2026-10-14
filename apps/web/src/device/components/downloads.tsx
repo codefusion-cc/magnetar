@@ -11,7 +11,7 @@ const STATUS: Record<DownloadStatus, { key: string; text: string; bar: string }>
   Queued: { key: 'status.queued', text: 'muted', bar: 'bg-base-content/30' },
   FetchingMetadata: { key: 'status.fetchingMetadata', text: 'text-info', bar: 'bg-info' },
   Downloading: { key: 'status.downloading', text: 'text-info', bar: 'bg-info' },
-  Seeding: { key: 'status.seeding', text: 'text-accent', bar: 'bg-accent' },
+  Seeding: { key: 'status.seeding', text: 'text-success', bar: 'bg-success' },
   Paused: { key: 'status.paused', text: 'text-warning', bar: 'bg-warning' },
   Completed: { key: 'status.completed', text: 'text-success', bar: 'bg-success' },
   Error: { key: 'status.error', text: 'text-error', bar: 'bg-error' },

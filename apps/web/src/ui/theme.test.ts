@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { themeConfig } from './themeConfig.ts'
 
 const pageBackground = (html: { attributes: Record<string, string> }) => ({
-  '--color-base-200': html.attributes['data-theme'] === 'magnetar-dark' ? '#101013' : '#f4f4f6',
+  '--cf-page': html.attributes['data-theme'] === 'magnetar-dark' ? '#070505' : '#f2ebe1',
 })
 
 describe('the theme', () => {
@@ -44,8 +44,8 @@ describe('the theme', () => {
 
   it("gives the browser's bar the page background of the theme picked, not the system's", () => {
     const browser = testBrowser({ systemDark: false, css: pageBackground })
-    const tab = browser.openTab({ themeColors: [{ content: '#f4f4f6', media: '(prefers-color-scheme: light)' }] })
+    const tab = browser.openTab({ themeColors: [{ content: '#f2ebe1', media: '(prefers-color-scheme: light)' }] })
     createTheme(themeConfig, tab.env).setMode('dark')
-    expect(tab.html.themeColors).toEqual([{ content: '#101013', media: null }])
+    expect(tab.html.themeColors).toEqual([{ content: '#070505', media: null }])
   })
 })

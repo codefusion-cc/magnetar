@@ -1,41 +1,45 @@
 @import "tailwindcss";
+/* The look's roles as Tailwind's theme (bg-surface, text-muted, font-display); their values: src/looks/infall.ts. */
+@import "@codefusion-cc/ui/tailwind.css";
 
 @plugin "daisyui" {
   themes: false;
 }
 
 /*
- * Neutral surfaces and one accent (violet) for actions. Status has colours of its own that the
- * accent never borrows: info = downloading, accent = seeding, success = finished, warning = paused,
- * error = failed.
+ * daisyUI's names read the Infall look (src/looks/infall.ts, written by uiLooks as the --cf-* roles), so every screen
+ * not yet moved onto the kit takes its colours from the same place, in light and dark alike: the roles follow
+ * color-scheme. Status keeps its own colours, the accent never borrows them: info = downloading (heat), success =
+ * seeding and finished (blue-white), warning = paused, error = failed. daisyUI's accent is the look's second accent,
+ * so "accent" means amber in both. daisyUI goes when the last screen has moved (the redesign's sweep).
  */
 @plugin "daisyui/theme" {
   name: "magnetar-light";
   default: true;
   color-scheme: light;
-  --color-base-100: #ffffff;
-  --color-base-200: #f4f4f6;
-  --color-base-300: #e4e4e9;
-  --color-base-content: #18181b;
-  --color-primary: #6d3df2;
-  --color-primary-content: #ffffff;
-  --color-secondary: #52525b;
-  --color-secondary-content: #ffffff;
-  --color-accent: #0d9488;
-  --color-accent-content: #ffffff;
-  --color-neutral: #27272a;
-  --color-neutral-content: #fafafa;
-  --color-info: #2563eb;
-  --color-info-content: #ffffff;
-  --color-success: #15803d;
-  --color-success-content: #ffffff;
-  --color-warning: #b45309;
-  --color-warning-content: #ffffff;
-  --color-error: #dc2626;
-  --color-error-content: #ffffff;
-  --radius-selector: 0.625rem;
-  --radius-field: 0.625rem;
-  --radius-box: 1rem;
+  --color-base-100: var(--cf-surface);
+  --color-base-200: var(--cf-page);
+  --color-base-300: var(--cf-line);
+  --color-base-content: var(--cf-ink);
+  --color-primary: var(--cf-accent);
+  --color-primary-content: var(--cf-on-accent);
+  --color-secondary: var(--cf-muted);
+  --color-secondary-content: var(--cf-page);
+  --color-accent: var(--cf-accent-2);
+  --color-accent-content: var(--cf-page);
+  --color-neutral: var(--cf-inverse);
+  --color-neutral-content: var(--cf-on-inverse);
+  --color-info: var(--cf-info);
+  --color-info-content: var(--cf-page);
+  --color-success: var(--cf-ok);
+  --color-success-content: var(--cf-page);
+  --color-warning: var(--cf-warn);
+  --color-warning-content: var(--cf-page);
+  --color-error: var(--cf-danger);
+  --color-error-content: var(--cf-page);
+  --radius-selector: 0.5rem;
+  --radius-field: 0.5rem;
+  --radius-box: 0.625rem;
   --size-selector: 0.25rem;
   --size-field: 0.25rem;
   --border: 1px;
@@ -47,29 +51,29 @@
   name: "magnetar-dark";
   prefersdark: true;
   color-scheme: dark;
-  --color-base-100: #18181c;
-  --color-base-200: #101013;
-  --color-base-300: #2a2a31;
-  --color-base-content: #e7e7ea;
-  --color-primary: #a48bff;
-  --color-primary-content: #17102e;
-  --color-secondary: #a1a1aa;
-  --color-secondary-content: #18181b;
-  --color-accent: #2dd4bf;
-  --color-accent-content: #04201d;
-  --color-neutral: #e4e4e7;
-  --color-neutral-content: #18181b;
-  --color-info: #60a5fa;
-  --color-info-content: #0b1a33;
-  --color-success: #4ade80;
-  --color-success-content: #05240f;
-  --color-warning: #fbbf24;
-  --color-warning-content: #2b1d02;
-  --color-error: #f87171;
-  --color-error-content: #2d0707;
-  --radius-selector: 0.625rem;
-  --radius-field: 0.625rem;
-  --radius-box: 1rem;
+  --color-base-100: var(--cf-surface);
+  --color-base-200: var(--cf-page);
+  --color-base-300: var(--cf-line);
+  --color-base-content: var(--cf-ink);
+  --color-primary: var(--cf-accent);
+  --color-primary-content: var(--cf-on-accent);
+  --color-secondary: var(--cf-muted);
+  --color-secondary-content: var(--cf-page);
+  --color-accent: var(--cf-accent-2);
+  --color-accent-content: var(--cf-page);
+  --color-neutral: var(--cf-inverse);
+  --color-neutral-content: var(--cf-on-inverse);
+  --color-info: var(--cf-info);
+  --color-info-content: var(--cf-page);
+  --color-success: var(--cf-ok);
+  --color-success-content: var(--cf-page);
+  --color-warning: var(--cf-warn);
+  --color-warning-content: var(--cf-page);
+  --color-error: var(--cf-danger);
+  --color-error-content: var(--cf-page);
+  --radius-selector: 0.5rem;
+  --radius-field: 0.5rem;
+  --radius-box: 0.625rem;
   --size-selector: 0.25rem;
   --size-field: 0.25rem;
   --border: 1px;
@@ -77,9 +81,9 @@
   --noise: 0;
 }
 
-@theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+@theme inline {
+  --font-sans: var(--cf-font-body);
+  --font-mono: var(--cf-font-mono);
 }
 
 html,
@@ -89,9 +93,24 @@ body,
 }
 
 body {
-  background: var(--color-base-200);
-  color: var(--color-base-content);
+  background: var(--cf-page);
+  color: var(--cf-ink);
   -webkit-font-smoothing: antialiased;
+}
+
+@layer base {
+  /* Fonts come in the weights the look uses (Golos 400 and 600, Unbounded 500): a screen asking for another gets the
+     nearest, never a bold the browser fakes. */
+  :root {
+    font-synthesis-weight: none;
+  }
+
+  /* Unbounded for the few large lines. */
+  h1 {
+    font-family: var(--cf-font-display);
+    font-weight: 500;
+    letter-spacing: -0.015em;
+  }
 }
 
 /* Long release names break anywhere rather than widening the page. */
@@ -100,25 +119,14 @@ body {
   word-break: break-word;
 }
 
-/* A card: the one container style every page uses. */
+/* A card, until each screen moves to rows separated by one rule: no shadow in Infall. */
 .surface {
   @apply rounded-box border border-base-300 bg-base-100;
-  box-shadow: 0 1px 2px rgb(24 24 27 / 0.05);
 }
 
-[data-theme="magnetar-dark"] .surface {
-  box-shadow: none;
-}
-
-/* Secondary text, one step quieter than the body (and still above 4.5:1 contrast). Set where a theme is, so it
-   follows the theme's colours. */
-:root,
-[data-theme] {
-  --muted: color-mix(in oklab, var(--color-base-content) 64%, var(--color-base-100));
-}
-
+/* Secondary text, one step quieter than the body (the look keeps it above 4.5:1 on every ground). */
 .muted {
-  color: var(--muted);
+  color: var(--cf-muted);
 }
 
 /* Room below the content for the phone tab bar and the home indicator. */
@@ -141,7 +149,11 @@ body {
   display: none;
 }
 
-/* Focused fields ring in the accent colour rather than near-black. */
+/* Focused fields and every focus ring in the look's focus colour. */
 :root :is(.input, .select, .textarea):is(:focus, :focus-within) {
-  --input-color: var(--color-primary);
+  --input-color: var(--cf-focus);
+}
+
+:focus-visible {
+  outline-color: var(--cf-focus);
 }

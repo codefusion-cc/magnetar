@@ -172,7 +172,7 @@ function Header({ language, content }: { language: string; content: FeaturesCont
       <div className="fp-wrap flex h-14 items-center gap-2">
         <Link to="/" className="flex min-h-10 flex-1 items-center gap-2.5 rounded-field" aria-label={content.header.home}>
           <BrandMark />
-          <span className="font-semibold tracking-tight">Magnetar</span>
+          <span className="font-display text-[15px]">Magnetar</span>
         </Link>
         <label className="select select-sm w-auto">
           <Languages size={16} aria-hidden className="opacity-70" />

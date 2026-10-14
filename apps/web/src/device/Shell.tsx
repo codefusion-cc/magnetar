@@ -109,9 +109,9 @@ function Builds() {
 
 function Brand() {
   return (
-    <div className="flex min-w-0 items-center gap-2.5">
+    <div className="flex min-w-0 items-center gap-1.5">
       <BrandMark />
-      <span className="truncate font-semibold tracking-tight">Magnetar</span>
+      <span className="truncate font-display text-[15px]">Magnetar</span>
     </div>
   )
 }

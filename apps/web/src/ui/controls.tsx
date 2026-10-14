@@ -99,7 +99,7 @@ export function PageHeader({ title, summary, action }: { title: string; summary?
   return (
     <div className="mb-5 flex flex-wrap items-end gap-x-4 gap-y-3 sm:mb-6">
       <div className="min-w-0 flex-1">
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{title}</h1>
+        <h1 className="text-[23px] leading-tight sm:text-[28px]">{title}</h1>
         {summary && <div className="muted mt-1 text-sm">{summary}</div>}
       </div>
       {action}

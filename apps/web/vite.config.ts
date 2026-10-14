@@ -1,5 +1,6 @@
 import { buildIdentity, privateSourceMaps, versionFile } from '@codefusion-cc/console/vite'
 import { prePaintTheme } from '@codefusion-cc/theme/vite'
+import { uiLooks } from '@codefusion-cc/ui/vite'
 import { serviceWorker } from '@codefusion-cc/web-push/vite'
 import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
@@ -36,8 +37,12 @@ export default defineConfig({
   // version.json for CodeFusion Console's Deployments page; source maps only the Worker reads (dist/_console/),
   // to show website failures with their own files and lines. The desktop app leaves the maps out (assets.rs).
   // prePaintTheme: /theme.js, first in <head>, shows the remembered theme before first paint. serviceWorker: /sw.js,
-  // push and relayed playback (src/sw.ts), one classic script outside the hashed bundle.
-  plugins: [react(), tailwindcss(), versionFile({ root: repo }), privateSourceMaps(), prePaintTheme(themeConfig), serviceWorker({ entry: 'src/sw.ts' })],
+  // push and relayed playback (src/sw.ts), one classic script outside the hashed bundle. uiLooks: the Infall look
+  // (src/looks/infall.ts) as virtual:codefusion-ui/looks.css; the build stops on a pair of colours under WCAG AA.
+  plugins: [
+    react(), tailwindcss(), versionFile({ root: repo }), privateSourceMaps(), prePaintTheme(themeConfig), serviceWorker({ entry: 'src/sw.ts' }),
+    uiLooks({ looks: ['./src/looks/infall.ts'], default: 'infall' }),
+  ],
   // The page compares it with /version.json to move onto a newer deploy (src/lib/updates.ts).
   define: { __APP_COMMIT__: JSON.stringify(build.commit) },
   server: {
