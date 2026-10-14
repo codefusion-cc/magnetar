@@ -1,11 +1,14 @@
 import { themeScript } from '@codefusion-cc/theme'
 import { createTheme } from '@codefusion-cc/theme/browser'
 import { testBrowser } from '@codefusion-cc/theme/testing'
+import { formatHex, lookColors } from '@codefusion-cc/ui/looks'
 import { describe, expect, it } from 'vitest'
+import infall from '../looks/infall.ts'
 import { themeConfig } from './themeConfig.ts'
 
+const ground = { light: formatHex(lookColors(infall, 'light').get('--cf-page')!), dark: formatHex(lookColors(infall, 'dark').get('--cf-page')!) }
 const pageBackground = (html: { attributes: Record<string, string> }) => ({
-  '--color-base-200': html.attributes['data-theme'] === 'magnetar-dark' ? '#101013' : '#f4f4f6',
+  '--cf-page': html.attributes['data-theme'] === 'magnetar-dark' ? ground.dark : ground.light,
 })
 
 describe('the theme', () => {
@@ -44,8 +47,8 @@ describe('the theme', () => {
 
   it("gives the browser's bar the page background of the theme picked, not the system's", () => {
     const browser = testBrowser({ systemDark: false, css: pageBackground })
-    const tab = browser.openTab({ themeColors: [{ content: '#f4f4f6', media: '(prefers-color-scheme: light)' }] })
+    const tab = browser.openTab({ themeColors: [{ content: ground.light, media: '(prefers-color-scheme: light)' }] })
     createTheme(themeConfig, tab.env).setMode('dark')
-    expect(tab.html.themeColors).toEqual([{ content: '#101013', media: null }])
+    expect(tab.html.themeColors).toEqual([{ content: ground.dark, media: null }])
   })
 })

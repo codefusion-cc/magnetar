@@ -106,7 +106,7 @@ function entryIcon(entry: FolderEntryDto) {
 function Breadcrumbs({ trail, onOpen, onHome }: { trail: Crumb[]; onOpen: (path: string) => void; onHome: () => void }) {
   const t = useT()
   return (
-    <nav aria-label={t('files.breadcrumb')} className="breadcrumbs scroll-strip -mx-1 max-w-full px-1 py-0 text-sm">
+    <nav aria-label={t('files.breadcrumb')} className="breadcrumbs scroll-strip strip-bleed py-0 text-sm">
       <ul>
         <li>
           <button type="button" className="link link-hover inline-flex items-center gap-1.5" onClick={onHome}>

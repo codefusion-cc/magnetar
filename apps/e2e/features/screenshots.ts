@@ -226,6 +226,8 @@ async function prepare(browser: Browser): Promise<Website> {
   await signIn(phone)
   const link = await rpc<{ url: string }>(main, 'remote.linkBrowser', { label: 'Alex’s iPhone' })
   await phone.goto(link.url)
+  // A phone's browser tab stops on "This browser is linked" (LinkPage: the installed app keeps its own storage).
+  await phone.getByRole('link', { name: 'Continue' }).click()
   await phone.waitForURL(`${WEBSITE}/${DEVICES_ON_ACCOUNT.main.name}`)
   return { desktop, phone }
 }
@@ -321,7 +323,8 @@ function scenes(website: Website): Scene<BrowserContext, Page>[] {
       shots: ['details', 'player'],
       run: async ({ page: open, shoot, wants }) => {
         const page = await open()
-        await page.goto(local())
+        // Sintel has finished, and the page opens on what is active.
+        await page.goto(`${local()}/downloads?view=finished`)
         await heading(page, 'Downloads')
         await page.locator('li').filter({ hasText: 'Sintel' }).getByRole('button', { name: 'Sintel', exact: true }).click()
         const details = dialog(page, 'Download details')

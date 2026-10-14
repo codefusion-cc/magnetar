@@ -16,7 +16,7 @@ export function Segmented<T extends string>({ label, value, options, onChange, s
   size?: 'xs' | 'sm'
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="scroll-strip -mx-1 flex max-w-full gap-1 overflow-x-auto px-1">
+    <div role="radiogroup" aria-label={label} className="scroll-strip strip-bleed flex gap-1 overflow-x-auto">
       {options.map(option => {
         const selected = option.value === value
         return (
@@ -98,8 +98,9 @@ export function Switch({ label, checked, onChange, disabled = false, id, tone = 
 export function PageHeader({ title, summary, action }: { title: string; summary?: ReactNode; action?: ReactNode }) {
   return (
     <div className="mb-5 flex flex-wrap items-end gap-x-4 gap-y-3 sm:mb-6">
-      <div className="min-w-0 flex-1">
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{title}</h1>
+      {/* Never narrower than the title's longest word: the action moves under it instead of over it. */}
+      <div className="min-w-min max-w-full flex-1">
+        <h1 className="text-[23px] leading-tight break-words sm:text-[28px]">{title}</h1>
         {summary && <div className="muted mt-1 text-sm">{summary}</div>}
       </div>
       {action}

@@ -1,5 +1,8 @@
 import { StrictMode, Suspense, lazy, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
+// The look's roles (src/looks/infall.ts) before the page's own styles.
+import 'virtual:codefusion-ui/looks.css'
+import './fonts.css'
 import './index.css'
 // The theme follows the system and the other tabs from the start, whatever page shows.
 import './ui/theme.ts'

@@ -59,7 +59,7 @@ export function DownloadsPage() {
     <span className="inline-flex flex-wrap items-center gap-x-4 gap-y-1">
       <span>{t('downloads.activeCount', activeNow)}</span>
       <span className="inline-flex items-center gap-1 tabular-nums"><ArrowDown size={14} className="text-info" />{formatRate(down)}</span>
-      <span className="inline-flex items-center gap-1 tabular-nums"><ArrowUp size={14} className="text-accent" />{formatRate(up)}</span>
+      <span className="inline-flex items-center gap-1 tabular-nums"><ArrowUp size={14} className="text-success" />{formatRate(up)}</span>
       <FreeSpace bytes={transfer?.freeBytes} />
     </span>
   )
