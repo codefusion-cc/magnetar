@@ -1,23 +1,21 @@
 import type { DownloadDto } from '@magnetar/protocol'
-import { formatRate } from '@magnetar/protocol/bytes'
-import { ArrowDown, ArrowUp, Plus, Search, Tv } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router'
 import { useLanguage, useT } from '../../lib/i18n.tsx'
-import { DEFAULT_DOWNLOAD_VIEW, DOWNLOAD_VIEWS, countViews, inView, type DownloadView } from '../../lib/downloadViews.ts'
+import { DEFAULT_DOWNLOAD_VIEW, DOWNLOAD_VIEWS, inView, type DownloadView } from '../../lib/downloadViews.ts'
 import { DOWNLOAD_SORTS, parseDownloadSort, readDownloadSort, sortDownloads, writeDownloadSort } from '../../lib/downloadSort.ts'
 import { pickParam, withParam } from '../../lib/urlState.ts'
+import { downloadBytes, downloadSummary, retainFinished } from '../../lib/downloadPresentation.ts'
+import { Star } from '../../ui/Star.tsx'
 import { magnetsIn } from '../../lib/magnets.ts'
 import { useSteadySpeeds } from '../../lib/steadySpeed.ts'
-import { PageHeader, Segmented } from '../../ui/controls.tsx'
-import { Empty } from '../../ui/Empty.tsx'
 import { PAGE_SIZE, ShowMore } from '../../ui/ShowMore.tsx'
-import { useDevice, useDownloads, useSearchLink } from '../DeviceContext.tsx'
+import { useDevice, useDownloads, useDownloadRead, useSearchLink } from '../DeviceContext.tsx'
 import { AddDownloadDialog, DropOverlay, useAddShortcuts, type PendingAdd } from '../components/addDownload.tsx'
 import { DownloadDetailsDialog } from '../components/downloadDetails.tsx'
-import { DownloadRow, isActive } from '../components/downloads.tsx'
+import { DownloadRow } from '../components/downloads.tsx'
 import { LegacyImportBanner } from '../components/legacyImport.tsx'
-import { AltSpeedToggle, DiskFullNotice, FreeSpace, TransferNotice } from '../components/transfer.tsx'
+import { AltSpeedToggle, DiskFullNotice, TransferNotice } from '../components/transfer.tsx'
 
 export function DownloadsPage() {
   const t = useT()
@@ -30,7 +28,10 @@ export function DownloadsPage() {
   const [sort, setSort] = useState(() => readDownloadSort(deviceName))
   const language = useLanguage()
   const [adding, setAdding] = useState<PendingAdd | null>(null)
-  const [details, setDetails] = useState<number | null>(null)
+  const navigate = useNavigate()
+  const openDetails = useCallback((id: number) => navigate(`${basePath}/downloads/${id}`), [navigate, basePath])
+  const read = useDownloadRead()
+  const retained = useRef<{ view: DownloadView; ids: Set<number> }>({ view, ids: new Set() })
   const dragging = useAddShortcuts(setAdding)
   // Opened for a magnet link or .torrent file (the system's handler, or a link to ?add=).
   useEffect(() => {
@@ -42,81 +43,46 @@ export function DownloadsPage() {
   }, [params, setParams, connection])
 
   const speeds = useSteadySpeeds(downloads)
-  // One pass for the speeds and each view's count, rather than one filter per tab on each update.
-  const { counts, activeNow, down, up } = useMemo(() => {
-    let activeNow = 0
-    let down = 0
-    let up = 0
-    for (const d of downloads) {
-      if (isActive(d)) activeNow++
-      down += speeds.get(d.id)!.down
-      up += speeds.get(d.id)!.up
-    }
-    return { counts: countViews(downloads), activeNow, down, up }
-  }, [downloads, speeds])
-  const shown = useMemo(() => sortDownloads(downloads.filter(d => inView(d.status, view)), sort, language), [downloads, view, sort, language])
-  const add = <button type="button" className="btn btn-primary" onClick={() => setAdding({ magnets: [], files: [] })}><Plus size={16} />{t('add.button')}</button>
-
-  const summary = downloads.length > 0 && (
-    <span className="inline-flex flex-wrap items-center gap-x-4 gap-y-1">
-      <span>{t('downloads.activeCount', activeNow)}</span>
-      <span className="inline-flex items-center gap-1 tabular-nums"><ArrowDown size={14} className="text-info" />{formatRate(down)}</span>
-      <span className="inline-flex items-center gap-1 tabular-nums"><ArrowUp size={14} className="text-success" />{formatRate(up)}</span>
-      <FreeSpace bytes={transfer?.freeBytes} />
-    </span>
-  )
+  const running = downloads.filter(d => d.status === 'Downloading')
+  const down = running.reduce((sum, d) => sum + (speeds.get(d.id)?.down ?? 0), 0)
+  if (retained.current.view !== view) retained.current = { view, ids: new Set() }
+  retained.current.ids = retainFinished(retained.current.ids, downloads)
+  const shown = sortDownloads(downloads.filter(d => inView(d.status, view) || (view === 'active' && retained.current.ids.has(d.id))), sort, language)
+  const add = <button type="button" className="infall-button" onClick={() => setAdding({ magnets: [], files: [] })}>{t('add.button')}</button>
+  const heading = <header className="downloads-heading"><h1>{t('downloads.title')}</h1>{add}</header>
 
   return (
     <>
-      <PageHeader title={t('downloads.title')} summary={summary}
-        action={<div className="flex flex-wrap items-center gap-2">
-          {settings && transfer && <AltSpeedToggle settings={settings} transfer={transfer} />}
-          {downloads.length > 0 && <Link to={searchLink} className="btn btn-ghost hidden sm:inline-flex"><Search size={16} />{t('downloads.searchButton')}</Link>}
-          {add}
-        </div>} />
       <TransferNotice transfer={transfer} />
       <DiskFullNotice transfer={transfer} />
       <LegacyImportBanner />
-      {downloads.length === 0 ? (
-        <Empty title={t('downloads.emptyTitle')} text={t('downloads.emptyHint')}>
-          <div className="flex flex-wrap justify-start gap-2">
-            <Link to={searchLink} className="btn btn-primary"><Search size={16} />{t('downloads.searchButton')}</Link>
-            <Link to={`${basePath}/series`} className="btn btn-ghost"><Tv size={16} />{t('downloads.seriesButton')}</Link>
+      {read.loading ? <><div className="downloads-wait" role="status"><Star breathe /><p>{t('downloads.connecting', deviceName)}</p></div><ul className="download-skeleton" aria-hidden="true">{Array.from({ length: 4 }, (_, i) => <li key={i}><i /><i /></li>)}</ul></>
+        : read.failed ? <>{heading}<section className="download-empty" role="alert"><Star state="far" /><h1>{t('downloads.readFailed')}</h1><p>{t('downloads.readFailedHint', deviceName)}</p><button className="infall-button" onClick={read.retry}>{t('downloads.tryAgain')}</button></section></>
+        : <>{heading}{downloads.length === 0 ? (
+          <section className="download-empty"><div className="download-state-picture"><Star /></div><h1>{t('downloads.emptyTitle')}</h1><p>{t('downloads.emptyHint')}</p>
+            <div className="infall-acts"><Link to={searchLink} className="infall-button">{t('downloads.searchButton')}</Link><Link to={`${basePath}/series`} className="infall-small">{t('nav.series')}</Link></div>
+          </section>
+        ) : <div className="downloads-lanes">
+          <div className="downloads-summary"><p>{transfer?.engine === 'waitingForNetwork' ? t('downloads.onlyNetwork', deviceName, transfer.networkInterface ?? '') : downloadSummary(t, language, deviceName, running.length, down)}{' '}
+            {transfer?.freeBytes != null && <span className={transfer.freeBytes < 5e9 ? 'download-low-space' : undefined}>{t('downloads.free', downloadBytes(transfer.freeBytes, language))}</span>}</p>
+            {settings && <AltSpeedToggle settings={settings} transfer={transfer} />}
           </div>
-          <p className="muted mt-4 text-xs">{t('add.emptyHint')}</p>
-        </Empty>
-      ) : (
-        <>
-          <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <Segmented label={t('downloads.filter')} value={view} onChange={setView}
-              options={DOWNLOAD_VIEWS.map(v => ({ value: v, label: t(`downloads.view.${v}`), count: counts[v] }))} />
-            {downloads.length > 1 && (
-              <select className="select select-sm ml-auto w-auto rounded-full" aria-label={t('downloads.sort')} value={sort}
-                onChange={e => { const next = parseDownloadSort(e.target.value); setSort(next); writeDownloadSort(deviceName, next) }}>
-                {DOWNLOAD_SORTS.map(o => <option key={o} value={o}>{t(`downloads.sort.${o}`)}</option>)}
-              </select>
-            )}
+          <div className="download-views-row"><div className="download-views" role="group" aria-label={t('downloads.filter')}>
+            {DOWNLOAD_VIEWS.map(v => <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)}>{t(`downloads.view.${v}`)}</button>)}
           </div>
-          {shown.length === 0
-            ? (
-              <div className="surface muted flex flex-col items-center gap-2 p-6 text-center text-sm">
-                <p>{t(view === 'active' ? 'downloads.noneActive' : 'downloads.noneFinished')}</p>
-                {view === 'active' && counts.finished > 0 && (
-                  <button type="button" className="link link-hover" onClick={() => setView('finished')}>{t('downloads.showFinished', counts.finished)}</button>
-                )}
-              </div>
-            )
-            : <DownloadList key={view} downloads={shown} onOpen={setDetails} />}
-        </>
-      )}
+          {downloads.length > 1 && <select className="download-sort" aria-label={t('downloads.sort')} value={sort}
+            onChange={e => { const next = parseDownloadSort(e.target.value); setSort(next); writeDownloadSort(deviceName, next) }}>
+            {DOWNLOAD_SORTS.map(o => <option key={o} value={o}>{t(`downloads.sort.${o}`)}</option>)}
+          </select>}</div>
+          {shown.length === 0 ? <p className="muted py-6">{t(view === 'active' ? 'downloads.noneActive' : 'downloads.noneFinished')}</p> : <DownloadList key={view} downloads={shown} onOpen={openDetails} />}
+        </div>}</>}
       <AddDownloadDialog open={adding !== null} initial={adding} onClose={() => setAdding(null)} />
-      <DownloadDetailsDialog id={details} onClose={() => setDetails(null)} />
       {dragging && <DropOverlay />}
     </>
   )
 }
 
-/** Downloads as cards, a page at a time; each from a series names it. */
+/** Downloads in rows, limited a page at a time; series callers reuse the same list. */
 export function DownloadList({ downloads, hideSeries = false, onOpen }: { downloads: DownloadDto[]; hideSeries?: boolean; onOpen?: (id: number) => void }) {
   const t = useT()
   const { series } = useDevice()
@@ -129,7 +95,7 @@ export function DownloadList({ downloads, hideSeries = false, onOpen }: { downlo
   const speeds = useSteadySpeeds(downloads)
   return (
     <>
-      <ul className="flex flex-col gap-2">
+      <ul className="download-list">
         {downloads.slice(0, limit).map(d => <DownloadRow key={d.id} download={d} {...speeds.get(d.id)!} seriesName={seriesName(d)} onOpen={open} />)}
       </ul>
       {downloads.length > limit && <ShowMore remaining={downloads.length - limit} onMore={() => setLimit(n => n + PAGE_SIZE)} />}

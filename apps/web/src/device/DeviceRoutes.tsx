@@ -4,6 +4,7 @@ import { I18nProvider } from '../lib/i18n.tsx'
 import { updates } from '../lib/updates.ts'
 import { Loading } from '../ui/Loading.tsx'
 import { useDevice } from './DeviceContext.tsx'
+import { DownloadDetailsPage } from './components/downloadDetails.tsx'
 import { DownloadsPage } from './pages/DownloadsPage.tsx'
 import { Shell, type DeviceMenu } from './Shell.tsx'
 
@@ -30,6 +31,7 @@ export function DeviceRoutes({ headerStart, headerEnd, deviceMenu, fallbackLangu
       <Routes>
         <Route element={<Shell headerStart={headerStart} headerEnd={headerEnd} deviceMenu={deviceMenu} />}>
           <Route index element={<DownloadsPage />} />
+          <Route path="downloads/:id" element={<DownloadDetailsPage />} />
           <Route path="search/*" element={<Page><SearchPage /></Page>} />
           <Route path="series/:tab?" element={<Page><SeriesPage /></Page>} />
           <Route path="files" element={<Page><FilesPage /></Page>} />

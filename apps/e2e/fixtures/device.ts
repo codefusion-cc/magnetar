@@ -1,8 +1,15 @@
-import type { DownloadDto, RpcEvents, RpcResults, SettingsDto } from '@magnetar/protocol'
+import type { DownloadDto, DownloadFileDto, RpcEvents, RpcResults, SettingsDto } from '@magnetar/protocol'
 import type { Page, WebSocketRoute } from '@playwright/test'
+import { acceptBrowserHandshake, decodeHandshake, encodeHandshake, FRAME_HANDSHAKE, importBrowserKey, type E2ESession } from '@magnetar/protocol/e2e'
+import { infallDownloads, infallFiles, type InfallScreen } from './infall.ts'
 
 /** A device at the network boundary; the dashboard, transport and subscriptions stay real. */
-export async function serveDevice(page: Page, { name = 'Test computer', language = 'en' } = {}) {
+export async function serveDevice(page: Page, { name = 'Test computer', language = 'en', design, remote = false, delay = 0 }: { name?: string; language?: string; design?: InfallScreen; remote?: boolean; delay?: number } = {}) {
+  if (design) name = 'Mac-Mini-M1'
+  const calls: string[] = []
+  const failures = new Map<string, string>()
+  let files: DownloadFileDto[] = design ? infallFiles() : []
+  let listFails = design === 'downloads-fail'
   const settings: SettingsDto = {
     language, downloadFolder: '/downloads', postDownloadAction: 'StopSeeding', seedRatio: 1,
     disabledProviders: [], downloadLimit: 0, uploadLimit: 0, altDownloadLimit: 0, altUploadLimit: 0,
@@ -11,14 +18,23 @@ export async function serveDevice(page: Page, { name = 'Test computer', language
     smtpUseSsl: false, smtpUsername: '', smtpPasswordSet: false, emailFrom: '', emailTo: '', desktopEnabled: false,
     telegramEnabled: false, telegramBotTokenSet: false, telegramChatId: '', errorReportsEnabled: false, askDownloadFolder: true,
   }
-  let downloads: DownloadDto[] = []
-  let nextId = 1
+  let downloads: DownloadDto[] = design ? infallDownloads(design) : []
+  let nextId = downloads.length + 1
   const sockets = new Set<WebSocketRoute>()
+  const sessions = new Map<WebSocketRoute, E2ESession>()
+  const rawKey = new Uint8Array(32).fill(7)
+  const key = await importBrowserKey(rawKey)
+  const reply = (socket: WebSocketRoute, message: unknown) => {
+    const session = sessions.get(socket)
+    if (session) void session.seal(message).then(frame => socket.send(Buffer.from(frame)))
+    else socket.send(JSON.stringify(message))
+  }
   const send = <E extends keyof RpcEvents>(event: E, data: RpcEvents[E]) => {
-    for (const socket of sockets) socket.send(JSON.stringify({ event, data }))
+    for (const socket of sockets) reply(socket, { event, data })
   }
   const replies: Partial<RpcResults> = {
-    'app.info': { version: '1.2.1', commit: 'abcdef1', platform: 'linux', arch: 'x64', dataDirectory: '/data', nativeFolderPicker: false, fileBrowser: true },
+    'app.info': { version: '1.2.1', commit: 'abcdef1', platform: design ? 'macos' : 'linux', arch: 'x64', dataDirectory: '/data', nativeFolderPicker: false, fileBrowser: true },
+    'transfer.status': { engine: design === 'held' ? 'waitingForNetwork' : 'running', message: null, networkInterface: design === 'held' ? 'utun4' : null, altSpeedActive: false, downloadLimit: 0, uploadLimit: 0, freeBytes: design ? 137.8e9 : null, diskFull: null },
     'series.list': [], 'watches.list': [], 'settings.get': settings, 'sources.list': [],
     'updates.status': { currentVersion: '1.2.1', currentCommit: 'abcdef1', available: null, canSelfInstall: false, checking: false, installing: false, lastCheckedAt: null, lastCheckError: null, lastCheckProblem: null, retryAt: null },
     'remote.status': { paired: true, deviceName: name, deviceId: 'test', accountEmail: 'test@example.org', cloudUrl: 'https://example.org', browsers: [], connected: true, pendingPairing: null, lastError: null },
@@ -27,15 +43,79 @@ export async function serveDevice(page: Page, { name = 'Test computer', language
     'fs.roots': { roots: [{ path: '/downloads', kind: 'downloads', available: true, freeBytes: null }], canAdd: true },
     'fs.browse': { path: '/downloads', root: '/downloads', separator: '/', entries: [], offset: 0, total: 0, truncated: false },
   }
-  await page.route('**/app-config.json', route => route.fulfill({ json: { mode: 'local' } }))
+  await page.route('**/app-config.json', route => route.fulfill({ json: { mode: remote ? 'cloud' : 'local', googleClientId: '', devAuth: false } }))
   await page.route('**/api/releases/latest', route => route.fulfill({ status: 503, body: '' }))
-  await page.routeWebSocket('**/ws', socket => {
+  if (remote) {
+    await page.route('**/api/me', route => route.fulfill({ json: { id: 'account', email: 'alex@example.com', name: 'Alex', picture: null } }))
+    await page.route('**/api/devices', route => route.fulfill({ json: [{ id: 'test', name, platform: 'macos', version: '1.2.1', online: true, lastSeenAt: null, createdAt: '2026-01-01T00:00:00Z' }] }))
+    await page.addInitScript(async raw => {
+      const key = await crypto.subtle.importKey('raw', new Uint8Array(raw), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify'])
+      await new Promise<void>((resolve, reject) => {
+        const request = indexedDB.open('magnetar', 1)
+        request.onupgradeneeded = () => request.result.createObjectStore('deviceKeys', { keyPath: 'deviceId' })
+        request.onerror = () => reject(request.error)
+        request.onsuccess = () => {
+          const db = request.result
+          const tx = db.transaction('deviceKeys', 'readwrite')
+          tx.objectStore('deviceKeys').put({ deviceId: 'test', keyId: 'testkey', key, linkedAt: '2026-01-01T00:00:00Z' })
+          tx.oncomplete = () => { db.close(); resolve() }
+          tx.onerror = () => reject(tx.error)
+        }
+      })
+    }, [...rawKey])
+  }
+  await page.routeWebSocket(remote ? '**/api/devices/test/connect' : '**/ws', socket => {
     sockets.add(socket)
-    socket.onClose(() => sockets.delete(socket))
-    socket.onMessage(raw => {
-      const { id, method, params } = JSON.parse(String(raw))
+    socket.onClose(() => { sockets.delete(socket); sessions.delete(socket) })
+    if (remote) socket.send(JSON.stringify({ t: 'device', online: true }))
+    socket.onMessage(async raw => {
+      if (raw === 'ping') return
+      if (remote && typeof raw !== 'string') {
+        const frame = new Uint8Array(raw)
+        if (frame[0] === FRAME_HANDSHAKE) {
+          const hello = decodeHandshake(frame)
+          if (hello.t !== 'hello') return
+          const { session, welcome } = await acceptBrowserHandshake(hello, key)
+          sessions.set(socket, session)
+          socket.send(Buffer.from(encodeHandshake(welcome)))
+          return
+        }
+      }
+      const { id, method, params } = remote && typeof raw !== 'string'
+        ? await sessions.get(socket)!.open(new Uint8Array(raw)) as { id: number; method: string; params: Record<string, any> }
+        : JSON.parse(String(raw))
+      calls.push(method)
+      if (delay && ['downloads.pause', 'downloads.resume', 'downloads.files', 'downloads.selectFiles'].includes(method)) await new Promise(resolve => setTimeout(resolve, delay))
+      const failure = failures.get(method)
+      if (failure) {
+        failures.delete(method)
+        reply(socket, { id, error: { code: 'test_failure', message: failure } })
+        return
+      }
+      if (method === 'downloads.list' && design === 'loading') return
+      if (method === 'downloads.list' && listFails) {
+        listFails = false
+        reply(socket, { id, error: { code: 'timeout', message: 'The computer did not answer in time' } })
+        return
+      }
       let result: unknown
       if (method === 'downloads.list') result = downloads
+      else if (method === 'downloads.files') result = files
+      else if (method === 'downloads.selectFiles') {
+        files = files.map(f => ({ ...f, selected: params.files.includes(f.index) }))
+        result = downloads.find(d => d.id === params.id)
+      } else if (method === 'downloads.pause' || method === 'downloads.resume') {
+        downloads = downloads.map(d => d.id === params.id ? { ...d, status: method === 'downloads.pause' ? 'Paused' : 'Downloading', downloadSpeed: method === 'downloads.pause' ? 0 : 3.4e6 } : d)
+        result = null
+        send('downloads.changed', downloads)
+      } else if (method === 'settings.update') {
+        Object.assign(settings, params)
+        result = settings
+        send('settings.changed', settings)
+        const transfer = replies['transfer.status']!
+        transfer.altSpeedActive = settings.altSpeedMode === 'on'
+        send('transfer.changed', transfer)
+      } else if (method === 'downloads.reveal') result = null
       else if (method === 'downloads.start') {
         const magnet = new URL(params.magnet)
         const download: DownloadDto = {
@@ -52,14 +132,17 @@ export async function serveDevice(page: Page, { name = 'Test computer', language
         send('downloads.changed', downloads)
       } else if (method in replies) result = replies[method as keyof RpcResults]
       else {
-        socket.send(JSON.stringify({ id, error: { code: 'unsupported', message: `Unsupported method: ${method}` } }))
+        reply(socket, { id, error: { code: 'unsupported', message: `Unsupported method: ${method}` } })
         return
       }
-      socket.send(JSON.stringify({ id, result }))
+      reply(socket, { id, result })
     })
   })
   return {
     send,
+    calls,
+    failNext: (method: string, message: string) => failures.set(method, message),
+    setFiles: (next: DownloadFileDto[]) => { files = next },
     downloads: () => downloads,
     disconnect: () => {
       for (const socket of sockets) socket.close()

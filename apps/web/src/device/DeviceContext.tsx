@@ -97,6 +97,7 @@ const withIds = (sources: SourceDto[]) => sources.map(s => (s.id ? s : { ...s, i
 
 const DeviceContext = createContext<DeviceState | null>(null)
 /** Separate so the once-a-second progress updates re-render only the views that show downloads. */
+const DownloadReadContext = createContext<{ loading: boolean; failed: boolean; retry: () => void }>({ loading: true, failed: false, retry: () => {} })
 const DownloadsContext = createContext<DownloadDto[]>([])
 /** The search in progress, apart so typing and streamed results re-render only the search page. */
 const SearchContext = createContext<SearchContextValue | null>(null)
@@ -119,6 +120,10 @@ export function DeviceProvider({ connection, basePath, deviceName, children }: {
 }) {
   const [connectionState, setConnectionState] = useState<ConnectionState>(connection.state)
   const [info, setInfo] = useState<AppInfoDto | null>(null)
+  const [read, setRead] = useState({ loading: true, failed: false })
+  const [readRetry, setReadRetry] = useState(0)
+  const retryDownloads = useCallback(() => setReadRetry(n => n + 1), [])
+  const readValue = useMemo(() => ({ ...read, retry: retryDownloads }), [read, retryDownloads])
   const [downloads, setDownloads] = useState<DownloadDto[]>([])
   const [series, setSeries] = useState<SeriesTaskDto[]>([])
   const [watches, setWatches] = useState<WatchDto[]>([])
@@ -153,13 +158,13 @@ export function DeviceProvider({ connection, basePath, deviceName, children }: {
         // The website can be newer than the device's app: what an older app lacks is left out.
         const optional = <T,>(call: Promise<T>) => call.catch(() => null)
         const [i, d, s, st, src, u, r, tr] = await Promise.all([
-          connection.call('app.info'), connection.call('downloads.list'), connection.call('series.list'),
+          connection.call('app.info'), connection.call('downloads.list').then(list => { setRead({ loading: false, failed: false }); return list }).catch(() => { setRead({ loading: false, failed: true }); return null }), connection.call('series.list'),
           connection.call('settings.get'), connection.call('sources.list'), connection.call('updates.status'),
           connection.call('remote.status'), optional(connection.call('transfer.status')),
         ])
         void optional(connection.call('watches.list')).then(w => setWatches(w ?? []))
         setInfo(i)
-        setDownloads(d)
+        if (d) setDownloads(d)
         setSeries(s)
         setSettings(st)
         setSources(withIds(src))
@@ -183,7 +188,7 @@ export function DeviceProvider({ connection, basePath, deviceName, children }: {
 
     const off = [
       offState,
-      connection.on('downloads.changed', setDownloads),
+      connection.on('downloads.changed', list => { setDownloads(list); setRead({ loading: false, failed: false }) }),
       connection.on('downloads.updated', rows => setDownloads(list => mergeRows(list, rows))),
       connection.on('transfer.changed', setTransfer),
       connection.on('series.changed', setSeries),
@@ -211,7 +216,7 @@ export function DeviceProvider({ connection, basePath, deviceName, children }: {
       }),
     ]
     return () => off.forEach(fn => fn())
-  }, [connection])
+  }, [connection, readRetry])
 
   const awaySince = install.attempt?.offlineSince ?? null
   // Wakes the page when the wait is over, and again if it woke early, was throttled in a background tab, or the clock moved.
@@ -262,7 +267,7 @@ export function DeviceProvider({ connection, basePath, deviceName, children }: {
       <DeviceContext.Provider value={value}>
         <SearchContext.Provider value={searchValue}>
           <SearchAddressContext.Provider value={searchAddress}>
-            <DownloadsContext.Provider value={downloads}>{children}</DownloadsContext.Provider>
+            <DownloadReadContext.Provider value={readValue}><DownloadsContext.Provider value={downloads}>{children}</DownloadsContext.Provider></DownloadReadContext.Provider>
           </SearchAddressContext.Provider>
         </SearchContext.Provider>
       </DeviceContext.Provider>
@@ -299,3 +304,5 @@ export function useSearch(): SearchContextValue {
 export function useDownloads(): DownloadDto[] {
   return useContext(DownloadsContext)
 }
+
+export function useDownloadRead() { return useContext(DownloadReadContext) }
