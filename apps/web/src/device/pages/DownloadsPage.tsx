@@ -8,6 +8,7 @@ import { DEFAULT_DOWNLOAD_VIEW, DOWNLOAD_VIEWS, countViews, inView, type Downloa
 import { DOWNLOAD_SORTS, parseDownloadSort, readDownloadSort, sortDownloads, writeDownloadSort } from '../../lib/downloadSort.ts'
 import { pickParam, withParam } from '../../lib/urlState.ts'
 import { magnetsIn } from '../../lib/magnets.ts'
+import { useSteadySpeeds } from '../../lib/steadySpeed.ts'
 import { PageHeader, Segmented } from '../../ui/controls.tsx'
 import { Empty } from '../../ui/Empty.tsx'
 import { PAGE_SIZE, ShowMore } from '../../ui/ShowMore.tsx'
@@ -40,6 +41,7 @@ export function DownloadsPage() {
     setParams(current => withParam(withParam(current, 'add', ''), 'torrent', ''), { replace: true })
   }, [params, setParams, connection])
 
+  const speeds = useSteadySpeeds(downloads)
   // One pass for the speeds and each view's count, rather than one filter per tab on each update.
   const { counts, activeNow, down, up } = useMemo(() => {
     let activeNow = 0
@@ -47,11 +49,11 @@ export function DownloadsPage() {
     let up = 0
     for (const d of downloads) {
       if (isActive(d)) activeNow++
-      down += d.downloadSpeed
-      up += d.uploadSpeed
+      down += speeds.get(d.id)!.down
+      up += speeds.get(d.id)!.up
     }
     return { counts: countViews(downloads), activeNow, down, up }
-  }, [downloads])
+  }, [downloads, speeds])
   const shown = useMemo(() => sortDownloads(downloads.filter(d => inView(d.status, view)), sort, language), [downloads, view, sort, language])
   const add = <button type="button" className="btn btn-primary" onClick={() => setAdding({ magnets: [], files: [] })}><Plus size={16} />{t('add.button')}</button>
 
@@ -124,10 +126,11 @@ export function DownloadList({ downloads, hideSeries = false, onOpen }: { downlo
   const unknown = t('downloads.unknownSeries')
   const seriesName = (d: DownloadDto) => (d.seriesTaskId === null || hideSeries ? undefined : names.get(d.seriesTaskId) || unknown)
   const open = useCallback((id: number) => (onOpen ?? setOpened)(id), [onOpen])
+  const speeds = useSteadySpeeds(downloads)
   return (
     <>
       <ul className="flex flex-col gap-2">
-        {downloads.slice(0, limit).map(d => <DownloadRow key={d.id} download={d} seriesName={seriesName(d)} onOpen={open} />)}
+        {downloads.slice(0, limit).map(d => <DownloadRow key={d.id} download={d} {...speeds.get(d.id)!} seriesName={seriesName(d)} onOpen={open} />)}
       </ul>
       {downloads.length > limit && <ShowMore remaining={downloads.length - limit} onMore={() => setLimit(n => n + PAGE_SIZE)} />}
       {!onOpen && <DownloadDetailsDialog id={opened} onClose={() => setOpened(null)} />}
