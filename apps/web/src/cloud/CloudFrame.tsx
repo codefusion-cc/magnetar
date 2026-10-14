@@ -1,5 +1,5 @@
 import { useTheme } from '@codefusion-cc/theme/react'
-import { MonitorDown, LogOut, Moon, Sparkles, Sun } from 'lucide-react'
+import { MonitorDown, Moon, Sun } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Link, NavLink } from 'react-router'
 import { useT } from '../lib/i18n.tsx'
@@ -7,7 +7,8 @@ import { useInstallOffer } from '../lib/install.ts'
 import { theme } from '../ui/theme.ts'
 import { useAccount } from './CloudApp.tsx'
 import { BrandMark } from '../ui/BrandMark.tsx'
-import { BuildVersion } from '@codefusion-cc/app-update/react'
+import { MenuButton } from '../ui/Menu.tsx'
+import { BuildVersion, CommitLink } from '@codefusion-cc/app-update/react'
 import { BUILD } from '../lib/updates.ts'
 import { MAGNETAR_REPO } from '@magnetar/protocol/cloud'
 
@@ -17,16 +18,16 @@ export function CloudFrame({ children, wide = false }: { children: ReactNode; wi
   const { account } = useAccount()
   const install = useInstallOffer()
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-30 border-b border-base-300 bg-base-100/90 backdrop-blur">
-        <div className={`mx-auto flex h-14 w-full items-center gap-2 px-4 ${wide ? 'max-w-5xl' : 'max-w-3xl'}`}>
-          <Link to="/" className="flex flex-1 items-center gap-2.5">
+    <div className="flex min-h-screen flex-col bg-page text-ink">
+      <header className="border-b border-line bg-page">
+        <div className={`cloud-header mx-auto flex min-h-16 w-full flex-wrap items-center gap-2 px-4 py-3 ${wide ? 'max-w-5xl' : 'max-w-3xl'}`}>
+          <Link to="/" className="mr-auto flex min-h-10 items-center gap-1.5 rounded-ctl">
             <BrandMark />
             <span className="font-display text-[15px]">Magnetar</span>
           </Link>
           {install && (
-            <button type="button" className="btn btn-ghost btn-sm" onClick={install} title={t('install.hint')}>
-              <MonitorDown size={16} /><span className="hidden sm:inline">{t('install.button')}</span>
+            <button type="button" className="frame-control gap-2 max-sm:w-10 max-sm:px-0" onClick={install} aria-label={t('install.button')} title={t('install.hint')}>
+              <MonitorDown size={16} aria-hidden /><span className="hidden sm:inline">{t('install.button')}</span>
             </button>
           )}
           {account && <AccountMenu />}
@@ -43,12 +44,12 @@ export function CloudFrame({ children, wide = false }: { children: ReactNode; wi
 export function SiteFooter({ column }: { column: string }) {
   const t = useT()
   return (
-    <footer className="border-t border-base-300">
-      <div className={`muted flex flex-wrap items-center gap-x-4 gap-y-1 py-4 text-xs ${column}`}>
-        <span>Magnetar <BuildVersion repo={MAGNETAR_REPO} className="tabular-nums" commitClassName="link link-hover font-mono" version={BUILD.version} commit={BUILD.commit} /></span>
-        <NavLink to="/features" className="link link-hover">{t('footer.features')}</NavLink>
-        <Link to="/about" className="link link-hover">{t('footer.whatsNew')}</Link>
-        <a href={`https://github.com/${MAGNETAR_REPO}`} className="link link-hover" target="_blank" rel="noreferrer noopener">GitHub</a>
+    <footer className="border-t border-line">
+      <div className={`flex flex-wrap items-center gap-x-4 gap-y-1 py-4 text-[13px] text-muted ${column}`}>
+        <span>Magnetar <BuildVersion repo={MAGNETAR_REPO} className="tabular-nums" version={BUILD.version} />{' '}<CommitLink repo={MAGNETAR_REPO} className="font-mono hover:underline" commit={BUILD.commit} /></span>
+        <NavLink to="/features" className="hover:underline">{t('footer.features')}</NavLink>
+        <Link to="/about" className="hover:underline">{t('footer.whatsNew')}</Link>
+        <a href={`https://github.com/${MAGNETAR_REPO}`} className="hover:underline" target="_blank" rel="noreferrer noopener">GitHub</a>
       </div>
     </footer>
   )
@@ -60,8 +61,9 @@ export function ThemeToggle() {
   const { resolved } = useTheme(theme)
   const next = resolved === 'dark' ? 'light' : 'dark'
   return (
-    <button type="button" className="btn btn-ghost btn-square btn-sm" onClick={theme.toggle} aria-label={t(`theme.${next}`)} title={t(`theme.${next}`)}>
-      {resolved === 'dark' ? <Sun size={18} aria-hidden /> : <Moon size={18} aria-hidden />}
+    // The sun or the moon of the mode it switches to: a bare "Light" on a dark page reads as the mode it is in.
+    <button type="button" className="frame-control w-10 px-0" onClick={theme.toggle} aria-label={t(`theme.${next}`)} title={t(`theme.${next}`)}>
+      {next === 'light' ? <Sun size={18} aria-hidden /> : <Moon size={18} aria-hidden />}
     </button>
   )
 }
@@ -71,17 +73,18 @@ export function AccountMenu() {
   const { account, signOut } = useAccount()
   if (!account) return null
   return (
-    <div className="dropdown dropdown-end">
-      <button type="button" tabIndex={0} className="btn btn-ghost btn-sm gap-2 px-1.5" aria-label={account.email}>
+    <MenuButton label={account.email} className="frame-account w-10 shrink-0" button={
+      <span className="frame-control frame-square">
         {account.picture
-          ? <img src={account.picture} alt="" className="size-7 rounded-full" referrerPolicy="no-referrer" />
-          : <span className="grid size-7 place-items-center rounded-full bg-primary text-sm font-semibold text-primary-content">{account.email[0]?.toUpperCase()}</span>}
-      </button>
-      <ul tabIndex={0} className="menu dropdown-content z-50 mt-2 w-60 rounded-box border border-base-300 bg-base-100 p-2 shadow-lg">
-        <li className="menu-title truncate normal-case">{account.email}</li>
-        <li><Link to="/about"><Sparkles size={16} />{t('footer.whatsNew')}</Link></li>
-        <li><button type="button" onClick={() => void signOut()}><LogOut size={16} />{t('cloud.signOut')}</button></li>
-      </ul>
-    </div>
+          ? <img src={account.picture} alt="" className="size-7 rounded-ctl" referrerPolicy="no-referrer" />
+          : <span aria-hidden="true" className="text-sm font-semibold">{account.email[0]?.toUpperCase()}</span>}
+      </span>
+    } items={close => (
+      <>
+        <li role="none" className="break-all px-3 py-2 text-[13px] text-muted">{account.email}</li>
+        <li role="none"><Link role="menuitem" to="/about" onClick={close}>{t('footer.whatsNew')}</Link></li>
+        <li role="none"><button role="menuitem" type="button" onClick={() => { close(); void signOut() }}>{t('cloud.signOut')}</button></li>
+      </>
+    )} />
   )
 }

@@ -188,7 +188,7 @@ export const content: FeaturesContent = {
           text: 'Entre em magnetar.codefusion.cc e abra qualquer um dos seus computadores: a pesquisa, as transferências, a lista A seguir e as definições funcionam como em casa. O seu computador faz o trabalho; o site só o liga a ele.',
           points: [
             'Os seus dispositivos com o estado online, atualizado a cada 15 segundos',
-            'Num telemóvel aparece uma barra de separadores em baixo; num computador, uma barra lateral',
+            'Os separadores ficam em baixo no telemóvel e em cima no computador',
             'O que só faz sentido no computador (o seletor de pastas, abrir ficheiros) fica por lá',
             'Início de sessão com o Google; as sessões duram 30 dias desde a última visita, e ao terminar a sessão esse navegador desliga-se logo dos seus computadores',
           ],
@@ -215,7 +215,7 @@ export const content: FeaturesContent = {
         'device-addresses': {
           title: 'Cada computador no seu próprio endereço',
           gain: 'magnetar.codefusion.cc/MacBook-Pro/search: pela ligação, sabe que computador vai abrir.',
-          text: 'O nome de um computador é a primeira parte dos endereços das suas páginas. Mude de computador a partir do nome na barra lateral e fique na mesma página.',
+          text: 'O nome de um computador é a primeira parte dos endereços das suas páginas. Mude de computador a partir do nome no topo da página e fique na mesma página.',
           points: [
             `Os nomes são letras e algarismos unidos por hífenes, até ${DEVICE_NAME_MAX_LENGTH} caracteres; qualquer nome que escreva é convertido para essa forma («Mac do Paweł» passa a Mac-do-Pawel)`,
             'Mudar o nome a um computador leva uma página aberta para o novo endereço',
@@ -342,7 +342,7 @@ export const content: FeaturesContent = {
     remote: 'O acesso remoto nas definições da aplicação, ligado a uma conta',
     pair: 'Aprovar um computador no site',
     'link-qr': 'Um código QR que associa um telemóvel',
-    switcher: 'Mudar de computador a partir da barra lateral',
+    switcher: 'Mudar de computador a partir da barra de cima',
     notifications: 'Canais de notificação, cada um com um botão de teste',
     settings: 'Definições gerais: idioma, tema, início ao entrar na sessão',
     about: 'A versão e a procura de atualizações',

@@ -67,7 +67,7 @@ export function SeriesPage() {
           ]} />
       </div>
       {tab === 'releases' ? <WatchesSection start={handed} onStarted={clearHanded} /> : series.length === 0 ? (
-        <Empty icon={<Tv size={40} strokeWidth={1.5} className="text-primary" />} title={t('series.emptyTitle')} text={t('series.emptyHint')}>
+        <Empty title={t('series.emptyTitle')} text={t('series.emptyHint')}>
           {add}
         </Empty>
       ) : (

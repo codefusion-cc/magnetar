@@ -188,7 +188,7 @@ export const content: FeaturesContent = {
           text: 'Connectez-vous sur magnetar.codefusion.cc et ouvrez n’importe lequel de vos ordinateurs : la recherche, les téléchargements, la liste À suivre et les paramètres fonctionnent comme chez vous. Votre ordinateur fait le travail ; le site ne fait que vous y connecter.',
           points: [
             'Vos appareils et leur état en ligne, actualisés toutes les 15 secondes',
-            'Un téléphone a une barre d’onglets en bas, un ordinateur une barre latérale',
+            'Les onglets sont en bas sur téléphone et en haut sur ordinateur',
             'Ce qui n’a de sens que devant l’ordinateur (son sélecteur de dossiers, l’ouverture des fichiers) y reste',
             'Connexion avec Google ; les sessions durent 30 jours après votre dernière visite, et la déconnexion coupe aussitôt ce navigateur de vos ordinateurs',
           ],
@@ -215,7 +215,7 @@ export const content: FeaturesContent = {
         'device-addresses': {
           title: 'Chaque ordinateur à sa propre adresse',
           gain: 'magnetar.codefusion.cc/MacBook-Pro/search : le lien suffit à savoir quel ordinateur il ouvre.',
-          text: 'Le nom d’un ordinateur est la première partie de l’adresse de ses pages. Passez d’un ordinateur à l’autre depuis son nom dans la barre latérale, en restant sur la même page.',
+          text: 'Le nom d’un ordinateur est la première partie de l’adresse de ses pages. Passez d’un ordinateur à l’autre depuis son nom en haut de la page, en restant sur la même page.',
           points: [
             `Les noms sont faits de lettres et de chiffres reliés par des traits d’union, jusqu’à ${DEVICE_NAME_MAX_LENGTH} caractères ; tout nom saisi est écrit ainsi (« Paweł's Mac » devient Pawels-Mac)`,
             'Renommer un ordinateur déplace une page ouverte vers sa nouvelle adresse',
@@ -342,7 +342,7 @@ export const content: FeaturesContent = {
     remote: 'L’accès à distance dans les paramètres de l’app, connecté à un compte',
     pair: 'L’approbation d’un ordinateur sur le site',
     'link-qr': 'Un code QR qui associe un téléphone',
-    switcher: 'Passer d’un ordinateur à l’autre depuis la barre latérale',
+    switcher: 'Passer d’un ordinateur à l’autre depuis la barre du haut',
     notifications: 'Les canaux de notification, chacun avec un bouton de test',
     settings: 'Paramètres généraux : langue, thème, lancement à l’ouverture de session',
     about: 'La version et la recherche de mises à jour',

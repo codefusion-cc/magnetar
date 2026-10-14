@@ -1,5 +1,5 @@
 import type { CloudDeviceDto } from '@magnetar/protocol/cloud'
-import { ArrowUpCircle, ChevronRight, Laptop, Magnet, MonitorSmartphone, Trash2 } from 'lucide-react'
+import { ArrowUpCircle, ChevronRight, Laptop, Magnet, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { cloud } from '../lib/cloudApi.ts'
@@ -56,7 +56,7 @@ export function DevicesPage() {
       {devices === null ? (
         <Loading />
       ) : devices.length === 0 ? (
-        <Empty icon={<MonitorSmartphone size={40} strokeWidth={1.5} className="text-primary" />} title={t('devices.emptyTitle')} text={t('devices.emptyHint')}>
+        <Empty title={t('devices.emptyTitle')} text={t('devices.emptyHint')}>
           <div className="mx-auto w-full max-w-sm text-left"><DownloadApp /></div>
         </Empty>
       ) : (

@@ -188,7 +188,7 @@ export const content: FeaturesContent = {
           text: 'Inicia sesión en magnetar.codefusion.cc y abre cualquiera de tus ordenadores: la búsqueda, las descargas, el seguimiento y los ajustes funcionan igual que en casa. Tu ordenador hace el trabajo; la web solo te conecta con él.',
           points: [
             'Tus dispositivos con su estado de conexión, actualizado cada 15 segundos',
-            'En el móvil, una barra de pestañas abajo; en el ordenador, una barra lateral',
+            'Las pestañas están abajo en el móvil y arriba en el ordenador',
             'Lo que solo tiene sentido delante del ordenador (su selector de carpetas, abrir archivos) se queda allí',
             'Inicio de sesión con Google; las sesiones duran 30 días desde tu última visita, y al cerrar sesión ese navegador se desconecta al instante de tus ordenadores',
           ],
@@ -215,7 +215,7 @@ export const content: FeaturesContent = {
         'device-addresses': {
           title: 'Cada ordenador en su propia dirección',
           gain: 'magnetar.codefusion.cc/MacBook-Pro/search: por el enlace sabes qué ordenador abre.',
-          text: 'El nombre de un ordenador es la primera parte de las direcciones de sus páginas. Cambia de ordenador desde el nombre en la barra lateral sin salir de la página en la que estás.',
+          text: 'El nombre de un ordenador es la primera parte de las direcciones de sus páginas. Cambia de ordenador desde el nombre en la parte superior sin salir de la página en la que estás.',
           points: [
             `Los nombres son letras y cifras unidas por guiones, de hasta ${DEVICE_NAME_MAX_LENGTH} caracteres; cualquier nombre que escribas se adapta a esa forma («Mac de Paweł» pasa a ser Mac-de-Pawel)`,
             'Al renombrar un ordenador, una página abierta pasa a su nueva dirección',
@@ -342,7 +342,7 @@ export const content: FeaturesContent = {
     remote: 'Acceso remoto en los ajustes de la app, conectado a una cuenta',
     pair: 'Aprobación de un ordenador en la web',
     'link-qr': 'Un código QR que vincula un móvil',
-    switcher: 'Cambio de ordenador desde la barra lateral',
+    switcher: 'Cambio de ordenador desde la barra superior',
     notifications: 'Canales de notificación, cada uno con un botón de prueba',
     settings: 'Ajustes generales: idioma, tema, inicio al iniciar sesión',
     about: 'La versión y la búsqueda de actualizaciones',

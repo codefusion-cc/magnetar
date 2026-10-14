@@ -188,7 +188,7 @@ export const content: FeaturesContent = {
           text: 'Melde dich auf magnetar.codefusion.cc an und öffne einen deiner Computer: Suche, Downloads, Merkliste und Einstellungen funktionieren wie zu Hause. Die Arbeit macht dein Computer; die Website verbindet dich nur mit ihm.',
           points: [
             'Deine Geräte mit ihrem Online-Status, alle 15 Sekunden aktualisiert',
-            'Ein Handy bekommt unten eine Tab-Leiste, ein Computer eine Seitenleiste',
+            'Auf dem Handy stehen die Tabs unten, auf dem Computer oben',
             'Was nur am Computer selbst Sinn ergibt (seine Ordnerauswahl, das Öffnen von Dateien), bleibt dort',
             'Anmeldung mit Google; Sitzungen gelten 30 Tage ab deinem letzten Besuch, und beim Abmelden trennt sich dieser Browser sofort von deinen Computern',
           ],
@@ -215,7 +215,7 @@ export const content: FeaturesContent = {
         'device-addresses': {
           title: 'Jeder Computer unter eigener Adresse',
           gain: 'magnetar.codefusion.cc/MacBook-Pro/search: Am Link erkennst du, welchen Computer er öffnet.',
-          text: 'Der Name eines Computers ist der erste Teil der Adressen seiner Seiten. Wechsle über den Namen in der Seitenleiste zwischen Computern und bleib dabei auf derselben Seite.',
+          text: 'Der Name eines Computers ist der erste Teil der Adressen seiner Seiten. Wechsle über den Namen oben auf der Seite zwischen Computern und bleib dabei auf derselben Seite.',
           points: [
             `Namen sind Buchstaben und Ziffern, durch Bindestriche verbunden, bis zu ${DEVICE_NAME_MAX_LENGTH} Zeichen; jeder eingegebene Name wird so geschrieben („Pawełs Mac“ wird zu Pawels-Mac)`,
             'Wird ein Computer umbenannt, wechselt eine offene Seite auf seine neue Adresse',
@@ -342,7 +342,7 @@ export const content: FeaturesContent = {
     remote: 'Fernzugriff in den Einstellungen der App, mit einem Konto verbunden',
     pair: 'Einen Computer auf der Website bestätigen',
     'link-qr': 'Ein QR-Code, der ein Handy verknüpft',
-    switcher: 'Wechsel zwischen Computern über die Seitenleiste',
+    switcher: 'Wechsel zwischen Computern über die obere Leiste',
     notifications: 'Benachrichtigungskanäle, jeder mit Test-Knopf',
     settings: 'Allgemeine Einstellungen: Sprache, Design, „Beim Anmelden starten“',
     about: 'Die Version und die Suche nach Updates',

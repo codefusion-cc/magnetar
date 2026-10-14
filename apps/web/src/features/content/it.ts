@@ -188,7 +188,7 @@ export const content: FeaturesContent = {
           text: 'Accedi su magnetar.codefusion.cc e apri uno qualsiasi dei tuoi computer: ricerca, download, la lista Da seguire e le impostazioni funzionano come a casa. Il lavoro lo fa il tuo computer; il sito ti collega soltanto a lui.',
           points: [
             'I tuoi dispositivi con il loro stato online, aggiornato ogni 15 secondi',
-            'Su un telefono le schede sono in basso, su un computer c’è una barra laterale',
+            'Le schede sono in basso sul telefono e in alto sul computer',
             'Quello che ha senso solo al computer (il suo selettore di cartelle, l’apertura dei file) resta lì',
             'Accesso con Google; le sessioni durano 30 giorni dall’ultima visita, e uscendo quel browser si scollega subito dai tuoi computer',
           ],
@@ -215,7 +215,7 @@ export const content: FeaturesContent = {
         'device-addresses': {
           title: 'Ogni computer al suo indirizzo',
           gain: 'magnetar.codefusion.cc/MacBook-Pro/search: dal link capisci quale computer apre.',
-          text: 'Il nome di un computer è la prima parte degli indirizzi delle sue pagine. Passa da un computer all’altro dal nome nella barra laterale e resti sulla stessa pagina.',
+          text: 'Il nome di un computer è la prima parte degli indirizzi delle sue pagine. Passa da un computer all’altro dal nome in alto nella pagina e resti sulla stessa pagina.',
           points: [
             `I nomi sono lettere e cifre unite da trattini, fino a ${DEVICE_NAME_MAX_LENGTH} caratteri; qualsiasi nome digiti viene scritto così («Paweł's Mac» diventa Pawels-Mac)`,
             'Rinominare un computer sposta una pagina aperta al suo nuovo indirizzo',
@@ -342,7 +342,7 @@ export const content: FeaturesContent = {
     remote: 'L’accesso remoto nelle impostazioni dell’app, collegato a un account',
     pair: 'Approvazione di un computer sul sito',
     'link-qr': 'Un codice QR che collega un telefono',
-    switcher: 'Passaggio da un computer all’altro dalla barra laterale',
+    switcher: 'Passaggio da un computer all’altro dalla barra in alto',
     notifications: 'Canali di notifica, ciascuno con un pulsante di prova',
     settings: 'Impostazioni generali: lingua, tema, avvio all’accesso',
     about: 'La versione e la ricerca di aggiornamenti',

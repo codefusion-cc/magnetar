@@ -1,5 +1,5 @@
 import type { FolderEntryDto, FolderPageDto, FolderRootDto } from '@magnetar/protocol'
-import { CircleAlert, Download, FolderSearch } from 'lucide-react'
+import { CircleAlert, Download } from 'lucide-react'
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { fileBrowserNotice } from '../../lib/buildVersion.ts'
@@ -40,7 +40,7 @@ export function FilesPage() {
     return (
       <>
         <PageHeader title={t('files.title')} />
-        <Empty icon={<FolderSearch size={40} className="text-primary" />} title={t('files.updateTitle')}
+        <Empty title={t('files.updateTitle')}
           text={t(connection.kind === 'local' ? 'files.updateLocal' : fileBrowserNotice(info?.version ?? '', BUILD.version), info?.version ?? '')} />
       </>
     )

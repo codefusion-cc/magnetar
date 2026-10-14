@@ -177,6 +177,8 @@ export function DeviceProvider({ connection, basePath, deviceName, children }: {
       // What the app last said of an update is no longer known: it reports again once it is back.
       observe({ online: false })
     })
+    // The transport may have opened between render and this subscription.
+    setConnectionState(connection.state)
     if (connection.state.status === 'open') void refresh()
 
     const off = [

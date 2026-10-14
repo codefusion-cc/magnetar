@@ -1,15 +1,16 @@
 import type { ReactNode } from 'react'
+import { Star } from './Star.tsx'
 
-/** The centred "nothing here" card used by list pages. */
-export function Empty({ icon, title, text, children }: { icon: ReactNode; title?: string; text: string; children?: ReactNode }) {
+/** A bare state in the page column, with optional actions. */
+export function Empty({ title, text, children }: { title?: string; text: string; children?: ReactNode }) {
   return (
-    <div className="surface flex flex-col items-center gap-4 px-6 py-16 text-center">
-      {icon}
-      <div>
-        {title && <h2 className="text-lg font-semibold">{title}</h2>}
-        <p className="mt-1 max-w-md text-sm text-base-content/60">{text}</p>
+    <div className="flex flex-col items-start gap-4 py-16 text-ink">
+      <Star />
+      <div className="min-w-0 max-w-full">
+        {title && <h2 className="font-sans break-words text-[19px] font-semibold">{title}</h2>}
+        <p className="mt-1 max-w-[46ch] break-words text-muted">{text}</p>
       </div>
-      {children}
+      {children && <div className="flex max-w-full flex-col items-start gap-3">{children}</div>}
     </div>
   )
 }

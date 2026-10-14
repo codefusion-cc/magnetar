@@ -48,8 +48,8 @@ export function DeviceSwitcher({ children, placement }: { children: ReactNode; p
               <li key={device.id} role="none">
                 <Link role="menuitem" to={samePageOn(pathname, search, devicePath(deviceName), devicePath(device.name))} onClick={close}
                   aria-current={current ? 'page' : undefined} className={`flex items-center gap-3 ${current ? 'menu-active' : ''}`}>
-                  <span className="relative grid size-8 shrink-0 place-items-center rounded-field bg-base-200">
-                    <Laptop size={16} className={device.online ? '' : 'muted'} />
+                  <span className="relative grid size-8 shrink-0 place-items-center rounded-field bg-base-200 text-ink">
+                    <Laptop size={16} className={device.online ? '' : 'text-muted'} />
                     <span className={`absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-base-100 ${device.online ? 'bg-success' : 'bg-base-300'}`} />
                   </span>
                   <span className="min-w-0 flex-1">

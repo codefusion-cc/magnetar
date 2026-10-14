@@ -188,7 +188,7 @@ export const content: FeaturesContent = {
           text: 'Zaloguj się na magnetar.codefusion.cc i otwórz dowolny ze swoich komputerów: wyszukiwanie, pobieranie, Obserwowane i ustawienia działają tak jak w domu. Pracę wykonuje Twój komputer; strona tylko Cię z nim łączy.',
           points: [
             'Twoje urządzenia ze stanem online, odświeżanym co 15 sekund',
-            'Telefon ma pasek kart na dole, komputer pasek boczny',
+            'Na telefonie karty są na dole, na komputerze u góry',
             'To, co ma sens tylko przy komputerze (wybór folderu, otwieranie plików), zostaje na komputerze',
             'Logowanie przez Google; sesja trwa 30 dni od ostatniej wizyty, a wylogowanie od razu odłącza tę przeglądarkę od Twoich komputerów',
           ],
@@ -215,7 +215,7 @@ export const content: FeaturesContent = {
         'device-addresses': {
           title: 'Każdy komputer pod własnym adresem',
           gain: 'magnetar.codefusion.cc/MacBook-Pro/search: już z linku widać, który komputer otwiera.',
-          text: 'Nazwa komputera to pierwsza część adresów jego stron. Przełączaj się między komputerami, klikając nazwę na pasku bocznym, i zostań na tej samej stronie.',
+          text: 'Nazwa komputera to pierwsza część adresów jego stron. Przełączaj się między komputerami, klikając nazwę u góry strony, i zostań na tej samej stronie.',
           points: [
             `Nazwy to litery i cyfry połączone łącznikami, do ${DEVICE_NAME_MAX_LENGTH} znaków; każda wpisana nazwa jest zapisywana w tej postaci („Mac Pawła” staje się Mac-Pawla)`,
             'Zmiana nazwy komputera przenosi otwartą stronę pod nowy adres',
@@ -342,7 +342,7 @@ export const content: FeaturesContent = {
     remote: 'Dostęp zdalny w ustawieniach aplikacji, połączony z kontem',
     pair: 'Zatwierdzanie komputera na stronie',
     'link-qr': 'Kod QR, który łączy telefon',
-    switcher: 'Przełączanie między komputerami z paska bocznego',
+    switcher: 'Przełączanie między komputerami z górnego paska',
     notifications: 'Kanały powiadomień, każdy z przyciskiem testu',
     settings: 'Ustawienia ogólne: język, motyw, uruchamianie po zalogowaniu',
     about: 'Wersja i sprawdzanie aktualizacji',

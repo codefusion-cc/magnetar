@@ -101,9 +101,10 @@ The dashboard is at <http://localhost:47820> (the next free port if that one is 
 One account holds up to 20 computers. Each has a name of letters, digits and hyphens, unique on the account, which is
 its address on the website: `magnetar.codefusion.cc/MacBook-Pro/search/dragon`. Renaming moves an open page to the new
 address; links by id (`/d/<device id>/…`, as notifications use) always find the device under its current name. On the
-website, the device's name at the bottom of the sidebar (at the top on
-a phone) switches to another one and keeps the page you are on; each shows whether it is online and whether this
-browser is linked to it. A computer's own dashboard links to the others once it is on an account.
+website, the device's name at the top of the page switches to another one and keeps the page you are on; each
+shows whether it is online and whether this browser is linked to it. A computer's own dashboard links to the others once it is on an account.
+Downloads, Search, Watchlist, Files and Settings sit in the top row on a computer and in a fixed bottom tab bar
+on a phone. The number beside Downloads is the active count; build details and Features are in the page footer.
 
 Revoke a browser, rename the device or disconnect it from the same Settings section, or remove a device from the
 website's device list. How the encryption works is described in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#end-to-end-encryption).

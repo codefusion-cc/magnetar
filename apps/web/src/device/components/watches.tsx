@@ -1,6 +1,6 @@
 import type { WatchDto, WatchInput } from '@magnetar/protocol'
 import { formatBytes } from '@magnetar/protocol/bytes'
-import { BellRing, CircleCheck, Clapperboard, Download, Pencil, Plus, RefreshCw, RotateCcw, Sprout, Trash2 } from 'lucide-react'
+import { BellRing, CircleCheck, Download, Pencil, Plus, RefreshCw, RotateCcw, Sprout, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { useFormatRelative, useT } from '../../lib/i18n.tsx'
@@ -34,7 +34,7 @@ export function WatchesSection({ start, onStarted }: { start: WatchInput | null;
   return (
     <>
       {watches.length === 0 ? (
-        <Empty icon={<Clapperboard size={40} strokeWidth={1.5} className="text-primary" />} title={t('watch.emptyTitle')} text={t('watch.emptyHint')}>{add}</Empty>
+        <Empty title={t('watch.emptyTitle')} text={t('watch.emptyHint')}>{add}</Empty>
       ) : (
         <>
           <div className="mb-4 flex justify-end">{add}</div>

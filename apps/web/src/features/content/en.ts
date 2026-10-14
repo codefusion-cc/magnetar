@@ -188,7 +188,7 @@ export const en: FeaturesContent = {
           text: 'Sign in at magnetar.codefusion.cc and open any of your computers: search, downloads, the watchlist and settings work as they do at home. Your computer does the work; the website only connects you to it.',
           points: [
             'Your devices with their online state, refreshed every 15 seconds',
-            'A phone gets a tab bar at the bottom, a computer a sidebar',
+            'Tabs sit at the bottom on a phone and at the top on a computer',
             'What only makes sense at the computer (its folder picker, opening files) stays there',
             'Google sign-in; sessions last 30 days from your last visit, and signing out disconnects that browser from your computers at once',
           ],
@@ -215,7 +215,7 @@ export const en: FeaturesContent = {
         'device-addresses': {
           title: 'Each computer at its own address',
           gain: 'magnetar.codefusion.cc/MacBook-Pro/search: you can tell from the link which computer it opens.',
-          text: 'A computer\'s name is the first part of its pages\' addresses. Switch between computers from the name in the sidebar and stay on the same page.',
+          text: 'A computer\'s name is the first part of its pages\' addresses. Switch between computers from the name at the top and stay on the same page.',
           points: [
             `Names are letters and digits joined by hyphens, up to ${DEVICE_NAME_MAX_LENGTH} characters; any name you type is spelled that way ("Paweł's Mac" becomes Pawels-Mac)`,
             'Renaming a computer moves an open page to its new address',
@@ -342,7 +342,7 @@ export const en: FeaturesContent = {
     remote: 'Remote access in the app\'s settings, connected to an account',
     pair: 'Approving a computer on the website',
     'link-qr': 'A QR code that links a phone',
-    switcher: 'Switching between computers from the sidebar',
+    switcher: 'Switching between computers from the top row',
     notifications: 'Notification channels, each with a test button',
     settings: 'General settings: language, theme, start at login',
     about: 'The version and its update check',

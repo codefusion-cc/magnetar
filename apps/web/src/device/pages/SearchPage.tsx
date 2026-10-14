@@ -1,6 +1,6 @@
 import type { SearchResultDto, SourceOutcomeDto, TorrentDetailsDto } from '@magnetar/protocol'
 import { formatBytes } from '@magnetar/protocol/bytes'
-import { BellRing, Check, CircleAlert, Copy, Download, ExternalLink, SearchIcon, SearchX, Sprout, Telescope } from 'lucide-react'
+import { BellRing, Check, CircleAlert, Copy, Download, ExternalLink, SearchIcon, Sprout } from 'lucide-react'
 import { memo, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { askingWhere } from '../../lib/downloadFlow.ts'
@@ -158,9 +158,9 @@ export function SearchPage() {
       {search.searching && !results?.length && <div className="flex justify-center py-16"><span className="loading loading-dots loading-lg text-primary" /></div>}
 
       {results === null ? (
-        <Empty icon={<Telescope size={40} strokeWidth={1.5} className="text-primary" />} title={t('search.emptyTitle')} text={t('search.emptyPrompt')} />
+        <Empty title={t('search.emptyTitle')} text={t('search.emptyPrompt')} />
       ) : results.length === 0 ? (
-        search.searching ? null : <Empty icon={<SearchX size={40} strokeWidth={1.5} className="muted" />} title={t('search.noResults')} text={t('search.noResultsHint')} />
+        search.searching ? null : <Empty title={t('search.noResults')} text={t('search.noResultsHint')} />
       ) : (
         <>
           <ul className="flex flex-col gap-2">

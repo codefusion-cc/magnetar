@@ -113,7 +113,7 @@ body {
   padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
 }
 
-@media (min-width: 64rem) {
+@media (min-width: 721px) {
   .pb-tabbar {
     padding-bottom: 2.5rem;
   }
@@ -144,5 +144,210 @@ body {
 }
 
 :focus-visible {
-  outline-color: var(--cf-focus);
+  outline: 2px solid var(--cf-focus);
+  outline-offset: 3px;
+}
+
+/* The frame shares one navigation element between the desktop row and the phone's fixed bar. */
+.shell-header {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(120px, 220px);
+  align-items: center;
+  gap: 24px;
+  padding: 12px 40px;
+}
+
+.shell-column {
+  max-width: 1040px;
+  margin-inline: auto;
+  padding-inline: 40px;
+}
+
+.shell-device {
+  position: relative;
+  width: 100%;
+  max-width: 220px;
+  justify-self: end;
+}
+
+.shell-nav {
+  display: flex;
+  min-width: 0;
+  gap: 4px;
+}
+
+.shell-tab {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding-inline: 14px;
+  color: var(--cf-muted);
+  white-space: nowrap;
+}
+
+.shell-tab-label {
+  min-width: 0;
+}
+
+.shell-tab[aria-current="page"] {
+  color: var(--cf-ink);
+  font-weight: 600;
+}
+
+.shell-tab[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  inset-inline: 14px;
+  bottom: 3px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--mg-far), var(--mg-h1), var(--cf-accent-2), var(--mg-h2));
+}
+
+/* Menus open inward from the frame edge, including when another control follows the trigger. */
+.cloud-header {
+  position: relative;
+}
+
+.shell-device > div,
+.cloud-header .frame-account {
+  position: static;
+}
+
+.shell-device [role="menu"],
+.frame-account [role="menu"] {
+  left: auto;
+  right: 0;
+  border-radius: var(--cf-radius-ctl);
+  box-shadow: none;
+}
+
+@layer components {
+  .frame-control {
+    display: inline-flex;
+    min-height: 40px;
+    min-width: 0;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--cf-line);
+    border-radius: var(--cf-radius-ctl);
+    padding-inline: 12px;
+    color: var(--cf-ink);
+    font-size: 13px;
+  }
+
+  .frame-square {
+    width: 40px;
+    padding-inline: 0;
+  }
+
+  .frame-control:hover {
+    background: var(--cf-raised);
+  }
+}
+
+.infall-star {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--mg-core);
+  box-shadow: var(--mg-halo);
+}
+
+.infall-star[data-state="far"] {
+  width: 7px;
+  height: 7px;
+  background: var(--mg-far);
+  box-shadow: 0 0 12px 4px var(--mg-far-glow);
+}
+
+.infall-star[data-state="out"] {
+  background: var(--mg-void);
+  box-shadow: 0 0 0 1.5px var(--mg-ring);
+}
+
+@keyframes star-breathe {
+  0%, 100% {
+    opacity: 0.5;
+    box-shadow: var(--mg-halo-small);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: var(--mg-halo);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .infall-star-breathe {
+    animation: star-breathe 2.4s ease-in-out infinite;
+  }
+}
+
+@media (max-width: 1100px) {
+  .shell-tab-label {
+    overflow-wrap: anywhere;
+    white-space: normal;
+    hyphens: auto;
+    text-align: center;
+  }
+}
+
+@media (min-width: 721px) and (max-width: 1100px) {
+  .shell-header {
+    gap: 12px;
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(120px, 16vw);
+  }
+  .shell-tab {
+    padding: 4px 6px 8px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 720px) {
+  .shell-header {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 8px;
+    padding: 8px 16px;
+  }
+  .shell-header-controls {
+    grid-template-columns: minmax(0, auto) minmax(112px, 1fr);
+  }
+  .shell-column {
+    padding-inline: 16px;
+  }
+  .shell-device-detail {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .shell-nav {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 40;
+    display: flex;
+    gap: 0;
+    padding: 4px 8px calc(4px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--cf-line);
+    background: var(--cf-page);
+  }
+  .shell-tab {
+    flex: 1 1 auto;
+    min-height: 48px;
+    gap: 3px;
+    padding: 4px 3px 10px;
+    font-size: 13px;
+  }
+  .shell-tab[aria-current="page"]::after {
+    inset-inline: 5px;
+    bottom: 6px;
+  }
 }

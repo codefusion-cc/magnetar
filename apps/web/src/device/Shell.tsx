@@ -1,7 +1,9 @@
-import { Check, ChevronsUpDown, CloudOff, Download, ExternalLink, FolderOpen, Loader, Search, Settings, ShieldAlert, Tv, WifiOff } from 'lucide-react'
+import { Check, ExternalLink } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, NavLink, Outlet } from 'react-router'
 import { featuresUrl } from '../lib/featuresLink.ts'
+import { deviceStar } from '../lib/deviceStar.ts'
+import { Star } from '../ui/Star.tsx'
 import { expectsAway } from '../lib/updateInstall.ts'
 import { useLanguage, useT } from '../lib/i18n.tsx'
 import { Loading } from '../ui/Loading.tsx'
@@ -9,7 +11,7 @@ import { useDevice, useDownloads, useSearchLink } from './DeviceContext.tsx'
 import { isActive } from './components/downloads.tsx'
 import { BrandMark } from '../ui/BrandMark.tsx'
 import { MenuButton } from '../ui/Menu.tsx'
-import { BuildVersion } from '@codefusion-cc/app-update/react'
+import { BuildVersion, CommitLink } from '@codefusion-cc/app-update/react'
 import { MAGNETAR_REPO } from '@magnetar/protocol/cloud'
 import { BUILD } from '../lib/updates.ts'
 import { UpdateBanner } from './UpdateBanner.tsx'
@@ -18,8 +20,8 @@ import { UpdateBanner } from './UpdateBanner.tsx'
 export type DeviceMenu = (label: ReactNode, placement: 'up' | 'down') => ReactNode
 
 /**
- * The dashboard frame. Wide screens get a sidebar with the device's status; phones get a slim top
- * bar and a tab bar at the bottom, within thumb reach. The device's name opens `deviceMenu`, or, on
+ * The dashboard frame. Wide screens get one top row; phones keep the places at the bottom, within thumb reach.
+ * The device's name opens `deviceMenu`, or, on
  * this computer's own dashboard once it is on an account, a link to the account's other devices.
  */
 export function Shell({ headerStart, headerEnd, deviceMenu }: { headerStart?: ReactNode; headerEnd?: ReactNode; deviceMenu?: DeviceMenu }) {
@@ -30,61 +32,39 @@ export function Shell({ headerStart, headerEnd, deviceMenu }: { headerStart?: Re
   const searchLink = useSearchLink()
 
   const nav = [
-    { to: basePath || '/', end: true, icon: Download, label: t('nav.downloads'), badge: active },
-    { to: searchLink, end: false, icon: Search, label: t('nav.search') },
-    { to: `${basePath}/series`, end: false, icon: Tv, label: t('nav.series') },
-    { to: `${basePath}/files`, end: false, icon: FolderOpen, label: t('nav.files') },
-    { to: `${basePath}/settings`, end: false, icon: Settings, label: t('nav.settings') },
+    { to: basePath || '/', end: true, label: t('nav.downloads'), count: active },
+    { to: searchLink, end: false, label: t('nav.search') },
+    { to: `${basePath}/series`, end: false, label: t('nav.series') },
+    { to: `${basePath}/files`, end: false, label: t('nav.files') },
+    { to: `${basePath}/settings`, end: false, label: t('nav.settings') },
   ]
 
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
-      <aside className="sticky top-0 hidden h-screen flex-col gap-6 border-r border-base-300 bg-base-100 px-3 py-5 lg:flex">
-        <div className="flex items-center gap-1 px-2">
+    <div className="pb-tabbar flex min-h-screen min-w-0 flex-col bg-page text-ink">
+      <header className={`shell-header${headerStart || headerEnd ? ' shell-header-controls' : ''}`}>
+        <div className="flex min-w-0 items-center gap-2">
           {headerStart}
           <Brand />
         </div>
-        <nav aria-label={t('nav.menu')} className="flex flex-col gap-0.5">
+        <nav aria-label={t('nav.menu')} className="shell-nav">
           {nav.map(item => (
-            <NavLink key={item.to} to={item.to} end={item.end}
-              className={({ isActive: current }) => `flex items-center gap-3 rounded-field px-3 py-2 text-sm font-medium transition-colors ${
-                current ? 'bg-primary/10 text-primary' : 'muted hover:bg-base-200 hover:text-base-content'}`}>
-              <item.icon size={18} />
-              <span className="flex-1">{item.label}</span>
-              {!!item.badge && <span className="badge badge-sm badge-primary tabular-nums">{item.badge}</span>}
+            <NavLink key={item.to} to={item.to} end={item.end} className="shell-tab">
+              <span className="shell-tab-label">{item.label}</span>
+              {!!item.count && <span className="shrink-0 tabular-nums">{item.count}</span>}
             </NavLink>
           ))}
         </nav>
-        <div className="flex-1" />
-        <DeviceStatus end={headerEnd} menu={menu} />
-        {info && <Builds />}
-      </aside>
-
-      <div className="flex min-h-screen min-w-0 flex-col">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-base-300 bg-base-100/90 px-3 backdrop-blur lg:hidden">
-          {headerStart}
-          <div className="min-w-0 flex-1"><DeviceStatus compact menu={menu} /></div>
+        <div className="shell-device flex min-w-0 items-center gap-2">
+          <DeviceStatus menu={menu} />
           {headerEnd}
-        </header>
-        <ConnectionBanner />
-        <UpdateBanner />
-        <main className="pb-tabbar mx-auto w-full max-w-5xl flex-1 px-4 pt-5 sm:px-6 lg:px-10 lg:pt-10">
-          {connectionState.status === 'open' || info ? <Outlet /> : <Loading />}
-        </main>
-        <nav aria-label={t('nav.menu')}
-          className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-base-300 bg-base-100/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
-          {nav.map(item => (
-            <NavLink key={item.to} to={item.to} end={item.end}
-              className={({ isActive: current }) => `relative flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium ${current ? 'text-primary' : 'muted'}`}>
-              <span className="relative">
-                <item.icon size={22} />
-                {!!item.badge && <span className="badge badge-xs badge-primary absolute -top-1.5 left-3.5 tabular-nums">{item.badge}</span>}
-              </span>
-              <span className="max-w-full truncate px-1">{item.label}</span>
-            </NavLink>
-          ))}
-        </nav>
-      </div>
+        </div>
+      </header>
+      <ConnectionBanner />
+      <UpdateBanner />
+      <main className="shell-column w-full min-w-0 flex-1 pt-5">
+        {connectionState.status === 'open' || info ? <Outlet /> : <Loading />}
+      </main>
+      {info && <footer className="shell-column w-full py-6"><Builds /></footer>}
     </div>
   )
 }
@@ -96,13 +76,13 @@ function Builds() {
   const language = useLanguage()
   if (!info) return null
   return (
-    <div className="muted flex flex-col gap-0.5 px-3 text-xs">
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-muted">
       <span>
-        <Link to={`${basePath}/settings/about`} className="link link-hover" title={t('settings.section.about')}>Magnetar</Link>
-        {' '}<BuildVersion repo={MAGNETAR_REPO} className="tabular-nums" commitClassName="link link-hover font-mono" version={info.version} commit={info.commit} />
+        <Link to={`${basePath}/settings/about`} className="hover:underline" title={t('settings.section.about')}>Magnetar</Link>
+        {' '}<BuildVersion repo={MAGNETAR_REPO} className="tabular-nums" version={info.version} />{' '}<CommitLink repo={MAGNETAR_REPO} className="font-mono hover:underline" commit={info.commit} />
       </span>
-      <a href={featuresUrl(language)} className="link link-hover self-start" target="_blank" rel="noreferrer noopener">{t('footer.features')}</a>
-      {connection.kind === 'remote' && <span>{t('shell.website')} <BuildVersion repo={MAGNETAR_REPO} className="tabular-nums" commitClassName="link link-hover font-mono" version={BUILD.version} commit={BUILD.commit} /></span>}
+      <a href={featuresUrl(language)} className="hover:underline" target="_blank" rel="noreferrer noopener">{t('footer.features')}</a>
+      {connection.kind === 'remote' && <span>{t('shell.website')} <BuildVersion repo={MAGNETAR_REPO} className="tabular-nums" version={BUILD.version} />{' '}<CommitLink repo={MAGNETAR_REPO} className="font-mono hover:underline" commit={BUILD.commit} /></span>}
     </div>
   )
 }
@@ -123,7 +103,7 @@ function localDeviceMenu(cloudUrl: string, t: ReturnType<typeof useT>): DeviceMe
       items={close => (
         <>
           <li role="none">
-            <a role="menuitem" href="/" aria-current="page" className="menu-active" onClick={event => { event.preventDefault(); close() }}>
+            <a role="menuitem" href="/" aria-current="page" className="font-semibold" onClick={event => { event.preventDefault(); close() }}>
               <span className="flex-1">{t('shell.thisComputer')}</span><Check size={16} aria-hidden />
             </a>
           </li>
@@ -138,25 +118,26 @@ function localDeviceMenu(cloudUrl: string, t: ReturnType<typeof useT>): DeviceMe
 }
 
 /** Which device this is and whether it is reachable; with a menu, also the way to the others. */
-function DeviceStatus({ compact = false, end, menu }: { compact?: boolean; end?: ReactNode; menu?: DeviceMenu }) {
+function DeviceStatus({ menu }: { menu?: DeviceMenu }) {
   const t = useT()
   const { deviceName, connection, connectionState, installPhase } = useDevice()
-  const online = connectionState.status === 'open'
-  const away = expectsAway(installPhase) ? t('settings.installing') : t('connection.reconnecting')
+  const light = deviceStar(connectionState, installPhase)
   const where = connection.kind === 'remote' ? t('remote.viaRelay') : t('shell.thisComputer')
-  const dot = <span className={`inline-block size-2 shrink-0 rounded-full ${online ? 'bg-success' : 'bg-warning'}`} />
+  const status = connectionState.status === 'open' ? where
+    : expectsAway(installPhase) ? t('settings.installing')
+    : connectionState.status === 'rejected' ? t(connectionState.reason)
+    : light === 'out' ? t('devices.offline')
+    : t('connection.reconnecting')
   const label = (
-    <span className={`flex min-w-0 items-center gap-2 ${menu ? 'rounded-field -m-1.5 p-1.5 transition-colors hover:bg-base-200' : ''}`}>
-      <span className={`min-w-0 flex-1 ${compact ? 'leading-tight' : ''}`}>
-        <span className="block truncate text-sm font-semibold">{deviceName}</span>
-        <span className={`muted flex items-center gap-1.5 text-xs ${compact ? '' : 'mt-0.5'}`}>{dot}<span className="truncate">{online ? where : away}</span></span>
+    <span className={`flex min-w-0 items-center gap-2 py-2 ${menu ? 'rounded-ctl hover:bg-raised' : ''}`}>
+      <span className="grid size-8 shrink-0 place-items-center"><Star state={light} /></span>
+      <span className="min-w-0 flex-1 leading-tight">
+        <span className="block truncate text-[15px] font-semibold">{deviceName}</span>
+        <span className="shell-device-detail mt-0.5 block truncate text-[13px] text-muted">{status}</span>
       </span>
-      {menu && <ChevronsUpDown size={16} className="muted shrink-0" aria-hidden />}
     </span>
   )
-  const body = menu ? menu(label, compact ? 'down' : 'up') : <div className="min-w-0 flex-1">{label}</div>
-  if (compact) return body
-  return <div className="flex items-center gap-2 rounded-box border border-base-300 p-3">{body}{end}</div>
+  return menu ? menu(label, 'down') : <div className="min-w-0 flex-1">{label}</div>
 }
 
 function ConnectionBanner() {
@@ -172,14 +153,13 @@ function ConnectionBanner() {
   // An app that restarts to update is away on purpose: the update's own notice says so, until it has waited too long.
   if (!visible || connectionState.status === 'open' || connectionState.status === 'closed' || expectsAway(installPhase)) return null
 
-  const [tone, icon, text] =
-    connectionState.status === 'device-offline' ? ['alert-warning', <CloudOff key="i" size={18} />, t('remote.deviceOffline')]
-    : connectionState.status === 'rejected' ? ['alert-error', <ShieldAlert key="i" size={18} />, t(connectionState.reason)]
-    : connectionState.status === 'reconnecting' ? ['alert-warning', <WifiOff key="i" size={18} />, t('connection.reconnecting')]
-    : ['alert-info', <Loader key="i" size={18} className="animate-spin" />, t('connection.connecting')]
+  const text = connectionState.status === 'device-offline' ? t('remote.deviceOffline')
+    : connectionState.status === 'rejected' ? t(connectionState.reason)
+    : connectionState.status === 'reconnecting' ? t('connection.reconnecting')
+    : t('connection.connecting')
   return (
-    <div className="px-4 pt-4 sm:px-6 lg:px-10">
-      <div role="alert" className={`alert alert-soft ${tone} mx-auto max-w-5xl`}>{icon}<span>{text}</span></div>
+    <div className="shell-column w-full pt-4">
+      <p role="alert" className={connectionState.status === 'rejected' ? 'text-danger' : 'text-muted'}>{text}</p>
     </div>
   )
 }

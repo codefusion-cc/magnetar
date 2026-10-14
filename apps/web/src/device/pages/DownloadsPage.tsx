@@ -1,6 +1,6 @@
 import type { DownloadDto } from '@magnetar/protocol'
 import { formatRate } from '@magnetar/protocol/bytes'
-import { ArrowDown, ArrowUp, CloudDownload, Plus, Search, Tv } from 'lucide-react'
+import { ArrowDown, ArrowUp, Plus, Search, Tv } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { useLanguage, useT } from '../../lib/i18n.tsx'
@@ -78,8 +78,8 @@ export function DownloadsPage() {
       <DiskFullNotice transfer={transfer} />
       <LegacyImportBanner />
       {downloads.length === 0 ? (
-        <Empty icon={<CloudDownload size={40} strokeWidth={1.5} className="text-primary" />} title={t('downloads.emptyTitle')} text={t('downloads.emptyHint')}>
-          <div className="flex flex-wrap justify-center gap-2">
+        <Empty title={t('downloads.emptyTitle')} text={t('downloads.emptyHint')}>
+          <div className="flex flex-wrap justify-start gap-2">
             <Link to={searchLink} className="btn btn-primary"><Search size={16} />{t('downloads.searchButton')}</Link>
             <Link to={`${basePath}/series`} className="btn btn-ghost"><Tv size={16} />{t('downloads.seriesButton')}</Link>
           </div>
