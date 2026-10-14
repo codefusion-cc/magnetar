@@ -323,7 +323,8 @@ function scenes(website: Website): Scene<BrowserContext, Page>[] {
       shots: ['details', 'player'],
       run: async ({ page: open, shoot, wants }) => {
         const page = await open()
-        await page.goto(local())
+        // Sintel has finished, and the page opens on what is active.
+        await page.goto(`${local()}/downloads?view=finished`)
         await heading(page, 'Downloads')
         await page.locator('li').filter({ hasText: 'Sintel' }).getByRole('button', { name: 'Sintel', exact: true }).click()
         const details = dialog(page, 'Download details')
