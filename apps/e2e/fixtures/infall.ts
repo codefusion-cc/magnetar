@@ -61,10 +61,10 @@ export function infallDownloads(screen: InfallScreen): DownloadDto[] {
   return source.map((row, i) => ({
     id: i + 1, name: row.title, status: ({ down: 'Downloading', paused: 'Paused', seed: 'Seeding', done: 'Completed', error: 'Error' } as const)[row.st],
     progress: row.pct, totalBytes: size(row.size), downloadSpeed: row.speed && row.st === 'down' ? size(row.speed.replace('/s', '')) : 0,
-    uploadSpeed: 0, peers: row.st === 'down' ? 12 : 0, source: row.st === 'error' ? 'EZTV' : 'The Pirate Bay',
+    uploadSpeed: 0, peers: 0, source: row.st === 'error' ? 'EZTV' : 'The Pirate Bay',
     savePath: row.st === 'error' ? '/Users/alex/Movies' : '/Users/alex/Movies/Sintel',
-    addedAt: new Date(new Date('2026-10-14T20:14:00').getTime() - i * 1000).toISOString(),
-    completedAt: row.st === 'seed' ? '2026-10-14T14:02:00' : row.st === 'done' ? '2026-10-13T14:02:00' : null,
+    addedAt: screen === 'details-fail' && row.st === 'error' ? '2026-10-14T20:31:00+02:00' : new Date(new Date('2026-10-14T20:14:00+02:00').getTime() - i * 1000).toISOString(),
+    completedAt: row.st === 'seed' ? '2026-10-14T14:02:00+02:00' : row.st === 'done' ? '2026-10-13T14:02:00+02:00' : null,
     error: row.st === 'error' ? 'No peers after 3 minutes' : null, seriesTaskId: null, uploadedBytes: i === 0 ? 230e6 : 0, partialFiles: null,
   }))
 }

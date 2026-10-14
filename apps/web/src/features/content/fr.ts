@@ -105,12 +105,12 @@ export const content: FeaturesContent = {
       features: {
         engine: {
           title: 'Un moteur de téléchargement intégré',
-          gain: 'Progression, vitesse, pairs et temps restant en direct pour chaque téléchargement, sans rien d’autre à installer.',
+          gain: 'Progression, débit et temps restant pour chaque téléchargement, sans rien installer de plus.',
           text: 'Les téléchargements tournent dans Magnetar sur librqbit, avec DHT et trackers, et le tableau de bord se met à jour chaque seconde. Une pause, un redémarrage ou une mise à jour ne relit jamais les pièces déjà terminées.',
           points: [
-            'Vues Actifs, Terminés et Tous avec leur nombre, et un ordre au choix (récents, anciens, nom, taille, progression), retenu pour chaque appareil ; chaque téléchargement indique quand il a été ajouté et terminé ; mettez en pause, reprenez, réessayez ou supprimez chacun',
+            'Vues En cours, Terminés et Tous, ordre mémorisé par ordinateur et boutons texte pour mettre en pause, reprendre, réessayer ou retirer. Un téléchargement terminé reste visible jusqu’au changement de vue.',
             'La suppression demande s’il faut garder les fichiers',
-            'Vitesses totales de réception et d’envoi, et espace libre restant, signalé en avertissement sous 5 Go',
+            'Le résumé indique l’ordinateur, les téléchargements en cours, le débit total et l’espace libre. Réduisez le débit ou revenez à pleine vitesse ici; les horaires restent dans Paramètres → Téléchargements.',
             'Le port du routeur est ouvert par UPnP, et un torrent qui ne trouve aucun pair en trois minutes le signale au lieu d’attendre indéfiniment',
             'Un torrent de plusieurs fichiers a son propre dossier',
           ],
@@ -122,14 +122,14 @@ export const content: FeaturesContent = {
           points: [
             'L’explorateur s’ouvre dans le dernier dossier utilisé : enregistrer deux fois au même endroit, c’est deux clics',
             'Cochez « Toujours enregistrer ici, ne plus demander » pour en faire le dossier de téléchargement et ne plus être interrogé ; Paramètres → Téléchargements rétablit la question',
-            'Sans question, Télécharger ajoute dans le dossier de téléchargement en un clic, et les détails gardent un lien « Enregistrer dans un autre dossier… »',
+            'Sans la question du dossier, Télécharger ajoute au dossier de téléchargement en un clic. Paramètres → Téléchargements permet de réactiver la question.',
             'Par le site, seuls le dossier de téléchargement et les dossiers ajoutés sur l’ordinateur peuvent être choisis, comme partout',
           ],
         },
         files: {
           title: 'Seulement les fichiers voulus',
           gain: 'Téléchargez un seul épisode d’une saison, ou laissez de côté les bonus, et suivez chaque fichier séparément.',
-          text: 'Les détails d’un téléchargement listent ses fichiers, chacun avec une case à cocher et sa progression, actualisée toutes les deux secondes pendant le téléchargement, ainsi que sa taille, son ratio, ses dates, sa source et son dossier.',
+          text: 'Chaque téléchargement a sa page avec un lien de retour, sa piste, son dossier, ses dates, sa source et son ratio. Les fichiers ont des cases à cocher, leur taille et une progression actualisée toutes les deux secondes. Les mises à jour conservent les choix en cours.',
           points: [
             'Modifiez la sélection à tout moment ; un bouton l’enregistre',
             '« Afficher dans le dossier » ouvre le Finder ou l’Explorateur de fichiers sur le fichier, sur votre ordinateur',

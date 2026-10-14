@@ -105,12 +105,12 @@ export const content: FeaturesContent = {
       features: {
         engine: {
           title: 'Um motor de transferências integrado',
-          gain: 'Progresso, velocidade, pares e tempo restante de cada transferência em tempo real, sem mais nada para instalar.',
+          gain: 'Progresso, velocidade e tempo restante de cada transferência, sem instalar mais nada.',
           text: 'As transferências correm dentro do Magnetar, com o librqbit, DHT e trackers, e o painel atualiza-se a cada segundo. Pausar, reiniciar ou atualizar nunca volta a ler as partes já concluídas.',
           points: [
-            'Vistas Ativas, Concluídas e Todas com a respetiva contagem, e uma ordem à escolha (recentes, antigas, nome, tamanho, progresso), guardada em cada dispositivo; cada transferência mostra quando foi adicionada e concluída; pause, retome, tente novamente ou elimine cada uma',
+            'Vistas Ativas, Concluídas e Todas, ordem guardada por computador e botões de texto para pausar, retomar, tentar novamente ou remover. Uma transferência concluída fica visível até mudar de vista.',
             'Ao eliminar, pergunta se quer manter os ficheiros',
-            'Velocidade total de receção e envio e o espaço livre, que passa a aviso abaixo de 5 GB',
+            'O resumo mostra o computador, as transferências em curso, a velocidade total e o espaço livre. Aqui pode reduzir a velocidade ou voltar à máxima; os horários ficam em Definições → Transferências.',
             'A porta do router é aberta por UPnP, e um torrent que não encontra pares em três minutos avisa em vez de esperar para sempre',
             'Um torrent com vários ficheiros fica numa pasta própria',
           ],
@@ -122,14 +122,14 @@ export const content: FeaturesContent = {
           points: [
             'O navegador abre na última pasta usada, por isso guardar duas vezes no mesmo sítio são dois toques',
             'Marque «Guardar sempre aqui, não perguntar mais» para tornar essa pasta a das transferências e deixar de ser questionado; Definições → Transferências repõe a pergunta',
-            'Sem perguntar, Transferir adiciona à pasta de transferências com um clique, e os detalhes mantêm a ligação «Guardar noutra pasta…»',
+            'Sem a pergunta da pasta, Transferir adiciona à pasta predefinida com um clique. Definições → Transferências permite voltar a ativar a pergunta.',
             'Pelo site só se podem escolher a pasta de transferências e as adicionadas no computador, como em todo o lado',
           ],
         },
         files: {
           title: 'Só os ficheiros que quer',
           gain: 'Transfira um episódio de uma temporada inteira, ou deixe os extras de fora, e acompanhe cada ficheiro em separado.',
-          text: 'Os detalhes de uma transferência listam os ficheiros, cada um com uma caixa de seleção e o seu progresso, atualizado a cada dois segundos enquanto decorre, além do tamanho, rácio, datas, origem e pasta.',
+          text: 'Cada transferência abre a sua página com uma ligação para voltar, a faixa, a pasta, as datas, a origem e o rácio. Os ficheiros têm caixas de seleção, tamanhos e progresso atualizado a cada dois segundos. As atualizações conservam as alterações à seleção.',
           points: [
             'Altere a seleção a qualquer momento; um botão guarda-a',
             '«Mostrar na pasta» abre o Finder ou o Explorer no ficheiro, no seu computador',

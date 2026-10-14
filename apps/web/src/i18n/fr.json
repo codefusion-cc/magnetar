@@ -466,12 +466,10 @@
     "common.remove": "Retirer",
     "transfer.starting": "Démarrage du moteur de téléchargement…",
     "transfer.waitingText": "Le trafic torrent passe uniquement par {0}, qui n'est pas connectée. Rien n'est téléchargé ni envoyé tant qu'elle n'est pas revenue.",
-    "transfer.failedTitle": "Le moteur de téléchargement n'a pas pu démarrer",
     "transfer.failedText": "Nouvel essai toutes les 30 secondes. {0}",
     "transfer.diskFullTitle": "Disque plein",
     "transfer.diskFullText": "Libérez de l'espace sur {0} pour poursuivre les téléchargements. Aucune nouvelle donnée ne peut être enregistrée tant qu'il n'y a pas de place.",
     "transfer.diskFullHere": "Libérez de l'espace sur le disque de cet ordinateur pour poursuivre les téléchargements. Aucune nouvelle donnée ne peut être enregistrée tant qu'il n'y a pas de place.",
-    "transfer.scheduled": "selon l'horaire",
     "downloads.ratio": "ratio {0}",
     "downloads.someFiles": "{0} fichiers sur {1}",
     "details.uploaded": "Envoyé",
@@ -640,7 +638,6 @@
     "update.lostRemote": "La mise à jour ne s’est pas terminée : {0} n’est pas revenu. Ouvrez Magnetar sur cet ordinateur.",
     "update.lostLocal": "La mise à jour ne s’est pas terminée : Magnetar n’est pas revenu. Ouvrez-le à nouveau.",
     "update.installed": "Magnetar {0} est installé.",
-    "shell.website": "Site web",
     "settings.commit": "Compilée depuis le commit",
     "about.title": "À propos de Magnetar",
     "about.subtitle": "Versions, téléchargements et ce qu'apporte chaque version.",
@@ -695,6 +692,11 @@
     "downloads.networkSettings": "Paramètres réseau",
     "downloads.today": "aujourd’hui",
     "downloads.yesterday": "hier",
-    "details.revealLocal": "Ouvre le dossier sur l’ordinateur lui-même. Disponible sur cet ordinateur."
+    "details.revealLocal": "Ouvre le dossier sur l’ordinateur lui-même. Disponible sur cet ordinateur.",
+    "downloads.minutesLeftFew": "Encore {0} min",
+    "transfer.free": "{0} libres",
+    "downloads.peers": "{0} pairs",
+    "downloads.uploading": "Envoi à {0}.",
+    "shell.notReachable": "Injoignable"
   }
 }

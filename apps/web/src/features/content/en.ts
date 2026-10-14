@@ -105,12 +105,12 @@ export const en: FeaturesContent = {
       features: {
         engine: {
           title: 'A download engine built in',
-          gain: 'Live progress, speed, peers and time left for every download, with nothing else to install.',
+          gain: 'Live progress, speed and time left for every download, with nothing else to install.',
           text: 'Downloads run inside Magnetar on librqbit, with DHT and trackers, and the dashboard updates once a second. Pausing, restarting or an update never reads finished pieces again.',
           points: [
-            'Active, Finished and All views with their counts, and an order of your choice (newest, oldest, name, size, progress), remembered on that device; each download shows when it was added and finished; pause, resume, retry or delete each one',
+            'Active, Finished and All views, an order remembered for each computer, and text buttons to pause, resume, try again or remove a download. A row that finishes stays in view until you change views.',
             'Deleting asks whether to keep the files',
-            'Total download and upload speed and the free space left, which turns to a warning below 5 GB',
+            'The summary names the computer, its running downloads, combined download speed and free space. Slow down or return to full speed there; schedules stay in Settings → Downloads.',
             'The router\'s port is opened by UPnP, and a torrent that finds no peers in three minutes says so instead of waiting forever',
             'A torrent of several files gets its own folder',
           ],
@@ -122,14 +122,14 @@ export const en: FeaturesContent = {
           points: [
             'The browser opens in the folder you used last, so saving to the same place twice is two taps',
             'Tick "Always save here, don\'t ask again" to make that folder the download folder and stop being asked; Settings → Downloads brings the question back',
-            'With asking off, Download adds to the download folder in one click, and the details dialog keeps a "Save to another folder…" link',
+            'With asking off, Download adds to the download folder in one click. Settings → Downloads lets you turn the folder question back on.',
             'Through the website only the download folder and folders added on the computer can be chosen, as everywhere else',
           ],
         },
         files: {
           title: 'Just the files you want',
           gain: 'Download one episode out of a season, or skip the extras, and follow each file on its own.',
-          text: 'A download\'s details list its files with a checkbox each and their progress, refreshed every two seconds while it runs, with its size, ratio, dates, source and folder.',
+          text: 'A download opens on its own page with a link back to all downloads, its lane, folder, dates, source and ratio. Files have checkboxes, sizes and progress that refreshes every two seconds while it runs. Edits stay selected when the list refreshes.',
           points: [
             'Change the selection at any time; one button saves it',
             '"Show in folder" opens Finder or Explorer at the file, on your computer',

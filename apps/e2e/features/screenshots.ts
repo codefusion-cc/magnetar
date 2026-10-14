@@ -327,8 +327,8 @@ function scenes(website: Website): Scene<BrowserContext, Page>[] {
         await page.goto(`${local()}/downloads?view=finished`)
         await heading(page, 'Downloads')
         await page.locator('li').filter({ hasText: 'Sintel' }).getByRole('button', { name: 'Sintel', exact: true }).click()
-        const details = dialog(page, 'Download details')
-        await details.getByText('Sintel.mp4').waitFor()
+        const details = page.locator('.download-one')
+        await details.getByRole('button', { name: 'Play Sintel.mp4', exact: true }).waitFor()
         await tidy(page)
         await shoot(page, 'details')
         if (!wants('player')) return

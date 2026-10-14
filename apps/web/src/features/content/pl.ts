@@ -105,12 +105,12 @@ export const content: FeaturesContent = {
       features: {
         engine: {
           title: 'Wbudowany silnik pobierania',
-          gain: 'Postęp, prędkość, peery i pozostały czas każdego pobierania na żywo, bez instalowania czegokolwiek więcej.',
+          gain: 'Postęp, prędkość i pozostały czas każdego pobierania, bez instalowania niczego więcej.',
           text: 'Pobieranie działa wewnątrz Magnetara na librqbit, z DHT i trackerami, a panel odświeża się co sekundę. Wstrzymanie, ponowne uruchomienie ani aktualizacja nigdy nie każą ponownie odczytywać ukończonych fragmentów.',
           points: [
-            'Widoki Aktywne, Ukończone i Wszystkie z licznikami oraz wybrana kolejność (najnowsze, najstarsze, nazwa, rozmiar, postęp), zapamiętana na urządzeniu; każde pobranie pokazuje, kiedy je dodano i ukończono; każde pobieranie możesz wstrzymać, wznowić, ponowić albo usunąć',
+            'Widoki Aktywne, Ukończone i Wszystkie, kolejność zapamiętana dla każdego komputera oraz przyciski Wstrzymaj, Wznów, Spróbuj ponownie i Usuń. Ukończony wiersz zostaje na miejscu, dopóki nie zmienisz widoku.',
             'Przy usuwaniu pojawia się pytanie, czy zachować pliki',
-            'Łączna prędkość pobierania i wysyłania oraz wolne miejsce, które poniżej 5 GB zmienia się w ostrzeżenie',
+            'Podsumowanie pokazuje komputer, liczbę pobierań, łączną prędkość i wolne miejsce. Tu zwolnisz lub wrócisz do pełnej prędkości; harmonogram zostaje w Ustawieniach → Pobieranie.',
             'Port na routerze otwiera UPnP, a torrent, który przez trzy minuty nie znajdzie peerów, mówi o tym, zamiast czekać w nieskończoność',
             'Torrent z kilkoma plikami dostaje własny folder',
           ],
@@ -122,14 +122,14 @@ export const content: FeaturesContent = {
           points: [
             'Przeglądarka otwiera się w ostatnio używanym folderze, więc zapis w to samo miejsce to dwa stuknięcia',
             'Zaznacz „Zawsze zapisuj tutaj, nie pytaj więcej”, by ten folder stał się folderem pobierania i pytanie zniknęło; Ustawienia → Pobieranie je przywracają',
-            'Gdy pytanie jest wyłączone, Pobierz dodaje do folderu pobierania jednym kliknięciem, a szczegóły mają link „Zapisz w innym folderze…”',
+            'Gdy pytanie jest wyłączone, Pobierz dodaje do folderu pobierania jednym kliknięciem. Ustawienia → Pobieranie pozwalają ponownie włączyć pytanie o folder.',
             'Przez stronę można wybrać tylko folder pobierania i foldery dodane na komputerze, jak wszędzie',
           ],
         },
         files: {
           title: 'Tylko te pliki, których chcesz',
           gain: 'Pobierz jeden odcinek z całego sezonu albo pomiń dodatki i śledź każdy plik osobno.',
-          text: 'Szczegóły pobierania pokazują jego pliki, każdy z polem wyboru i postępem odświeżanym co dwie sekundy w trakcie pobierania, a także rozmiar, współczynnik, daty, źródło i folder.',
+          text: 'Pobieranie otwiera się na osobnej stronie z linkiem do wszystkich pobierań, torem, folderem, datami, źródłem i współczynnikiem. Pliki mają pola wyboru, rozmiary i postęp odświeżany co dwie sekundy. Zmiana wyboru nie ginie przy odświeżeniu listy.',
           points: [
             'Wybór możesz zmienić w każdej chwili; zapisuje go jeden przycisk',
             '„Pokaż w folderze” otwiera Finder lub Explorer przy danym pliku, na Twoim komputerze',

@@ -141,6 +141,11 @@ export function DeviceProvider({ connection, basePath, deviceName, children }: {
   const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
+    let cancelled = false
+    let refreshId = 0
+    let downloadsVersion = 0
+    let duringList = new Map<number, DownloadDto>()
+    let pendingList = false
     const observe = (view: AppView) => {
       setAppView(view)
       setNow(Date.now())
@@ -154,17 +159,31 @@ export function DeviceProvider({ connection, basePath, deviceName, children }: {
       observe({ online: true, running: status.currentVersion, installing: status.installing })
     }
     const refresh = async () => {
+      const attempt = ++refreshId
+      const version = downloadsVersion
+      duringList = new Map()
+      pendingList = true
+      setRead({ loading: true, failed: false })
+      void connection.call('downloads.list').then(list => {
+        if (cancelled || attempt !== refreshId || version !== downloadsVersion) return
+        setDownloads(mergeRows(list, [...duringList.values()]))
+        pendingList = false
+        duringList.clear()
+        setRead({ loading: false, failed: false })
+      }, () => {
+        if (!cancelled && attempt === refreshId && version === downloadsVersion) { pendingList = false; duringList.clear(); setRead({ loading: false, failed: true }) }
+      })
       try {
         // The website can be newer than the device's app: what an older app lacks is left out.
         const optional = <T,>(call: Promise<T>) => call.catch(() => null)
-        const [i, d, s, st, src, u, r, tr] = await Promise.all([
-          connection.call('app.info'), connection.call('downloads.list').then(list => { setRead({ loading: false, failed: false }); return list }).catch(() => { setRead({ loading: false, failed: true }); return null }), connection.call('series.list'),
+        const [i, s, st, src, u, r, tr] = await Promise.all([
+          connection.call('app.info'), connection.call('series.list'),
           connection.call('settings.get'), connection.call('sources.list'), connection.call('updates.status'),
           connection.call('remote.status'), optional(connection.call('transfer.status')),
         ])
-        void optional(connection.call('watches.list')).then(w => setWatches(w ?? []))
+        if (cancelled || attempt !== refreshId) return
+        void optional(connection.call('watches.list')).then(w => { if (!cancelled && attempt === refreshId) setWatches(w ?? []) })
         setInfo(i)
-        if (d) setDownloads(d)
         setSeries(s)
         setSettings(st)
         setSources(withIds(src))
@@ -188,8 +207,11 @@ export function DeviceProvider({ connection, basePath, deviceName, children }: {
 
     const off = [
       offState,
-      connection.on('downloads.changed', list => { setDownloads(list); setRead({ loading: false, failed: false }) }),
-      connection.on('downloads.updated', rows => setDownloads(list => mergeRows(list, rows))),
+      connection.on('downloads.changed', list => { downloadsVersion++; pendingList = false; duringList.clear(); setDownloads(list); setRead({ loading: false, failed: false }) }),
+      connection.on('downloads.updated', rows => {
+        if (pendingList) for (const row of rows) duringList.set(row.id, row)
+        setDownloads(list => mergeRows(list, rows))
+      }),
       connection.on('transfer.changed', setTransfer),
       connection.on('series.changed', setSeries),
       connection.on('watches.changed', setWatches),
@@ -215,7 +237,7 @@ export function DeviceProvider({ connection, basePath, deviceName, children }: {
         }
       }),
     ]
-    return () => off.forEach(fn => fn())
+    return () => { cancelled = true; off.forEach(fn => fn()) }
   }, [connection, readRetry])
 
   const awaySince = install.attempt?.offlineSince ?? null

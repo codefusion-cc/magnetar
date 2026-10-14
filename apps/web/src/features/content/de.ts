@@ -105,12 +105,12 @@ export const content: FeaturesContent = {
       features: {
         engine: {
           title: 'Eine eingebaute Download-Engine',
-          gain: 'Fortschritt, Tempo, Peers und Restzeit jedes Downloads live, ohne dass du noch etwas installieren musst.',
+          gain: 'Fortschritt, Geschwindigkeit und Restzeit für jeden Download, ohne weitere Installation.',
           text: 'Downloads laufen in Magnetar auf librqbit, mit DHT und Trackern, und das Dashboard aktualisiert sich jede Sekunde. Nach einer Pause, einem Neustart oder einem Update werden fertige Teile nie neu eingelesen.',
           points: [
-            'Ansichten Aktiv, Fertig und Alle mit ihren Zahlen und eine Reihenfolge nach Wahl (neueste, älteste, Name, Größe, Fortschritt), pro Gerät gemerkt; jeder Download zeigt, wann er hinzugefügt und fertig wurde; jeden Download pausieren, fortsetzen, erneut versuchen oder löschen',
+            'Die Ansichten Aktiv, Fertig und Alle, eine pro Computer gespeicherte Reihenfolge und Textschaltflächen zum Pausieren, Fortsetzen, Wiederholen und Entfernen. Fertige Downloads bleiben bis zum Wechsel der Ansicht sichtbar.',
             'Beim Löschen fragt Magnetar, ob die Dateien bleiben sollen',
-            'Gesamttempo für Download und Upload sowie der freie Speicherplatz, der unter 5 GB zur Warnung wird',
+            'Die Übersicht zeigt den Computer, laufende Downloads, die gesamte Downloadgeschwindigkeit und freien Speicher. Hier lässt sich der Durchsatz drosseln oder wieder freigeben; Zeitpläne bleiben unter Einstellungen → Downloads.',
             'Den Port am Router öffnet UPnP, und ein Torrent, der in drei Minuten keine Peers findet, meldet das, statt ewig zu warten',
             'Ein Torrent mit mehreren Dateien bekommt einen eigenen Ordner',
           ],
@@ -122,14 +122,14 @@ export const content: FeaturesContent = {
           points: [
             'Der Browser öffnet sich im zuletzt genutzten Ordner, zweimal an denselben Ort zu speichern heißt also zwei Tipps',
             'Mit „Immer hier speichern, nicht mehr fragen“ wird dieser Ordner zum Download-Ordner und die Nachfrage endet; Einstellungen → Downloads bringt sie zurück',
-            'Ohne Nachfrage lädt Herunterladen mit einem Klick in den Download-Ordner, und die Details bieten „In einem anderen Ordner speichern…“',
+            'Ohne Rückfrage startet Herunterladen mit einem Klick im Downloadordner. Unter Einstellungen → Downloads lässt sich die Ordnerfrage wieder einschalten.',
             'Über die Website lassen sich wie überall nur der Download-Ordner und auf dem Computer hinzugefügte Ordner wählen',
           ],
         },
         files: {
           title: 'Nur die Dateien, die du willst',
           gain: 'Lade eine einzelne Folge aus einer Staffel oder lass die Extras weg, und verfolge jede Datei für sich.',
-          text: 'Die Details eines Downloads listen seine Dateien mit je einem Kontrollkästchen und ihrem Fortschritt, während des Downloads alle zwei Sekunden aktualisiert, dazu Größe, Ratio, Datumsangaben, Quelle und Ordner.',
+          text: 'Jeder Download öffnet eine eigene Seite mit Rücklink, Fortschrittsspur, Ordner, Daten, Quelle und Verhältnis. Dateien haben Auswahlfelder, Größen und einen alle zwei Sekunden aktualisierten Fortschritt. Eine Aktualisierung verwirft deine Auswahl nicht.',
           points: [
             'Die Auswahl jederzeit ändern und mit einem Knopf speichern',
             '„Im Ordner zeigen“ öffnet auf deinem Computer Finder oder Explorer bei der Datei',

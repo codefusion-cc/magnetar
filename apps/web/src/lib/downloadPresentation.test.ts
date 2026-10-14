@@ -1,4 +1,5 @@
 import type { DownloadDto } from '@magnetar/protocol'
+import { formatBytes, formatRate } from '@magnetar/protocol/bytes'
 import fc from 'fast-check'
 import { describe, expect, test } from 'vitest'
 import english from '../i18n/en.json'
@@ -38,10 +39,23 @@ describe('download presentation', () => {
     expect(downloadBytes(NaN, 'en')).toBe('0 B')
   })
 
+  test('existing byte formatter callers keep binary units and rates', () => {
+    expect(formatBytes(1024)).toBe('1 KiB')
+    expect(formatBytes(1024 ** 3)).toBe('1 GiB')
+    expect(formatRate(3.4 * 1024 ** 2)).toBe('3.4 MiB/s')
+    expect(formatBytes(-1)).toBe('0 B')
+    fc.assert(fc.property(fc.integer({ min: 0, max: 999 }), bytes => {
+      expect(downloadBytes(bytes, 'en')).toBe(`${bytes} B`)
+      expect(formatBytes(bytes)).toBe(`${bytes} B`)
+    }))
+  })
+
   test('time left rounds at the minute and hour boundaries', () => {
     expect(downloadEta(en, 0)).toBe('1 min left')
     expect(downloadEta(en, 719)).toBe('12 min left')
     expect(downloadEta(en, 4800)).toBe('1 h 20 min left')
+    expect(downloadEta(pl, 120, 'pl')).toBe('zostały 2 min')
+    expect(downloadEta(pl, 300, 'pl')).toBe('zostało 5 min')
   })
 
   test('calendar dates follow the local day, including yesterday across a month boundary', () => {

@@ -4,10 +4,11 @@ import { acceptBrowserHandshake, decodeHandshake, encodeHandshake, FRAME_HANDSHA
 import { infallDownloads, infallFiles, type InfallScreen } from './infall.ts'
 
 /** A device at the network boundary; the dashboard, transport and subscriptions stay real. */
-export async function serveDevice(page: Page, { name = 'Test computer', language = 'en', design, remote = false, delay = 0 }: { name?: string; language?: string; design?: InfallScreen; remote?: boolean; delay?: number } = {}) {
+export async function serveDevice(page: Page, { name = 'Test computer', language = 'en', design, remote = false, delay = 0, holdList = false }: { name?: string; language?: string; design?: InfallScreen; remote?: boolean; delay?: number; holdList?: boolean } = {}) {
   if (design) name = 'Mac-Mini-M1'
   const calls: string[] = []
   const failures = new Map<string, string>()
+  const heldLists = new Set<() => void>()
   let files: DownloadFileDto[] = design ? infallFiles() : []
   let listFails = design === 'downloads-fail'
   const settings: SettingsDto = {
@@ -67,7 +68,7 @@ export async function serveDevice(page: Page, { name = 'Test computer', language
   await page.routeWebSocket(remote ? '**/api/devices/test/connect' : '**/ws', socket => {
     sockets.add(socket)
     socket.onClose(() => { sockets.delete(socket); sessions.delete(socket) })
-    if (remote) socket.send(JSON.stringify({ t: 'device', online: true }))
+    if (remote) socket.send(JSON.stringify({ t: 'device', online: design !== 'loading' }))
     socket.onMessage(async raw => {
       if (raw === 'ping') return
       if (remote && typeof raw !== 'string') {
@@ -99,7 +100,10 @@ export async function serveDevice(page: Page, { name = 'Test computer', language
         return
       }
       let result: unknown
-      if (method === 'downloads.list') result = downloads
+      if (method === 'downloads.list') {
+        result = structuredClone(downloads)
+        if (holdList) await new Promise<void>(resolve => heldLists.add(resolve))
+      }
       else if (method === 'downloads.files') result = files
       else if (method === 'downloads.selectFiles') {
         files = files.map(f => ({ ...f, selected: params.files.includes(f.index) }))
@@ -141,9 +145,11 @@ export async function serveDevice(page: Page, { name = 'Test computer', language
   return {
     send,
     calls,
+    releaseList: () => { holdList = false; for (const release of heldLists) release(); heldLists.clear() },
     failNext: (method: string, message: string) => failures.set(method, message),
     setFiles: (next: DownloadFileDto[]) => { files = next },
     downloads: () => downloads,
+    settings: () => settings,
     disconnect: () => {
       for (const socket of sockets) socket.close()
       sockets.clear()

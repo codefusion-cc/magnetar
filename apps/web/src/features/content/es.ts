@@ -105,12 +105,12 @@ export const content: FeaturesContent = {
       features: {
         engine: {
           title: 'Un motor de descarga integrado',
-          gain: 'Progreso, velocidad, pares y tiempo restante en directo para cada descarga, sin instalar nada más.',
+          gain: 'Progreso, velocidad y tiempo restante de cada descarga, sin instalar nada más.',
           text: 'Las descargas se ejecutan dentro de Magnetar con librqbit, con DHT y trackers, y el panel se actualiza una vez por segundo. Pausar, reiniciar o actualizar nunca vuelve a leer las piezas ya terminadas.',
           points: [
-            'Vistas Activas, Terminadas y Todas con su recuento, y un orden a elegir (recientes, antiguas, nombre, tamaño, progreso), recordado en cada dispositivo; cada descarga muestra cuándo se añadió y cuándo terminó; pausa, reanuda, reintenta o elimina cada una',
+            'Vistas Activas, Finalizadas y Todas, orden guardado por ordenador y botones de texto para pausar, reanudar, reintentar o quitar. Una descarga finalizada permanece hasta que cambies de vista.',
             'Al eliminar, pregunta si quieres conservar los archivos',
-            'La velocidad total de descarga y subida y el espacio libre, que pasa a ser un aviso por debajo de 5 GB',
+            'El resumen muestra el ordenador, las descargas en curso, la velocidad total y el espacio libre. Ahí puedes reducir la velocidad o volver a la máxima; los horarios siguen en Ajustes → Descargas.',
             'El puerto del router se abre por UPnP, y un torrent que no encuentra pares en tres minutos lo indica en lugar de esperar para siempre',
             'Un torrent de varios archivos tiene su propia carpeta',
           ],
@@ -122,14 +122,14 @@ export const content: FeaturesContent = {
           points: [
             'El explorador se abre en la última carpeta usada, así que guardar dos veces en el mismo sitio son dos toques',
             'Marca «Guardar siempre aquí, no volver a preguntar» para que esa carpeta sea la de descargas y dejar de recibir la pregunta; Ajustes → Descargas la devuelve',
-            'Sin preguntar, Descargar añade a la carpeta de descargas con un clic, y los detalles mantienen un enlace «Guardar en otra carpeta…»',
+            'Sin la pregunta de carpeta, Descargar añade al destino predeterminado con un clic. Ajustes → Descargas permite volver a activar la pregunta.',
             'Por la web solo se pueden elegir la carpeta de descargas y las añadidas en el ordenador, como en todas partes',
           ],
         },
         files: {
           title: 'Solo los archivos que quieres',
           gain: 'Descarga un episodio de una temporada, o sáltate los extras, y sigue cada archivo por separado.',
-          text: 'Los detalles de una descarga muestran sus archivos, cada uno con su casilla y su progreso, actualizados cada dos segundos mientras avanza, junto con su tamaño, ratio, fechas, origen y carpeta.',
+          text: 'Cada descarga se abre en su propia página con enlace de vuelta, pista de progreso, carpeta, fechas, fuente y proporción. Los archivos tienen casillas, tamaños y progreso actualizado cada dos segundos. Las actualizaciones conservan los cambios de selección.',
           points: [
             'Cambia la selección cuando quieras; un botón la guarda',
             '«Mostrar en la carpeta» abre Finder o el Explorador de archivos en el archivo, en tu ordenador',

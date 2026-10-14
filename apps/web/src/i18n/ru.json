@@ -466,12 +466,10 @@
     "common.remove": "Убрать",
     "transfer.starting": "Запуск движка загрузок…",
     "transfer.waitingText": "Торрент-трафик идёт только через {0}, а оно не подключено. Ничего не скачивается и не отдаётся, пока оно не вернётся.",
-    "transfer.failedTitle": "Не удалось запустить движок загрузок",
     "transfer.failedText": "Повтор каждые 30 секунд. {0}",
     "transfer.diskFullTitle": "Диск заполнен",
     "transfer.diskFullText": "Освободите место на {0}, чтобы загрузки продолжились. Пока места нет, новые данные сохранить нельзя.",
     "transfer.diskFullHere": "Освободите место на диске этого компьютера, чтобы загрузки продолжились. Пока места нет, новые данные сохранить нельзя.",
-    "transfer.scheduled": "по расписанию",
     "downloads.ratio": "рейтинг {0}",
     "downloads.someFiles": "Файлов: {0} из {1}",
     "details.uploaded": "Отдано",
@@ -640,7 +638,6 @@
     "update.lostRemote": "Обновление не завершилось: {0} не возвращается. Откройте там Magnetar.",
     "update.lostLocal": "Обновление не завершилось: Magnetar не возвращается. Откройте его снова.",
     "update.installed": "Magnetar {0} установлен.",
-    "shell.website": "Сайт",
     "settings.commit": "Собрана из коммита",
     "about.title": "О Magnetar",
     "about.subtitle": "Версии, загрузки и что приносит каждый выпуск.",
@@ -695,6 +692,11 @@
     "downloads.networkSettings": "Настройки сети",
     "downloads.today": "сегодня",
     "downloads.yesterday": "вчера",
-    "details.revealLocal": "Открывает папку на самом компьютере. Доступно на этом компьютере."
+    "details.revealLocal": "Открывает папку на самом компьютере. Доступно на этом компьютере.",
+    "downloads.minutesLeftFew": "Осталось {0} мин",
+    "transfer.free": "Свободно: {0}",
+    "downloads.peers": "Пиров: {0}",
+    "downloads.uploading": "Отдача со скоростью {0}.",
+    "shell.notReachable": "Нет связи"
   }
 }

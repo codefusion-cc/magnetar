@@ -1,13 +1,10 @@
 import type { DownloadDto } from '@magnetar/protocol'
+import { formatBytes } from '@magnetar/protocol/bytes'
 import type { Translate } from './i18n.tsx'
 
 /** Decimal units used by the download screens, with the dashboard's decimal separator. */
 export function downloadBytes(bytes: number, language: string): string {
-  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
-  let value = Math.max(0, Number.isFinite(bytes) ? bytes : 0)
-  let unit = 0
-  while (value >= 1000 && unit < units.length - 1) { value /= 1000; unit++ }
-  return `${new Intl.NumberFormat(language, { maximumFractionDigits: 1 }).format(value)} ${units[unit]}`
+  return formatBytes(Number.isFinite(bytes) ? bytes : 0, 1, { decimal: true, locale: language })
 }
 
 export function downloadSummary(t: Translate, language: string, name: string, count: number, speed: number): string {
@@ -16,9 +13,12 @@ export function downloadSummary(t: Translate, language: string, name: string, co
   return t(`downloads.summary.${key}`, name, count, `${downloadBytes(speed, language)}/s`)
 }
 
-export function downloadEta(t: Translate, seconds: number): string {
+export function downloadEta(t: Translate, seconds: number, language = 'en'): string {
   const minutes = Math.max(1, Math.round(seconds / 60))
-  if (minutes < 60) return t(minutes === 1 ? 'downloads.minuteLeft' : 'downloads.minutesLeft', minutes)
+  if (minutes < 60) {
+    const form = new Intl.PluralRules(language).select(minutes)
+    return t(form === 'one' ? 'downloads.minuteLeft' : form === 'few' ? 'downloads.minutesLeftFew' : 'downloads.minutesLeft', minutes)
+  }
   return t('downloads.hoursLeft', Math.floor(minutes / 60), minutes % 60)
 }
 

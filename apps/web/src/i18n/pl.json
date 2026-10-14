@@ -466,12 +466,10 @@
     "common.remove": "Usuń",
     "transfer.starting": "Uruchamianie silnika pobierania…",
     "transfer.waitingText": "Ruch torrentów używa tylko {0}, a to połączenie nie działa. Nic nie jest pobierane ani wysyłane, dopóki nie wróci.",
-    "transfer.failedTitle": "Nie udało się uruchomić silnika pobierania",
     "transfer.failedText": "Ponawia próbę co 30 sekund. {0}",
     "transfer.diskFullTitle": "Dysk jest pełny",
     "transfer.diskFullText": "Zwolnij miejsce na {0}, aby pobieranie mogło trwać. Nowe dane nie zostaną zapisane, dopóki nie będzie miejsca.",
     "transfer.diskFullHere": "Zwolnij miejsce na dysku tego komputera, aby pobieranie mogło trwać. Nowe dane nie zostaną zapisane, dopóki nie będzie miejsca.",
-    "transfer.scheduled": "według harmonogramu",
     "downloads.ratio": "współczynnik {0}",
     "downloads.someFiles": "Pliki: {0} z {1}",
     "details.uploaded": "Wysłano",
@@ -640,7 +638,6 @@
     "update.lostRemote": "Aktualizacja nie została dokończona: {0} nie wraca. Otwórz tam Magnetara.",
     "update.lostLocal": "Aktualizacja nie została dokończona: Magnetar nie wraca. Uruchom go ponownie.",
     "update.installed": "Zainstalowano Magnetara {0}.",
-    "shell.website": "Strona",
     "settings.commit": "Zbudowana z commita",
     "about.title": "O Magnetarze",
     "about.subtitle": "Wersje, pobieranie i co przynosi każde wydanie.",
@@ -695,6 +692,11 @@
     "downloads.networkSettings": "Ustawienia sieci",
     "downloads.today": "dziś",
     "downloads.yesterday": "wczoraj",
-    "details.revealLocal": "Otwiera folder na samym komputerze. Dostępne na tym komputerze."
+    "details.revealLocal": "Otwiera folder na samym komputerze. Dostępne na tym komputerze.",
+    "downloads.minutesLeftFew": "zostały {0} min",
+    "transfer.free": "Wolne: {0}",
+    "downloads.peers": "Peerów: {0}",
+    "downloads.uploading": "Wysyłanie z prędkością {0}.",
+    "shell.notReachable": "Brak połączenia"
   }
 }

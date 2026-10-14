@@ -466,12 +466,10 @@
     "common.remove": "Rimuovi",
     "transfer.starting": "Avvio del motore di download…",
     "transfer.waitingText": "Il traffico torrent usa solo {0}, che non è connessa. Nulla viene scaricato o caricato finché non torna.",
-    "transfer.failedTitle": "Impossibile avviare il motore di download",
     "transfer.failedText": "Riprova ogni 30 secondi. {0}",
     "transfer.diskFullTitle": "Disco pieno",
     "transfer.diskFullText": "Libera spazio su {0} per continuare a scaricare. Finché non c'è spazio, non si possono salvare nuovi dati.",
     "transfer.diskFullHere": "Libera spazio sul disco di questo computer per continuare a scaricare. Finché non c'è spazio, non si possono salvare nuovi dati.",
-    "transfer.scheduled": "secondo orario",
     "downloads.ratio": "ratio {0}",
     "downloads.someFiles": "{0} di {1} file",
     "details.uploaded": "Caricato",
@@ -640,7 +638,6 @@
     "update.lostRemote": "L’aggiornamento non è terminato: {0} non è tornato. Apri Magnetar su quel computer.",
     "update.lostLocal": "L’aggiornamento non è terminato: Magnetar non è tornato. Aprilo di nuovo.",
     "update.installed": "Magnetar {0} è installato.",
-    "shell.website": "Sito",
     "settings.commit": "Compilata dal commit",
     "about.title": "Informazioni su Magnetar",
     "about.subtitle": "Versioni, download e cosa porta ogni versione.",
@@ -695,6 +692,11 @@
     "downloads.networkSettings": "Impostazioni di rete",
     "downloads.today": "oggi",
     "downloads.yesterday": "ieri",
-    "details.revealLocal": "Apre la cartella sul computer stesso. Disponibile su quel computer."
+    "details.revealLocal": "Apre la cartella sul computer stesso. Disponibile su quel computer.",
+    "downloads.minutesLeftFew": "Mancano {0} min",
+    "transfer.free": "{0} liberi",
+    "downloads.peers": "{0} peer",
+    "downloads.uploading": "Invio a {0}.",
+    "shell.notReachable": "Non raggiungibile"
   }
 }

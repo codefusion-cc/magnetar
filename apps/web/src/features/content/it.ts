@@ -105,12 +105,12 @@ export const content: FeaturesContent = {
       features: {
         engine: {
           title: 'Un motore di download integrato',
-          gain: 'Avanzamento, velocità, peer e tempo rimanente in tempo reale per ogni download, senza installare nient’altro.',
+          gain: 'Avanzamento, velocità e tempo rimanente per ogni download, senza installare altro.',
           text: 'I download girano dentro Magnetar su librqbit, con DHT e tracker, e la dashboard si aggiorna una volta al secondo. Mettere in pausa, riavviare o aggiornare non fa mai rileggere i pezzi già completati.',
           points: [
-            'Viste Attivi, Completati e Tutti con i loro conteggi e un ordine a scelta (recenti, vecchi, nome, dimensione, avanzamento), ricordato per dispositivo; ogni download mostra quando è stato aggiunto e completato; metti in pausa, riprendi, riprova o elimina ciascuno',
+            'Viste Attivi, Completati e Tutti, ordine salvato per ogni computer e pulsanti di testo per mettere in pausa, riprendere, riprovare o rimuovere. Un download completato resta visibile finché non cambi vista.',
             'Quando elimini, ti chiede se tenere i file',
-            'Velocità totale di download e upload e lo spazio libero rimasto, che diventa un avviso sotto i 5 GB',
+            'Il riepilogo mostra il computer, i download in corso, la velocità totale e lo spazio libero. Qui puoi ridurre la velocità o tornare alla massima; gli orari restano in Impostazioni → Download.',
             'La porta del router viene aperta via UPnP, e un torrent che non trova peer in tre minuti lo segnala invece di aspettare all’infinito',
             'Un torrent con più file ha una propria cartella',
           ],
@@ -122,14 +122,14 @@ export const content: FeaturesContent = {
           points: [
             'Il browser si apre nell\'ultima cartella usata: salvare due volte nello stesso posto sono due tocchi',
             'Spunta «Salva sempre qui, non chiedere più» per rendere quella cartella la cartella di download e non ricevere più la domanda; Impostazioni → Download la riporta',
-            'Senza domanda, Scarica aggiunge nella cartella di download con un clic, e i dettagli tengono un link «Salva in un\'altra cartella…»',
+            'Senza la domanda sulla cartella, Scarica aggiunge alla cartella predefinita con un clic. Impostazioni → Download permette di riattivare la domanda.',
             'Dal sito si possono scegliere solo la cartella di download e quelle aggiunte sul computer, come ovunque',
           ],
         },
         files: {
           title: 'Solo i file che vuoi',
           gain: 'Scarica un episodio di una stagione, o salta gli extra, e segui ogni file singolarmente.',
-          text: 'I dettagli di un download elencano i suoi file, ognuno con una casella di spunta e il suo avanzamento, aggiornato ogni due secondi durante il download, insieme a dimensione, ratio, date, fonte e cartella.',
+          text: 'Ogni download si apre nella propria pagina con un link per tornare indietro, la corsia, la cartella, le date, la fonte e il rapporto. I file hanno caselle, dimensioni e avanzamento aggiornato ogni due secondi. Gli aggiornamenti conservano le modifiche alla selezione.',
           points: [
             'Cambia la selezione in qualsiasi momento; un pulsante la salva',
             '«Mostra nella cartella» apre Finder o Explorer sul file, sul tuo computer',

@@ -104,7 +104,12 @@ address; links by id (`/d/<device id>/…`, as notifications use) always find th
 website, the device's name at the top of the page switches to another one and keeps the page you are on; each
 shows whether it is online and whether this browser is linked to it. A computer's own dashboard links to the others once it is on an account.
 Downloads, Search, Watchlist, Files and Settings sit in the top row on a computer and in a fixed bottom tab bar
-on a phone. The number beside Downloads is the active count; build details and Features are in the page footer.
+on a phone. The number beside Downloads counts running downloads, including those waiting for metadata.
+Build details and Features are in **Settings → About**. The Downloads summary shows this computer, its combined
+download speed and free space; **Slow down** and **Full speed** change the limits there, while the schedule stays
+in **Settings → Downloads**. Open a download for its own page (`/downloads/<id>`, after the computer name on the
+website), with a link back to all downloads, its facts and selectable files. A row finishing in the current Active
+view stays in place until you change views. File selection edits survive progress refreshes.
 
 Revoke a browser, rename the device or disconnect it from the same Settings section, or remove a device from the
 website's device list. How the encryption works is described in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#end-to-end-encryption).

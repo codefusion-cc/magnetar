@@ -1,5 +1,5 @@
 import type { DownloadDto, DownloadStatus } from '@magnetar/protocol'
-import { memo, useRef, useState, type CSSProperties } from 'react'
+import { Component, createRef, memo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useFormatDate, useLanguage, useT } from '../../lib/i18n.tsx'
 import { downloadBytes, downloadEta, downloadDay } from '../../lib/downloadPresentation.ts'
 import { ConfirmDialog } from '../../ui/Modal.tsx'
@@ -37,7 +37,8 @@ export function DownloadFacts({ download: d, down, up, eta }: { download: Downlo
     {d.totalBytes > 0 && <span>{done ? bytes(d.totalBytes) : t('downloads.sizeOf', bytes(d.totalBytes * d.progress / 100), bytes(d.totalBytes))}</span>}
     {down > 0 && <span>{bytes(down)}/s</span>}
     {up > 0 && <span>{t('details.uploaded')} {bytes(up)}/s</span>}
-    {eta !== null && <span>{downloadEta(t, eta)}</span>}
+    {eta !== null && <span>{downloadEta(t, eta, language)}</span>}
+    {isActive(d) && d.peers > 0 && <span>{t('downloads.peers', d.peers)}</span>}
     {done && d.completedAt && <span title={date(d.completedAt, true)}>{downloadDay(t, language, d.completedAt)}</span>}
     {d.status === 'Seeding' && d.uploadedBytes > 0 && <span>{t('downloads.ratio', ratioOf(d).toFixed(2))}</span>}
     {d.partialFiles && <span>{t('downloads.someFiles', d.partialFiles.selected, d.partialFiles.total)}</span>}
@@ -48,17 +49,38 @@ export function DownloadFacts({ download: d, down, up, eta }: { download: Downlo
 export const DownloadRow = memo(function DownloadRow({ download, down, up, eta, seriesName, onOpen }: {
   download: DownloadDto; down: number; up: number; eta: number | null; seriesName?: string; onOpen: (id: number) => void
 }) {
-  return <li className="download-row" data-download-id={download.id}>
+  return <DownloadItem download={download}>
     <h2><button type="button" className="break-release" onClick={() => onOpen(download.id)}>{download.name}</button></h2>
     {seriesName && <p className="muted text-xs">{seriesName}</p>}
     <ProgressBar download={download} />
     <DownloadFacts download={download} down={down} up={up} eta={eta} />
     <DownloadActions download={download} onPlay={onOpen} />
-  </li>
+  </DownloadItem>
 })
 
+/** Capture the old height before the facts shorten, including after a viewport resize. */
+class DownloadItem extends Component<{ download: DownloadDto; children: ReactNode }> {
+  private element = createRef<HTMLLIElement>()
+
+  override getSnapshotBeforeUpdate(previous: Readonly<{ download: DownloadDto }>): number | null {
+    return !isFinished(previous.download) && isFinished(this.props.download)
+      ? this.element.current?.getBoundingClientRect().height ?? null : null
+  }
+
+  override componentDidUpdate(_previous: unknown, _state: unknown, height: number | null) {
+    const element = this.element.current
+    if (!element) return
+    if (height !== null) element.style.minHeight = `${height}px`
+    else if (!isFinished(this.props.download)) element.style.removeProperty('min-height')
+  }
+
+  override render() {
+    return <li ref={this.element} className="download-row" data-download-id={this.props.download.id}>{this.props.children}</li>
+  }
+}
+
 /** Pending calls lock synchronously, including clicks before React paints the disabled state. */
-export function DownloadActions({ download, onPlay, remove = true }: { download: DownloadDto; onPlay?: (id: number) => void; remove?: boolean }) {
+export function DownloadActions({ download, onPlay, remove = true, between, prominent = false }: { download: DownloadDto; onPlay?: (id: number) => void; remove?: boolean; between?: ReactNode; prominent?: boolean }) {
   const t = useT()
   const connection = useConnection()
   const run = useRun()
@@ -75,9 +97,10 @@ export function DownloadActions({ download, onPlay, remove = true }: { download:
     try { await run(action) } finally { lock.current = false; setBusy(false) }
   }
   return <div className="download-actions">
-    {primary && <button type="button" className="infall-small" disabled={busy} aria-busy={busy}
+    {primary && <button type="button" className={prominent ? 'infall-button' : 'infall-small'} disabled={busy} aria-busy={busy}
       onClick={() => void act(() => connection.call(primary.method, { id: download.id }))}>{primary.label}</button>}
     {!primary && onPlay && <button type="button" className="infall-small" onClick={() => onPlay(download.id)}>{t('details.play')}</button>}
+    {between}
     {remove && <button type="button" className="infall-small" disabled={busy} onClick={() => setConfirming(true)}>{t('downloads.remove')}</button>}
     {confirming && <ConfirmDialog open title={t('downloads.deleteTitle')} message={t('downloads.deleteMessage', download.name)}
       options={[{ label: t('common.cancel'), value: null, tone: 'ghost' }, { label: t('downloads.keepFiles'), value: false, tone: 'primary' }, { label: t('downloads.deleteFiles'), value: true, tone: 'error' }]}

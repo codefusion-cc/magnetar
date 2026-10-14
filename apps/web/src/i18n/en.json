@@ -466,12 +466,10 @@
     "common.remove": "Remove",
     "transfer.starting": "Starting the download engine…",
     "transfer.waitingText": "Torrent traffic only uses {0}, and it isn't connected. Nothing downloads or uploads until it is back.",
-    "transfer.failedTitle": "The download engine could not start",
     "transfer.failedText": "It retries every 30 seconds. {0}",
     "transfer.diskFullTitle": "Disk full",
     "transfer.diskFullText": "Free space on {0} to keep downloading. New data can't be saved until there is room.",
     "transfer.diskFullHere": "Free space on this computer's disk to keep downloading. New data can't be saved until there is room.",
-    "transfer.scheduled": "on schedule",
     "downloads.ratio": "ratio {0}",
     "downloads.someFiles": "{0} of {1} files",
     "details.uploaded": "Uploaded",
@@ -640,7 +638,6 @@
     "update.lostRemote": "The update did not finish: {0} has not come back. Open Magnetar on that computer.",
     "update.lostLocal": "The update did not finish: Magnetar has not come back. Open it again.",
     "update.installed": "Magnetar {0} is installed.",
-    "shell.website": "Website",
     "settings.commit": "Built from commit",
     "about.title": "About Magnetar",
     "about.subtitle": "Versions, downloads and what each release brings.",
@@ -695,6 +692,11 @@
     "downloads.networkSettings": "Network settings",
     "downloads.today": "today",
     "downloads.yesterday": "yesterday",
-    "details.revealLocal": "Opens the folder on the computer itself. Available on that computer."
+    "details.revealLocal": "Opens the folder on the computer itself. Available on that computer.",
+    "downloads.minutesLeftFew": "{0} min left",
+    "transfer.free": "{0} free",
+    "downloads.peers": "{0} peers",
+    "downloads.uploading": "Sending at {0}.",
+    "shell.notReachable": "Not reachable"
   }
 }

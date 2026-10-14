@@ -466,12 +466,10 @@
     "common.remove": "Entfernen",
     "transfer.starting": "Download-Engine wird gestartet…",
     "transfer.waitingText": "Torrent-Verkehr läuft nur über {0}, und diese Verbindung besteht nicht. Bis sie zurück ist, wird nichts herunter- oder hochgeladen.",
-    "transfer.failedTitle": "Die Download-Engine konnte nicht starten",
     "transfer.failedText": "Neuer Versuch alle 30 Sekunden. {0}",
     "transfer.diskFullTitle": "Speicher voll",
     "transfer.diskFullText": "Gib Speicherplatz auf {0} frei, damit der Download weiterläuft. Neue Daten können erst gespeichert werden, wenn wieder Platz ist.",
     "transfer.diskFullHere": "Gib Speicherplatz auf der Festplatte dieses Computers frei, damit der Download weiterläuft. Neue Daten können erst gespeichert werden, wenn wieder Platz ist.",
-    "transfer.scheduled": "nach Zeitplan",
     "downloads.ratio": "Ratio {0}",
     "downloads.someFiles": "{0} von {1} Dateien",
     "details.uploaded": "Hochgeladen",
@@ -640,7 +638,6 @@
     "update.lostRemote": "Das Update ist nicht abgeschlossen: {0} meldet sich nicht zurück. Öffne Magnetar dort.",
     "update.lostLocal": "Das Update ist nicht abgeschlossen: Magnetar meldet sich nicht zurück. Öffne es erneut.",
     "update.installed": "Magnetar {0} ist installiert.",
-    "shell.website": "Website",
     "settings.commit": "Gebaut aus Commit",
     "about.title": "Über Magnetar",
     "about.subtitle": "Versionen, Downloads und was jede Version bringt.",
@@ -695,6 +692,11 @@
     "downloads.networkSettings": "Netzwerkeinstellungen",
     "downloads.today": "heute",
     "downloads.yesterday": "gestern",
-    "details.revealLocal": "Öffnet den Ordner auf dem Computer selbst. Nur dort verfügbar."
+    "details.revealLocal": "Öffnet den Ordner auf dem Computer selbst. Nur dort verfügbar.",
+    "downloads.minutesLeftFew": "Noch {0} Min.",
+    "transfer.free": "{0} frei",
+    "downloads.peers": "{0} Peers",
+    "downloads.uploading": "Upload mit {0}.",
+    "shell.notReachable": "Nicht erreichbar"
   }
 }

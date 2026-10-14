@@ -24,6 +24,7 @@ export function CloudFrame({ children, wide = false }: { children: ReactNode; wi
             <BrandMark />
             <span className="font-display text-[15px]">Magnetar</span>
           </Link>
+          <Link to="/features" className="download-text-action">{t('footer.features')}</Link>
           {install && (
             <button type="button" className="frame-control" onClick={install} aria-label={t('install.button')} title={t('install.hint')}>
               {t('install.button')}
@@ -59,7 +60,6 @@ export function ThemeToggle() {
   const { resolved } = useTheme(theme)
   const next = resolved === 'dark' ? 'light' : 'dark'
   return (
-    // The sun or the moon of the mode it switches to: a bare "Light" on a dark page reads as the mode it is in.
     <button type="button" className="frame-control" onClick={theme.toggle} aria-label={t(`theme.${next}`)} title={t(`theme.${next}`)}>
       {t(`theme.${next}`)}
     </button>
@@ -71,11 +71,8 @@ export function AccountMenu() {
   const { account, signOut } = useAccount()
   if (!account) return null
   return (
-    <MenuButton label={account.email} className="frame-account w-10 shrink-0" button={
-      <span className="frame-control frame-square">
-        {account.picture
-          ? <img src={account.picture} alt="" className="size-7 rounded-ctl" referrerPolicy="no-referrer" />
-          : <span aria-hidden="true" className="text-sm font-semibold">{account.email[0]?.toUpperCase()}</span>}
+    <MenuButton label={account.email} className="frame-account min-w-0 max-w-48" button={
+      <span className="frame-control max-w-full truncate" title={account.email}>{account.email}
       </span>
     } items={close => (
       <>

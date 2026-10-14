@@ -6,6 +6,7 @@ import { DEFAULT_DOWNLOAD_VIEW, DOWNLOAD_VIEWS, inView, type DownloadView } from
 import { DOWNLOAD_SORTS, parseDownloadSort, readDownloadSort, sortDownloads, writeDownloadSort } from '../../lib/downloadSort.ts'
 import { pickParam, withParam } from '../../lib/urlState.ts'
 import { downloadBytes, downloadSummary, retainFinished } from '../../lib/downloadPresentation.ts'
+import { Segmented } from '../../ui/controls.tsx'
 import { Star } from '../../ui/Star.tsx'
 import { magnetsIn } from '../../lib/magnets.ts'
 import { useSteadySpeeds } from '../../lib/steadySpeed.ts'
@@ -44,6 +45,7 @@ export function DownloadsPage() {
 
   const speeds = useSteadySpeeds(downloads)
   const running = downloads.filter(d => d.status === 'Downloading')
+  const up = downloads.reduce((sum, d) => sum + (speeds.get(d.id)?.up ?? 0), 0)
   const down = running.reduce((sum, d) => sum + (speeds.get(d.id)?.down ?? 0), 0)
   if (retained.current.view !== view) retained.current = { view, ids: new Set() }
   retained.current.ids = retainFinished(retained.current.ids, downloads)
@@ -57,19 +59,17 @@ export function DownloadsPage() {
       <DiskFullNotice transfer={transfer} />
       <LegacyImportBanner />
       {read.loading ? <><div className="downloads-wait" role="status"><Star breathe /><p>{t('downloads.connecting', deviceName)}</p></div><ul className="download-skeleton" aria-hidden="true">{Array.from({ length: 4 }, (_, i) => <li key={i}><i /><i /></li>)}</ul></>
-        : read.failed ? <>{heading}<section className="download-empty" role="alert"><Star state="far" /><h1>{t('downloads.readFailed')}</h1><p>{t('downloads.readFailedHint', deviceName)}</p><button className="infall-button" onClick={read.retry}>{t('downloads.tryAgain')}</button></section></>
+        : read.failed ? <>{heading}<section className="download-empty" role="alert"><div className="download-state-picture"><Star state="out" /></div><h1>{t('downloads.readFailed')}</h1><p>{t('downloads.readFailedHint', deviceName)}</p><button className="infall-button" onClick={read.retry}>{t('downloads.tryAgain')}</button></section></>
         : <>{heading}{downloads.length === 0 ? (
           <section className="download-empty"><div className="download-state-picture"><Star /></div><h1>{t('downloads.emptyTitle')}</h1><p>{t('downloads.emptyHint')}</p>
-            <div className="infall-acts"><Link to={searchLink} className="infall-button">{t('downloads.searchButton')}</Link><Link to={`${basePath}/series`} className="infall-small">{t('nav.series')}</Link></div>
+            <div className="infall-acts"><Link to={searchLink} className="infall-button">{t('downloads.searchButton')}</Link><Link to={`${basePath}/series`} className="download-watchlist-link">{t('nav.series')}</Link></div>
           </section>
         ) : <div className="downloads-lanes">
           <div className="downloads-summary"><p>{transfer?.engine === 'waitingForNetwork' ? t('downloads.onlyNetwork', deviceName, transfer.networkInterface ?? '') : downloadSummary(t, language, deviceName, running.length, down)}{' '}
-            {transfer?.freeBytes != null && <span className={transfer.freeBytes < 5e9 ? 'download-low-space' : undefined}>{t('downloads.free', downloadBytes(transfer.freeBytes, language))}</span>}</p>
-            {settings && <AltSpeedToggle settings={settings} transfer={transfer} />}
+            {transfer?.freeBytes != null && <span className={transfer.freeBytes < 5e9 ? 'download-low-space' : undefined}>{t('downloads.free', downloadBytes(transfer.freeBytes, language))}</span>} {up > 0 && <span>{t('downloads.uploading', `${downloadBytes(up, language)}/s`)}</span>} {settings && <AltSpeedToggle settings={settings} transfer={transfer} />}</p>
           </div>
-          <div className="download-views-row"><div className="download-views" role="group" aria-label={t('downloads.filter')}>
-            {DOWNLOAD_VIEWS.map(v => <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)}>{t(`downloads.view.${v}`)}</button>)}
-          </div>
+          <div className="download-views-row"><Segmented appearance="quiet" label={t('downloads.filter')} value={view} onChange={setView}
+            options={DOWNLOAD_VIEWS.map(v => ({ value: v, label: t(`downloads.view.${v}`) }))} />
           {downloads.length > 1 && <select className="download-sort" aria-label={t('downloads.sort')} value={sort}
             onChange={e => { const next = parseDownloadSort(e.target.value); setSort(next); writeDownloadSort(deviceName, next) }}>
             {DOWNLOAD_SORTS.map(o => <option key={o} value={o}>{t(`downloads.sort.${o}`)}</option>)}
@@ -95,7 +95,7 @@ export function DownloadList({ downloads, hideSeries = false, onOpen }: { downlo
   const speeds = useSteadySpeeds(downloads)
   return (
     <>
-      <ul className="download-list">
+      <ul className={`download-list${downloads.length > PAGE_SIZE ? ' download-list-many' : ''}`}>
         {downloads.slice(0, limit).map(d => <DownloadRow key={d.id} download={d} {...speeds.get(d.id)!} seriesName={seriesName(d)} onOpen={open} />)}
       </ul>
       {downloads.length > limit && <ShowMore remaining={downloads.length - limit} onMore={() => setLimit(n => n + PAGE_SIZE)} />}

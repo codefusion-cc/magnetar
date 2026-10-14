@@ -52,6 +52,7 @@ function Details({ download: d }: { download: DownloadDto }) {
   const local = connection.kind === 'local'
   const browsable = info?.fileBrowser === true && !!settings && isWithin(d.savePath, settings.downloadFolder, separatorOf(settings.downloadFolder))
   const [play, setPlay] = useState(false)
+  const [canPlay, setCanPlay] = useState(false)
   const failed = d.status === 'Error'
   const facts: [string, string][] = [
     [t(failed ? 'details.willSave' : 'details.savedTo'), d.savePath],
@@ -63,15 +64,15 @@ function Details({ download: d }: { download: DownloadDto }) {
     <header className="download-one-heading"><h1 className="break-release">{d.name}</h1><ProgressBar download={d} /><DownloadFacts download={d} {...speeds} /></header>
     {failed && <p className="download-lead">{t('details.noPeersHint')}</p>}
     <div className="infall-acts">
-      {!failed && d.totalBytes > 0 && <button type="button" className="infall-button" onClick={() => setPlay(true)}>{t('details.play')}</button>}
-      <DownloadActions download={d} remove={failed} />
-      {failed ? <Link className="infall-small" to={`${basePath}/search/${encodeURIComponent(d.name)}`}>{t('details.searchForIt')}</Link> : <>
-        {<button type="button" disabled={!local} title={!local ? t('details.revealLocal') : undefined} className="infall-small" onClick={() => void run(() => connection.call('downloads.reveal', { id: d.id }))}>{t(info?.platform === 'macos' ? 'details.finder' : 'details.reveal')}</button>}
+      {!failed && d.totalBytes > 0 && <button type="button" className="infall-button" disabled={!canPlay} title={!canPlay ? t('details.filesPending') : undefined} onClick={() => setPlay(true)}>{t('details.play')}</button>}
+      <DownloadActions download={d} remove={failed} prominent={failed} between={failed ? <Link className="infall-small" to={`${basePath}/search/${encodeURIComponent(d.name)}`}>{t('details.searchForIt')}</Link> : undefined} />
+      {!failed && <>
+        <button type="button" disabled={!local} title={!local ? t('details.revealLocal') : undefined} className="infall-small" onClick={() => void run(() => connection.call('downloads.reveal', { id: d.id }))}>{t(info?.platform === 'macos' ? 'details.finder' : 'details.reveal')}</button>
         {browsable && <Link className="infall-small" to={`${basePath}/files`} state={{ path: d.savePath } satisfies FilesLocation}>{t('files.showInFiles')}</Link>}
       </>}
     </div>
     <dl className="download-facts">{facts.map(([label, value]) => <div key={label}><dt>{label}</dt><dd title={label === t('details.added') ? date(d.addedAt, true) : undefined}>{value}</dd></div>)}</dl>
-    {!failed && <FileList download={d} play={play} onPlayed={() => setPlay(false)} />}
+    {!failed && <FileList download={d} play={play} onPlayable={setCanPlay} onPlayed={() => setPlay(false)} />}
   </article>
 }
 
@@ -83,7 +84,7 @@ export function MediaIcon({ media, size = 16 }: { media: 'video' | 'audio' | nul
 }
 
 /** The torrent's files with a checkbox each; the choice is saved with one button, not per click. */
-function FileList({ download: d, play, onPlayed }: { download: DownloadDto; play: boolean; onPlayed: () => void }) {
+function FileList({ download: d, play, onPlayable, onPlayed }: { download: DownloadDto; play: boolean; onPlayable: (playable: boolean) => void; onPlayed: () => void }) {
   const t = useT()
   const language = useLanguage()
   const formatBytes = (n: number) => downloadBytes(n, language)
@@ -122,6 +123,7 @@ function FileList({ download: d, play, onPlayed }: { download: DownloadDto; play
   const selected = useMemo(() => new Set(files?.filter(f => chosen.get(f.index) ?? f.selected).map(f => f.index)), [chosen, files])
   const dirty = files !== null && files.some(f => f.selected !== selected.has(f.index))
   const chosenBytes = files?.filter(f => selected.has(f.index)).reduce((sum, f) => sum + f.size, 0) ?? 0
+  useEffect(() => { onPlayable(!!files?.some(f => f.media && f.selected && (f.done > 0 || running))) }, [files, running, onPlayable])
   useEffect(() => {
     if (!play || !files) return
     const file = files.find(f => f.media && f.selected && (f.done > 0 || running))
@@ -151,7 +153,7 @@ function FileList({ download: d, play, onPlayed }: { download: DownloadDto; play
 
   return (
     <section aria-labelledby="magnetar-files">
-      <div className="mb-2 flex items-center gap-2">
+      <div className="download-files-heading">
         <h2 id="magnetar-files" className="flex-1">{t('details.filesHeading')}</h2>
         {files.length > 1 && (
           <button type="button" className="download-text-action" disabled={saving} onClick={() => setChosen(new Map(files.map(f => [f.index, selected.size !== files.length])))}>
@@ -172,7 +174,6 @@ function FileList({ download: d, play, onPlayed }: { download: DownloadDto; play
                 {formatBytes(file.size)}
               </div>
               <span className="download-file-state">{!selected.has(file.index) ? t('details.skipped') : percent === 100 ? t('details.fileDone') : `${percent}%`}</span>
-
             </li>
           )
         })}

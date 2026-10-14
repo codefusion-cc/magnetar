@@ -1,10 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { Link, NavLink, Outlet } from 'react-router'
+import { Link, NavLink, Outlet, useLocation } from 'react-router'
 import { deviceStar } from '../lib/deviceStar.ts'
 import { Star } from '../ui/Star.tsx'
 import { expectsAway } from '../lib/updateInstall.ts'
 import { useT } from '../lib/i18n.tsx'
-import { Loading } from '../ui/Loading.tsx'
 import { useDevice, useDownloads, useSearchLink } from './DeviceContext.tsx'
 import { BrandMark } from '../ui/BrandMark.tsx'
 import { MenuButton } from '../ui/Menu.tsx'
@@ -20,10 +19,12 @@ export type DeviceMenu = (label: ReactNode, placement: 'up' | 'down') => ReactNo
  */
 export function Shell({ headerStart, headerEnd, deviceMenu }: { headerStart?: ReactNode; headerEnd?: ReactNode; deviceMenu?: DeviceMenu }) {
   const t = useT()
-  const { basePath, info, connectionState, connection, remote } = useDevice()
+  const { basePath, connection, remote } = useDevice()
   const menu = deviceMenu ?? (connection.kind === 'local' && remote?.paired ? localDeviceMenu(remote.cloudUrl, t) : undefined)
-  const active = useDownloads().filter(d => d.status === 'Downloading').length
+  const active = useDownloads().filter(d => ['Downloading', 'FetchingMetadata', 'Queued'].includes(d.status)).length
   const searchLink = useSearchLink()
+  const { pathname } = useLocation()
+  const atDownloads = pathname === (basePath || '/') || pathname.startsWith(`${basePath}/downloads/`)
 
   const nav = [
     { to: basePath || '/', end: true, label: t('nav.downloads'), count: active },
@@ -41,12 +42,13 @@ export function Shell({ headerStart, headerEnd, deviceMenu }: { headerStart?: Re
           <Brand />
         </div>
         <nav aria-label={t('nav.menu')} className="shell-nav">
-          {nav.map(item => (
-            <NavLink key={item.to} to={item.to} end={item.end} className="shell-tab" aria-current={item.to === (basePath || '/') && location.pathname.startsWith(`${basePath}/downloads/`) ? 'page' : undefined}>
+          {nav.map(item => {
+            const Place = item.end ? Link : NavLink
+            return <Place key={item.to} to={item.to} className="shell-tab" aria-current={item.end && atDownloads ? 'page' : undefined}>
               <span className="shell-tab-label">{item.label}</span>
               {!!item.count && <span className="shrink-0 tabular-nums">{item.count}</span>}
-            </NavLink>
-          ))}
+            </Place>
+          })}
         </nav>
         <div className="shell-device flex min-w-0 items-center gap-2">
           <DeviceStatus menu={menu} />
@@ -56,7 +58,7 @@ export function Shell({ headerStart, headerEnd, deviceMenu }: { headerStart?: Re
       <ConnectionBanner />
       <UpdateBanner />
       <main className="shell-column w-full min-w-0 flex-1 shell-main">
-        {connectionState.status === 'open' || info ? <Outlet /> : <Loading />}
+        <Outlet />
       </main>
     </div>
   )
@@ -103,10 +105,10 @@ function DeviceStatus({ menu }: { menu?: DeviceMenu }) {
   const status = connectionState.status === 'open' ? where
     : expectsAway(installPhase) ? t('settings.installing')
     : connectionState.status === 'rejected' ? t(connectionState.reason)
-    : light === 'out' ? t('devices.offline')
+    : light === 'out' ? t('shell.notReachable')
     : t('connection.reconnecting')
   const label = (
-    <span className={`flex min-w-0 items-center gap-2 ${menu ? 'rounded-ctl hover:bg-raised' : ''}`}>
+    <span className={`flex min-w-0 items-center gap-[10px] ${menu ? 'rounded-ctl hover:bg-raised' : ''}`}>
       <span className="grid size-[26px] shrink-0 place-items-center"><Star state={light} /></span>
       <span className="min-w-0 flex-1 leading-tight">
         <span className="block truncate text-[15px] font-semibold">{deviceName}</span>
