@@ -1,7 +1,8 @@
 name: Release
 
 # Every merge to main that changes the app is released as the next patch version (ci.yml calls this workflow once
-# its checks pass; scripts/release-version.ts picks the version and skips docs-, test- and CI-only merges).
+# its checks pass; scripts/release-version.ts picks the version and skips docs-, test- and CI-only merges, and every
+# merge while .github/release-hold exists).
 # A minor or major release is a tag pushed by hand once CI is green on main: git tag v1.3.0 && git push origin v1.3.0.
 # The next automatic patch continues from it. A tag with a pre-release (v1.3.0-rc.1) publishes a pre-release, which
 # installed apps don't take, and never sets the version of the patches after it. Installed apps update within 6 hours.

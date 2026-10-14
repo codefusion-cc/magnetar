@@ -82,10 +82,10 @@ jobs:
           name: e2e-traces
           path: apps/e2e/test-results
 
-  # Every merge to main that changes the app becomes the next patch release (release.yml: builds, tags, notes from the
-  # merged pull requests). One at a time and never cancelled once started; a merge that lands while one runs waits,
-  # and of several waiting only the newest runs, which releases them all. The version is computed inside the run,
-  # after the release before it has tagged, so no two releases share a tag.
+  # Every merge to main that changes the app becomes the next patch release, unless .github/release-hold holds it
+  # (release.yml: builds, tags, notes from the merged pull requests). One at a time and never cancelled once started;
+  # a merge that lands while one runs waits, and of several waiting only the newest runs, which releases them all.
+  # The version is computed inside the run, after the release before it has tagged, so no two releases share a tag.
   release:
     name: Release
     needs: [check, e2e]

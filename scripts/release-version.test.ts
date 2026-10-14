@@ -57,6 +57,17 @@ describe('plan', () => {
   it('publishes a tag pushed by hand as it is', () => {
     expect(plan({ tags, first: '1.2.0', explicitTag: 'v1.3.0', changed: [] })).toMatchObject({ release: true, tag: 'v1.3.0' })
   })
+  it('holds an app change while the hold file exists, and says why', () => {
+    const held = plan({ tags, first: '1.2.0', changed: ['apps/web/src/a.ts'], held: 'Infall redesign\n' })
+    expect(held).toEqual({ release: false, tag: '', reason: 'held by .github/release-hold: Infall redesign' })
+    expect(plan({ tags, first: '1.2.0', changed: ['apps/web/src/a.ts'], held: '' }).reason).toBe('held by .github/release-hold: no reason given')
+  })
+  it('lets a tag pushed by hand through a hold', () => {
+    expect(plan({ tags, first: '1.2.0', explicitTag: 'v1.3.0', changed: ['apps/web/src/a.ts'], held: 'x' })).toMatchObject({ release: true, tag: 'v1.3.0' })
+  })
+  it('never holds the first release', () => {
+    expect(plan({ tags: [], first: '1.2.0', held: 'x' })).toMatchObject({ release: true, tag: 'v1.2.0' })
+  })
 })
 
 describe('in a repository', () => {
@@ -92,6 +103,20 @@ describe('in a repository', () => {
     commit(cwd, 'apps/web/src/c.ts')
     expect(plan(cwd, 'plan')).toContain('tag=v1.3.1')
     // A queued older merge is already inside the newer release.
+    expect(plan(cwd, 'plan', '--sha', 'HEAD~1')).toContain('release=false')
+    // A hold collects app changes until the merge that deletes it releases them all.
+    mkdirSync(join(cwd, '.github'), { recursive: true })
+    writeFileSync(join(cwd, '.github/release-hold'), 'Infall redesign')
+    run(cwd, 'add', '-A')
+    run(cwd, 'commit', '-m', 'hold')
+    expect(plan(cwd, 'plan')).toBe('release=false tag= version= (held by .github/release-hold: Infall redesign)')
+    expect(plan(cwd, 'display')).toBe('1.3.0')
+    commit(cwd, 'apps/web/src/d.ts')
+    expect(plan(cwd, 'plan')).toContain('release=false')
+    run(cwd, 'rm', '-q', '.github/release-hold')
+    run(cwd, 'commit', '-m', 'release')
+    expect(plan(cwd, 'plan')).toContain('tag=v1.3.1')
+    // An older commit read by its sha is judged by its own tree: still held.
     expect(plan(cwd, 'plan', '--sha', 'HEAD~1')).toContain('release=false')
     // About thirty git and node processes: Windows runners need seconds for them, more than Vitest's default five.
   }, 30_000)
