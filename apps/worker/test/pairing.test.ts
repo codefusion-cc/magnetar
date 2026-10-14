@@ -329,7 +329,7 @@ describe('pairing', () => {
   })
 
   test('starting pairings is rate limited per address', async () => {
-    // The dev environment allows 100 a minute: all of them at once pass, the next one doesn't.
+    // Production's limit (TEST_PAIR_LIMIT, vitest.config.ts): all of them at once pass, the next one doesn't.
     // Local rate limits count per wall-clock minute, so a burst that runs into the next minute is
     // sent again from a new address; starting just after the turnover, the retry has the minute to itself.
     const minute = () => Math.floor(Date.now() / 60_000)
@@ -337,21 +337,21 @@ describe('pairing', () => {
       const ip = freshIp()
       const start = async () => (await call('/api/pair/start', { method: 'POST', headers: { 'cf-connecting-ip': ip }, json: {} })).status
       const started = minute()
-      const statuses = await Promise.all(Array.from({ length: 100 }, start))
+      const statuses = await Promise.all(Array.from({ length: env.TEST_PAIR_LIMIT }, start))
       const extra = await start()
       return minute() === started ? { statuses, extra } : null
     }
     const { statuses, extra } = await burst() ?? await burst() ?? expect.unreachable('Both bursts ran into the next minute')
-    expect(statuses.filter(s => s === 200)).toHaveLength(100)
+    expect(statuses.filter(s => s === 200)).toHaveLength(env.TEST_PAIR_LIMIT)
     expect(extra).toBe(429)
     // Another address still gets through.
     await startPairing()
   })
 
   test('refuses bodies that are not JSON, or too big', async () => {
-    expect((await call('/api/pair/start', { method: 'POST', body: 'name=x', headers: { 'content-type': 'application/x-www-form-urlencoded' } })).status).toBe(415)
-    expect((await call('/api/pair/start', { method: 'POST', body: '{', headers: { 'content-type': 'application/json' } })).status).toBe(400)
-    expect((await call('/api/pair/start', { method: 'POST', json: { name: 'x'.repeat(17_000) } })).status).toBe(413)
+    expect((await call('/api/pair/start', { method: 'POST', body: 'name=x', headers: { 'content-type': 'application/x-www-form-urlencoded', 'cf-connecting-ip': freshIp() } })).status).toBe(415)
+    expect((await call('/api/pair/start', { method: 'POST', body: '{', headers: { 'content-type': 'application/json', 'cf-connecting-ip': freshIp() } })).status).toBe(400)
+    expect((await call('/api/pair/start', { method: 'POST', headers: { 'cf-connecting-ip': freshIp() }, json: { name: 'x'.repeat(17_000) } })).status).toBe(413)
   })
 })
 
