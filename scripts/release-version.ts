@@ -85,7 +85,7 @@ export function plan(input: {
   const latest = latestVersion(input.tags)
   if (latest && input.containedInLatest) return { release: false, tag: '', reason: `already part of v${format(latest)}` }
   if (latest && input.held != null) {
-    const since = input.hold ? ` since ${input.hold.since}, ${input.hold.waiting} ${input.hold.waiting === 1 ? 'merge' : 'merges'} waiting` : ''
+    const since = input.hold ? ` since ${input.hold.since || 'an unknown commit'}, ${input.hold.waiting} ${input.hold.waiting === 1 ? 'merge' : 'merges'} waiting` : ''
     return { release: false, tag: '', reason: `held by ${HOLD_FILE}${since}: ${input.held.trim() || 'no reason given'}` }
   }
   if (latest && !changesShippedApp(input.changed ?? [])) return { release: false, tag: '', reason: `only docs, tests or CI changed since v${format(latest)}` }
