@@ -6,7 +6,9 @@
  *   node scripts/release-version.ts display [--sha <commit>]
  *
  * The version is the latest plain vX.Y.Z tag plus one patch; minor and major releases are tags pushed by hand.
- * Pre-release tags (v2.0.0-rc.1) are ignored. A merge that changes only docs, tests or CI files is not released.
+ * Pre-release tags (v2.0.0-rc.1) are ignored. A merge that changes only docs, tests or CI files is not released, nor is
+ * one while `.github/release-hold` exists: work that ships in parts (a redesign) collects on main and is released by the
+ * merge that deletes the file. Its text says why it holds.
  */
 import { execFileSync } from 'node:child_process'
 import { appendFileSync, readFileSync } from 'node:fs'
@@ -57,6 +59,9 @@ export function changesShippedApp(paths: readonly string[]): boolean {
   return paths.some(path => path !== '' && !unshipped.some(pattern => pattern.test(path)))
 }
 
+/** While this file exists in a commit, that commit is not released (see the top of this file). */
+export const HOLD_FILE = '.github/release-hold'
+
 export interface Plan {
   /** Whether this commit becomes a release. */
   release: boolean
@@ -66,10 +71,11 @@ export interface Plan {
 }
 
 /** What a commit becomes, given the release tags, its relation to the latest one and the files changed since. */
-export function plan(input: { tags: readonly string[]; first: string; explicitTag?: string; containedInLatest?: boolean; changed?: readonly string[] }): Plan {
+export function plan(input: { tags: readonly string[]; first: string; explicitTag?: string; containedInLatest?: boolean; changed?: readonly string[]; held?: string | null }): Plan {
   if (input.explicitTag) return { release: true, tag: input.explicitTag, reason: 'tag pushed by hand' }
   const latest = latestVersion(input.tags)
   if (latest && input.containedInLatest) return { release: false, tag: '', reason: `already part of v${format(latest)}` }
+  if (latest && input.held != null) return { release: false, tag: '', reason: `held by ${HOLD_FILE}: ${input.held.trim() || 'no reason given'}` }
   if (latest && !changesShippedApp(input.changed ?? [])) return { release: false, tag: '', reason: `only docs, tests or CI changed since v${format(latest)}` }
   return { release: true, tag: `v${nextVersion(input.tags, input.first)}`, reason: latest ? `the app changed since v${format(latest)}` : 'no release yet' }
 }
@@ -94,7 +100,13 @@ function fromRepository(sha: string, explicitTag?: string): Plan & { latest: str
       changed = git('diff', '--name-only', `${latestTag}...${sha}`).split('\n')
     }
   }
-  return { ...plan({ tags, first, explicitTag, containedInLatest, changed }), latest: latestTag }
+  let held: string | null = null
+  try {
+    held = execFileSync('git', ['show', `${sha}:${HOLD_FILE}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+  } catch {
+    // No hold in this commit.
+  }
+  return { ...plan({ tags, first, explicitTag, containedInLatest, changed, held }), latest: latestTag }
 }
 
 if (process.argv[1] === import.meta.filename) {

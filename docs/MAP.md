@@ -36,7 +36,7 @@ Design and security are in [ARCHITECTURE.md](ARCHITECTURE.md), deploy and signin
 
 - Merge to `main`: the `deploy` job in `.github/workflows/ci.yml` (after checks and e2e) builds the dashboard, runs `wrangler d1 migrations apply magnetar --remote`, then `wrangler deploy`. No preview environments; try locally with `npm run dev:worker`.
 - Worker D1 migrations: add `apps/worker/migrations/NNNN_name.sql`; the old Worker must keep working during the deploy. App-side SQLite migrations are in `apps/client/src/db.rs` (append only).
-- App release: every merge to `main` that changes the app is released as the next patch (`release` job in `ci.yml` calls `.github/workflows/release.yml`; `scripts/release-version.ts` picks the version from the latest `v*` tag and skips docs/tests/CI-only merges, and the Worker deploy shows the same version). A minor or major is a hand-pushed `vX.Y.0` tag. PR titles become the "What's new" notes.
+- App release: every merge to `main` that changes the app is released as the next patch (`release` job in `ci.yml` calls `.github/workflows/release.yml`; `scripts/release-version.ts` picks the version from the latest `v*` tag and skips docs/tests/CI-only merges, and the Worker deploy shows the same version). A minor or major is a hand-pushed `vX.Y.0` tag. While `.github/release-hold` exists, merges are not released (the Worker still deploys); the merge that deletes it releases everything since the last tag. PR titles become the "What's new" notes.
 
 ## Gotchas
 
