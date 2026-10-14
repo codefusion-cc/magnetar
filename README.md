@@ -203,7 +203,12 @@ parallel builds wait on one lock.
 
 Every merge to `main` that changes the app is released automatically as the next patch version once CI is green: the
 latest `vX.Y.Z` tag plus one (`scripts/release-version.ts`). Merges that change only docs, tests or CI files are not
-released. The tag is the version: the executable is built with it and the website shows it, so neither reads a version
+released.
+
+While `.github/release-hold` exists, merges are not released either: work that lands in parts (a redesign) collects
+on `main`, the Worker still deploys, and the Release run's summary says since which commit and how many merges wait.
+The merge that deletes the file releases all of them at once. A fix that must reach people sooner deletes the file in
+its own pull request (everything waiting ships with it), and a later pull request adds it back if the work goes on. The tag is the version: the executable is built with it and the website shows it, so neither reads a version
 from `package.json` or `Cargo.toml` (they only name the first release and local builds). For a minor or major release
 tag the merge by hand once CI is green: `git tag v2.1.0 && git push origin v2.1.0`; the next automatic patch continues
 from it (v2.1.1). The Release workflow builds every platform, writes `SHA256SUMS.txt`, signs it with the `RELEASE_SIGNING_KEY` secret

@@ -71,11 +71,23 @@ export interface Plan {
 }
 
 /** What a commit becomes, given the release tags, its relation to the latest one and the files changed since. */
-export function plan(input: { tags: readonly string[]; first: string; explicitTag?: string; containedInLatest?: boolean; changed?: readonly string[]; held?: string | null }): Plan {
+export function plan(input: {
+  tags: readonly string[]
+  first: string
+  explicitTag?: string
+  containedInLatest?: boolean
+  changed?: readonly string[]
+  held?: string | null
+  /** The commit that added the hold, and how many merges since the latest release it holds back. */
+  hold?: { since: string; waiting: number }
+}): Plan {
   if (input.explicitTag) return { release: true, tag: input.explicitTag, reason: 'tag pushed by hand' }
   const latest = latestVersion(input.tags)
   if (latest && input.containedInLatest) return { release: false, tag: '', reason: `already part of v${format(latest)}` }
-  if (latest && input.held != null) return { release: false, tag: '', reason: `held by ${HOLD_FILE}: ${input.held.trim() || 'no reason given'}` }
+  if (latest && input.held != null) {
+    const since = input.hold ? ` since ${input.hold.since || 'an unknown commit'}, ${input.hold.waiting} ${input.hold.waiting === 1 ? 'merge' : 'merges'} waiting` : ''
+    return { release: false, tag: '', reason: `held by ${HOLD_FILE}${since}: ${input.held.trim() || 'no reason given'}` }
+  }
   if (latest && !changesShippedApp(input.changed ?? [])) return { release: false, tag: '', reason: `only docs, tests or CI changed since v${format(latest)}` }
   return { release: true, tag: `v${nextVersion(input.tags, input.first)}`, reason: latest ? `the app changed since v${format(latest)}` : 'no release yet' }
 }
@@ -106,7 +118,10 @@ function fromRepository(sha: string, explicitTag?: string): Plan & { latest: str
   } catch {
     // No hold in this commit.
   }
-  return { ...plan({ tags, first, explicitTag, containedInLatest, changed, held }), latest: latestTag }
+  const hold = held != null && latestTag && !containedInLatest
+    ? { since: git('log', '-1', '--format=%h', '--diff-filter=A', sha, '--', HOLD_FILE), waiting: Number(git('rev-list', '--count', '--first-parent', `${latestTag}..${sha}`)) }
+    : undefined
+  return { ...plan({ tags, first, explicitTag, containedInLatest, changed, held, hold }), latest: latestTag }
 }
 
 if (process.argv[1] === import.meta.filename) {
@@ -116,6 +131,8 @@ if (process.argv[1] === import.meta.filename) {
   if (positionals[0] === 'plan') {
     const lines = [`release=${result.release}`, `tag=${result.tag}`, `version=${result.tag.slice(1)}`]
     if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, lines.join('\n') + '\n')
+    // On the run's page, so a held release says so where people look for it.
+    if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `**${result.release ? result.tag : 'No release'}**: ${result.reason}.\n`)
     console.log(`${lines.join(' ')} (${result.reason})`)
   } else if (positionals[0] === 'display') {
     // The version the website shows: the one this commit is or is about to be released as.
