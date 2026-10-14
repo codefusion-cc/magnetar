@@ -10,8 +10,10 @@
  * daisyUI's names read the Infall look (src/looks/infall.ts, written by uiLooks as the --cf-* roles), so every screen
  * not yet moved onto the kit takes its colours from the same place, in light and dark alike: the roles follow
  * color-scheme. Status keeps its own colours, the accent never borrows them: info = downloading (heat), success =
- * seeding and finished (blue-white), warning = paused, error = failed. daisyUI's accent is the look's second accent,
- * so "accent" means amber in both. daisyUI goes when the last screen has moved (the redesign's sweep).
+ * seeding and finished (blue-white), warning = paused, error = failed. Beware one name: daisyUI's components
+ * (btn-accent, badge-accent) take the look's second accent (amber), while the utility text-accent / bg-accent is the
+ * kit's, the look's main accent; screens use text-accent-2 for amber. daisyUI goes when the last screen has moved
+ * (the redesign's sweep).
  */
 @plugin "daisyui/theme" {
   name: "magnetar-light";

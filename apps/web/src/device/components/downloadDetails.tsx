@@ -76,7 +76,7 @@ function Details({ download: d, onClose }: { download: DownloadDto; onClose: () 
 
 /** A file's icon by what a browser can play of it, the same in a download's details and in Files. */
 export function MediaIcon({ media, size = 16 }: { media: 'video' | 'audio' | null; size?: number }) {
-  if (media === 'audio') return <FileAudio size={size} className="shrink-0 text-info" aria-hidden />
+  if (media === 'audio') return <FileAudio size={size} className="shrink-0 text-accent-2" aria-hidden />
   if (media === 'video') return <FileVideo size={size} className="shrink-0 text-info" aria-hidden />
   return <FileText size={size} className="muted shrink-0" aria-hidden />
 }
