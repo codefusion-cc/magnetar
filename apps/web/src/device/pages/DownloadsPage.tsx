@@ -59,7 +59,7 @@ export function DownloadsPage() {
       <DiskFullNotice transfer={transfer} />
       <LegacyImportBanner />
       {read.loading ? <><div className="downloads-wait" role="status"><Star breathe /><p>{t('downloads.connecting', deviceName)}</p></div><ul className="download-skeleton" aria-hidden="true">{Array.from({ length: 4 }, (_, i) => <li key={i}><i /><i /></li>)}</ul></>
-        : read.failed ? <>{heading}<section className="download-empty" role="alert"><div className="download-state-picture"><Star state="out" /></div><h1>{t('downloads.readFailed')}</h1><p>{t('downloads.readFailedHint', deviceName)}</p><button className="infall-button" onClick={read.retry}>{t('downloads.tryAgain')}</button></section></>
+        : read.failed ? <>{heading}<section className="download-empty" role="alert"><div className="download-state-picture"><Star state="far" /></div><h1>{t('downloads.readFailed')}</h1><p>{t('downloads.readFailedHint', deviceName)}</p><button className="infall-button" onClick={read.retry}>{t('downloads.tryAgain')}</button></section></>
         : <>{heading}{downloads.length === 0 ? (
           <section className="download-empty"><div className="download-state-picture"><Star /></div><h1>{t('downloads.emptyTitle')}</h1><p>{t('downloads.emptyHint')}</p>
             <div className="infall-acts"><Link to={searchLink} className="infall-button">{t('downloads.searchButton')}</Link><Link to={`${basePath}/series`} className="download-watchlist-link">{t('nav.series')}</Link></div>

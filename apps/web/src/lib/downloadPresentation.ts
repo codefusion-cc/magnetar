@@ -22,6 +22,10 @@ export function downloadEta(t: Translate, seconds: number, language = 'en'): str
   return t('downloads.hoursLeft', Math.floor(minutes / 60), minutes % 60)
 }
 
+export function noPeersError(error: string | null): boolean {
+  return error === 'No peers after 3 minutes' || error === 'No peers found' || error?.startsWith('No peers found — ') === true
+}
+
 /** Keep a row that finishes in the current Active view until the person changes views. */
 export function retainFinished(previous: ReadonlySet<number>, downloads: readonly DownloadDto[]): Set<number> {
   return new Set(downloads.filter(d => previous.has(d.id) || (d.status !== 'Completed' && d.status !== 'Seeding')).map(d => d.id))

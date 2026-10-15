@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { serveDevice } from '../fixtures/device.ts'
 import { infallFiles } from '../fixtures/infall.ts'
+import { encodeHandshake } from '@magnetar/protocol/e2e'
 import { expectNoInvisibleClickTargets, expectVisibleTabStops } from '@codefusion-cc/testing/playwright'
 
 test('pause and resume double clicks each send one call, and failed calls can be retried', async ({ page }) => {
@@ -223,4 +224,64 @@ test('an initial list reply cannot overwrite a newer progress push', async ({ pa
   device.send('downloads.updated', [{ ...device.downloads()[0]!, progress: 65 }])
   device.releaseList()
   await expect(page.locator('[data-download-id="1"]')).toContainText('65%')
+})
+
+test('a download error with known files keeps them available and does not claim there are no peers', async ({ page }) => {
+  const device = await serveDevice(page, { design: 'details' })
+  Object.assign(device.downloads()[0]!, { status: 'Error', error: 'Permission denied writing to /Movies' })
+  await page.goto('/downloads/1')
+  await expect(page.getByText('Permission denied writing to /Movies', { exact: true })).toBeVisible()
+  await expect(page.getByText('Nobody is sharing this torrent right now, so Magnetar stopped looking. Try again later or search for another release.', { exact: true })).toHaveCount(0)
+  await expect(page.getByRole('checkbox', { name: 'Download Sintel.en.srt', exact: true })).toBeChecked()
+  await expect(page.getByText('The list arrives with the first peer.', { exact: true })).toHaveCount(0)
+})
+
+test('the last running download finishes without moving its row on a phone', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 780 })
+  const device = await serveDevice(page, { design: 'downloads' })
+  await page.goto('/')
+  const download = device.downloads()[0]!
+  const row = page.locator('[data-download-id="1"]')
+  await expect(row).toContainText('64%')
+  device.send('downloads.changed', [download])
+  await expect(page.locator('.downloads-summary')).toContainText('downloading one thing')
+  const before = await row.boundingBox()
+  device.send('downloads.updated', [{ ...download, status: 'Completed', progress: 100, downloadSpeed: 0 }])
+  await expect(row).toContainText('Finished')
+  expect((await row.boundingBox())?.y).toBe(before?.y)
+})
+
+test('the remote frame and its computer menu use text controls without icons', async ({ page }) => {
+  await serveDevice(page, { design: 'downloads', remote: true })
+  await page.goto('/Mac-Mini-M1')
+  const frame = page.locator('.shell-header')
+  await frame.getByRole('button', { name: /Switch device/ }).click()
+  await expect(frame.getByRole('menuitem', { name: 'All devices', exact: true })).toBeVisible()
+  await expect(frame.locator('svg')).toHaveCount(0)
+})
+
+test('initial remote loading uses one connection message and the unreachable star has only its ring', async ({ page }) => {
+  await page.clock.install()
+  await serveDevice(page, { design: 'loading', remote: true })
+  await page.goto('/Mac-Mini-M1')
+  await expect(page.locator('.downloads-wait')).toHaveText('Connecting to Mac-Mini-M1')
+  await page.clock.runFor(1000)
+  await expect(page.locator('.shell-device .infall-star')).toHaveAttribute('data-state', 'out')
+  await expect(page.getByRole('alert')).toHaveCount(0)
+  await expect(page.locator('.shell-device .infall-star')).toHaveCSS('box-shadow', /^[a-z]+\([^)]*\) 0px 0px 0px 1\.5px$/)
+})
+
+
+test('an unlinked browser still sees its rejection during the initial download read on a phone', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 780 })
+  await page.clock.install()
+  await serveDevice(page, { design: 'loading', remote: true })
+  await page.routeWebSocket('**/api/devices/test/connect', socket => {
+    socket.send(JSON.stringify({ t: 'device', online: true }))
+    socket.onMessage(() => socket.send(Buffer.from(encodeHandshake({ t: 'reject', reason: 'unknown-key' }))))
+  })
+  await page.goto('/Mac-Mini-M1')
+  await expect(page.locator('.shell-device')).toContainText('This browser is no longer linked to the device.')
+  await page.clock.runFor(1000)
+  await expect(page.getByRole('alert')).toHaveText('This browser is no longer linked to the device.')
 })

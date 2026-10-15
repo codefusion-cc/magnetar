@@ -1,7 +1,7 @@
 import type { DownloadDto, DownloadStatus } from '@magnetar/protocol'
 import { Component, createRef, memo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useFormatDate, useLanguage, useT } from '../../lib/i18n.tsx'
-import { downloadBytes, downloadEta, downloadDay } from '../../lib/downloadPresentation.ts'
+import { downloadBytes, downloadEta, downloadDay, noPeersError } from '../../lib/downloadPresentation.ts'
 import { ConfirmDialog } from '../../ui/Modal.tsx'
 import { useConnection } from '../DeviceContext.tsx'
 import { useRun } from '../useRun.ts'
@@ -32,7 +32,7 @@ export function DownloadFacts({ download: d, down, up, eta }: { download: Downlo
   const bytes = (n: number) => downloadBytes(n, language)
   const done = isFinished(d)
   return <div className="download-meta">
-    <span className="download-status" data-status={d.status}>{d.status === 'Error' ? (d.error === 'No peers after 3 minutes' ? t('downloads.noPeers') : d.error || t(STATUS.Error)) : t(STATUS[d.status])}</span>
+    <span className="download-status" data-status={d.status}>{d.status === 'Error' ? (noPeersError(d.error) ? t('downloads.noPeers') : d.error || t(STATUS.Error)) : t(STATUS[d.status])}</span>
     {(d.status === 'Downloading' || d.status === 'Paused') && <span>{new Intl.NumberFormat(language, { maximumFractionDigits: 1 }).format(d.progress)}%</span>}
     {d.totalBytes > 0 && <span>{done ? bytes(d.totalBytes) : t('downloads.sizeOf', bytes(d.totalBytes * d.progress / 100), bytes(d.totalBytes))}</span>}
     {down > 0 && <span>{bytes(down)}/s</span>}

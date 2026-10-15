@@ -65,7 +65,7 @@ export function infallDownloads(screen: InfallScreen): DownloadDto[] {
     savePath: row.st === 'error' ? '/Users/alex/Movies' : '/Users/alex/Movies/Sintel',
     addedAt: screen === 'details-fail' && row.st === 'error' ? '2026-10-14T20:31:00+02:00' : new Date(new Date('2026-10-14T20:14:00+02:00').getTime() - i * 1000).toISOString(),
     completedAt: row.st === 'seed' ? '2026-10-14T14:02:00+02:00' : row.st === 'done' ? '2026-10-13T14:02:00+02:00' : null,
-    error: row.st === 'error' ? 'No peers after 3 minutes' : null, seriesTaskId: null, uploadedBytes: i === 0 ? 230e6 : 0, partialFiles: null,
+    error: row.st === 'error' ? 'No peers found — the torrent may be dead or have no seeders.' : null, seriesTaskId: null, uploadedBytes: i === 0 ? 230e6 : 0, partialFiles: null,
   }))
 }
 

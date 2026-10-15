@@ -4,7 +4,7 @@ import { deviceStar } from '../lib/deviceStar.ts'
 import { Star } from '../ui/Star.tsx'
 import { expectsAway } from '../lib/updateInstall.ts'
 import { useT } from '../lib/i18n.tsx'
-import { useDevice, useDownloads, useSearchLink } from './DeviceContext.tsx'
+import { useDevice, useDownloads, useDownloadRead, useSearchLink } from './DeviceContext.tsx'
 import { BrandMark } from '../ui/BrandMark.tsx'
 import { MenuButton } from '../ui/Menu.tsx'
 import { UpdateBanner } from './UpdateBanner.tsx'
@@ -121,7 +121,10 @@ function DeviceStatus({ menu }: { menu?: DeviceMenu }) {
 
 function ConnectionBanner() {
   const t = useT()
-  const { connectionState, installPhase } = useDevice()
+  const { connectionState, installPhase, info, basePath } = useDevice()
+  const read = useDownloadRead()
+  const { pathname } = useLocation()
+  const initialDownloads = read.loading && !info && connectionState.status !== 'rejected' && pathname === (basePath || '/')
   const [visible, setVisible] = useState(false)
   // Brief reconnects are normal; only mention them if they last.
   useEffect(() => {
@@ -130,7 +133,7 @@ function ConnectionBanner() {
     return () => clearTimeout(timer)
   }, [connectionState])
   // An app that restarts to update is away on purpose: the update's own notice says so, until it has waited too long.
-  if (!visible || connectionState.status === 'open' || connectionState.status === 'closed' || expectsAway(installPhase)) return null
+  if (initialDownloads || !visible || connectionState.status === 'open' || connectionState.status === 'closed' || expectsAway(installPhase)) return null
 
   const text = connectionState.status === 'device-offline' ? t('remote.deviceOffline')
     : connectionState.status === 'rejected' ? t(connectionState.reason)

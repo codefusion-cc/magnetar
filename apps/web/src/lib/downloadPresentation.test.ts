@@ -4,13 +4,23 @@ import fc from 'fast-check'
 import { describe, expect, test } from 'vitest'
 import english from '../i18n/en.json'
 import polish from '../i18n/pl.json'
-import { downloadBytes, downloadDay, downloadEta, downloadSummary, retainFinished } from './downloadPresentation.ts'
+import { downloadBytes, downloadDay, downloadEta, downloadSummary, noPeersError, retainFinished } from './downloadPresentation.ts'
 
 const translate = (strings: Record<string, string>) => (key: string, ...args: (string | number)[]) => (strings[key] ?? key).replace(/\{(\d+)\}/g, (_, n) => String(args[Number(n)]))
 const en = translate(english.strings)
 const pl = translate(polish.strings)
 
 describe('download presentation', () => {
+  test('recognizes the device metadata timeout while leaving other errors untouched', () => {
+    expect(noPeersError('No peers found — the torrent may be dead or have no seeders.')).toBe(true)
+    expect(noPeersError('No peers after 3 minutes')).toBe(true)
+    expect(noPeersError(null)).toBe(false)
+    expect(noPeersError('Permission denied writing to /Movies')).toBe(false)
+    fc.assert(fc.property(fc.string(), message => {
+      expect(noPeersError(`Permission denied: ${message}`)).toBe(false)
+    }))
+  })
+
   test('zero, one and many name the computer, count and decimal rate', () => {
     expect(downloadSummary(en, 'en', 'Mac-Mini-M1', 0, 0)).toBe('Mac-Mini-M1 is not downloading anything right now.')
     expect(downloadSummary(en, 'en', 'Mac-Mini-M1', 1, 3.4e6)).toBe('Mac-Mini-M1 is downloading one thing at 3.4 MB/s.')

@@ -2,7 +2,7 @@ import type { DownloadDto, DownloadFileDto } from '@magnetar/protocol'
 import { FileAudio, FileText, FileVideo } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { downloadBytes, downloadDay } from '../../lib/downloadPresentation.ts'
+import { downloadBytes, downloadDay, noPeersError } from '../../lib/downloadPresentation.ts'
 import { useSteadySpeeds } from '../../lib/steadySpeed.ts'
 import { errorMessage } from '../../lib/errors.ts'
 import { isWithin, separatorOf } from '../../lib/folderPaths.ts'
@@ -54,15 +54,16 @@ function Details({ download: d }: { download: DownloadDto }) {
   const [play, setPlay] = useState(false)
   const [canPlay, setCanPlay] = useState(false)
   const failed = d.status === 'Error'
+  const hasMetadata = d.totalBytes > 0
   const facts: [string, string][] = [
     [t(failed ? 'details.willSave' : 'details.savedTo'), d.savePath],
     [t('details.added'), downloadDay(t, language, d.addedAt, true)],
     [t('details.foundOn'), d.source || '—'],
-    failed ? [t('details.filesHeading'), t('details.filesPending')] : [t('details.sentBack'), t('details.sentRatio', bytes(d.uploadedBytes), new Intl.NumberFormat(language, { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(ratioOf(d)))],
+    failed && !hasMetadata ? [t('details.filesHeading'), t('details.filesPending')] : [t('details.sentBack'), t('details.sentRatio', bytes(d.uploadedBytes), new Intl.NumberFormat(language, { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(ratioOf(d)))],
   ]
   return <article className="download-one">
     <header className="download-one-heading"><h1 className="break-release">{d.name}</h1><ProgressBar download={d} /><DownloadFacts download={d} {...speeds} /></header>
-    {failed && <p className="download-lead">{t('details.noPeersHint')}</p>}
+    {failed && noPeersError(d.error) && <p className="download-lead">{t('details.noPeersHint')}</p>}
     <div className="infall-acts">
       {!failed && d.totalBytes > 0 && <button type="button" className="infall-button" disabled={!canPlay} title={!canPlay ? t('details.filesPending') : undefined} onClick={() => setPlay(true)}>{t('details.play')}</button>}
       <DownloadActions download={d} remove={failed} prominent={failed} between={failed ? <Link className="infall-small" to={`${basePath}/search/${encodeURIComponent(d.name)}`}>{t('details.searchForIt')}</Link> : undefined} />
@@ -72,7 +73,7 @@ function Details({ download: d }: { download: DownloadDto }) {
       </>}
     </div>
     <dl className="download-facts">{facts.map(([label, value]) => <div key={label}><dt>{label}</dt><dd title={label === t('details.added') ? date(d.addedAt, true) : undefined}>{value}</dd></div>)}</dl>
-    {!failed && <FileList download={d} play={play} onPlayable={setCanPlay} onPlayed={() => setPlay(false)} />}
+    {(!failed || hasMetadata) && <FileList download={d} play={play} onPlayable={setCanPlay} onPlayed={() => setPlay(false)} />}
   </article>
 }
 
