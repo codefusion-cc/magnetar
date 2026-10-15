@@ -1,5 +1,5 @@
 import type { FolderEntryDto, FolderPageDto, FolderRootDto } from '@magnetar/protocol'
-import { useState, type ReactNode } from 'react'
+import { useCallback, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { fileBrowserNotice } from '../../lib/buildVersion.ts'
 import { baseName, isWithin, samePath, separatorOf } from '../../lib/folderPaths.ts'
@@ -9,9 +9,8 @@ import { PageHeader, Segmented } from '../../ui/controls.tsx'
 import { Empty } from '../../ui/Empty.tsx'
 import { Loading } from '../../ui/Loading.tsx'
 import { useToast } from '../../ui/toast.tsx'
-import { useDevice, useDownloads } from '../DeviceContext.tsx'
-import { DownloadDetailsDialog } from '../components/downloadDetails.tsx'
-import { isFinished } from '../components/downloads.tsx'
+import { useDevice, useDownload } from '../DeviceContext.tsx'
+import { isFinished } from '../../lib/downloadViews.ts'
 import { DownloadFileActions, FolderPanel, RootList, useRoots } from '../components/files.tsx'
 import { PlayerDialog, subtitlesFor, type PlayTarget } from '../components/player.tsx'
 import { useRun } from '../useRun.ts'
@@ -32,7 +31,7 @@ export function FilesPage() {
   const { info, connection, settings } = useDevice()
   const { supported, roots, error, reload, setRoots } = useRoots()
   const path = (location.state as FilesLocation | null)?.path ?? roots?.roots.find(r => r.kind === 'downloads')?.path ?? roots?.roots[0]?.path ?? null
-  const open = (next: string | null) => navigate(location.pathname, { state: next === null ? null : { path: next } satisfies FilesLocation })
+  const open = useCallback((next: string | null) => navigate(location.pathname, { state: next === null ? null : { path: next } satisfies FilesLocation }), [navigate, location.pathname])
 
   if (!info) return <Loading />
   if (!supported) {
@@ -77,13 +76,13 @@ function Folder({ path, roots, downloadFolder, onOpen, onHome, header }: {
   const t = useT()
   const run = useRun()
   const toast = useToast()
-  const { connection } = useDevice()
-  const [details, setDetails] = useState<number | null>(null)
+  const { connection, basePath } = useDevice()
+  const navigate = useNavigate()
   const [playing, setPlaying] = useState<PlayTarget | null>(null)
   const [opening, setOpening] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
-  const play = async (entry: FolderEntryDto) => {
+  const play = useCallback(async (entry: FolderEntryDto) => {
     const owner = entry.download
     if (!owner || owner.index === undefined) return
     setOpening(entry.name)
@@ -91,7 +90,9 @@ function Folder({ path, roots, downloadFolder, onOpen, onHome, header }: {
     setOpening(null)
     const file = files?.find(f => f.index === owner.index)
     if (files && file) setPlaying({ downloadId: owner.id, file, subtitles: subtitlesFor(file, files) })
-  }
+  }, [connection, run])
+  const showDetails = useCallback((id: number) => navigate(`${basePath}/downloads/${id}`), [navigate, basePath])
+  const fileActions = useCallback((entry: FolderEntryDto) => <DownloadFileActions entry={entry} playing={opening === entry.name} onPlay={play} onDetails={showDetails} />, [opening, play, showDetails])
 
   const useAsDownloadFolder = async (page: FolderPageDto) => {
     setSaving(true)
@@ -114,15 +115,14 @@ function Folder({ path, roots, downloadFolder, onOpen, onHome, header }: {
   return (
     <>
       <FolderPanel header={header} path={path} roots={roots} onOpen={onOpen} onHome={onHome} toolbar={toolbar}
-        fileActions={entry => <DownloadFileActions entry={entry} playing={opening === entry.name} onPlay={e => void play(e)} onDetails={setDetails} />} />
+        fileActions={fileActions} />
       <Player target={playing} onClose={() => setPlaying(null)} />
-      <DownloadDetailsDialog id={details} onClose={() => setDetails(null)} />
     </>
   )
 }
 
 /** The player for a file of a download; apart, so only it follows the downloads' progress each second. */
 function Player({ target, onClose }: { target: PlayTarget | null; onClose: () => void }) {
-  const download = useDownloads().find(d => d.id === target?.downloadId)
+  const download = useDownload(target?.downloadId)
   return <PlayerDialog target={target} finished={download ? isFinished(download) : false} onClose={onClose} />
 }

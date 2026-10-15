@@ -1,18 +1,17 @@
 import type { WatchDto, WatchInput } from '@magnetar/protocol'
-import { formatBytes } from '@magnetar/protocol/bytes'
 import { BellRing, RotateCcw, Trash2 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
-import { useFormatRelative, useT } from '../../lib/i18n.tsx'
+import { useFormatBytes, useFormatRelative, useT } from '../../lib/i18n.tsx'
 import { parseQuality, qualityForm, resolutionLabel, type QualityForm } from '../../lib/quality.ts'
 import { Segmented, Switch } from '../../ui/controls.tsx'
 import { Field, TextField } from '../../ui/fields.tsx'
-import { Star } from '../../ui/Star.tsx'
+import { Empty } from '../../ui/Empty.tsx'
 import { SeasonOrbit, EpisodeApproach } from './episodes.tsx'
 import { ConfirmDialog, Modal } from '../../ui/Modal.tsx'
 import { useToast } from '../../ui/toast.tsx'
 import { useDevice } from '../DeviceContext.tsx'
-import { useRun } from '../useRun.ts'
+import { useLockedRun, useRun } from '../useRun.ts'
 import { intervalLabel, QualityFields } from './qualityFields.tsx'
 
 const INTERVALS = [60, 180, 360, 720, 1440, 4320, 10080]
@@ -35,7 +34,7 @@ export function WatchesSection({ start, onStarted }: { start: WatchInput | null;
   return (
     <>
       {watches.length === 0 ? (
-        <section className="download-empty"><div className="download-state-picture"><Star /></div><h1>{t('watch.emptyTitle')}</h1><p>{t('watch.emptyHint')}</p>{add}</section>
+        <Empty appearance="download" title={t('watch.emptyTitle')} text={t('watch.emptyHint')}>{add}</Empty>
       ) : (
         <>
           <div className="mb-4 flex justify-end">{add}</div>
@@ -51,12 +50,12 @@ export function WatchesSection({ start, onStarted }: { start: WatchInput | null;
 
 function WatchCard({ watch, onEdit }: { watch: WatchDto; onEdit: () => void }) {
   const t = useT()
+  const formatBytes = useFormatBytes()
   const formatRelative = useFormatRelative('long')
   const toast = useToast()
   const run = useRun()
   const { connection, basePath } = useDevice()
-  const acting = useRef(false)
-  const [busy, setBusy] = useState<'check' | 'download' | null>(null)
+  const { busy, run: lockedRun } = useLockedRun()
   const [deleting, setDeleting] = useState(false)
   const rules = [
     resolutionLabel(watch.resolution),
@@ -67,16 +66,16 @@ function WatchCard({ watch, onEdit }: { watch: WatchDto; onEdit: () => void }) {
   ].filter(Boolean).join(', ')
 
   const act = async (kind: 'check' | 'download') => {
-    if (acting.current) return
-    acting.current = true
-    setBusy(kind)
-    const done = await run(() => connection.call(kind === 'check' ? 'watches.checkNow' : 'watches.download', { id: watch.id }), 'watch.failed')
-    acting.current = false
-    setBusy(null)
+    const done = await lockedRun(() => connection.call(kind === 'check' ? 'watches.checkNow' : 'watches.download', { id: watch.id }), 'watch.failed')
     if (done && kind === 'check') toast(('found' in done && done.found) ? t('watch.foundToast') : t('watch.nothingYet'), 'info')
     if (done && kind === 'download') toast(t('search.started', watch.found?.title ?? ''), 'success')
   }
   const rearm = (enabled: boolean) => void run(() => connection.call('watches.update', { id: watch.id, watch: { ...toInput(watch), enabled } }), 'settings.saveFailed')
+
+  let action
+  if (watch.found && watch.downloadId !== null) action = <Link to={basePath || '/'} className="infall-small">{t('watch.downloading')}</Link>
+  else if (watch.found) action = <button type="button" className="infall-button" disabled={busy} onClick={() => void act('download')}>{t('common.download')}</button>
+  else action = <button type="button" className="infall-small" disabled={busy || !watch.enabled} onClick={() => void act('check')}>{busy ? t('search.searching') : t('series.checkNow')}</button>
 
   return (
     <li className="release-watch">
@@ -94,9 +93,7 @@ function WatchCard({ watch, onEdit }: { watch: WatchDto; onEdit: () => void }) {
         </div></details>
       </div>
       <EpisodeApproach episodes={[]} />
-      {watch.found ? watch.downloadId !== null ? <Link to={basePath || '/'} className="infall-small">{t('watch.downloading')}</Link>
-        : <button type="button" className="infall-button" disabled={busy !== null} onClick={() => void act('download')}>{t('common.download')}</button>
-        : <button type="button" className="infall-small" disabled={busy !== null || !watch.enabled} onClick={() => void act('check')}>{busy === 'check' ? t('search.searching') : t('series.checkNow')}</button>}
+      {action}
       {deleting && <ConfirmDialog open title={t('watch.delete')} message={t('watch.deleteConfirm', watch.query)}
         options={[{ label: t('common.cancel'), value: false, tone: 'ghost' }, { label: t('common.delete'), value: true, tone: 'error' }]}
         onResult={confirmed => {

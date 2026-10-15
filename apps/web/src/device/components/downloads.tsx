@@ -1,20 +1,17 @@
 import type { DownloadDto, DownloadStatus } from '@magnetar/protocol'
-import { Component, createRef, memo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { useFormatDate, useLanguage, useT } from '../../lib/i18n.tsx'
-import { downloadBytes, downloadEta, downloadDay, noPeersError } from '../../lib/downloadPresentation.ts'
+import { Component, createRef, memo, useState, type CSSProperties, type ReactNode } from 'react'
+import { formatters, useFormatBytes, useFormatRate, useFormatEta, useFormatDate, useLanguage, useT } from '../../lib/i18n.tsx'
+import { isActive, isFinished } from '../../lib/downloadViews.ts'
+import { downloadDay, noPeersError } from '../../lib/downloadPresentation.ts'
 import { ConfirmDialog } from '../../ui/Modal.tsx'
 import { useConnection } from '../DeviceContext.tsx'
-import { useRun } from '../useRun.ts'
+import { useLockedRun } from '../useRun.ts'
 
 const STATUS: Record<DownloadStatus, string> = {
   Queued: 'status.queued', FetchingMetadata: 'status.fetchingMetadata', Downloading: 'status.downloading',
   Seeding: 'status.seeding', Paused: 'status.paused', Completed: 'status.completed', Error: 'status.error',
 }
 
-export function isActive(d: DownloadDto): boolean {
-  return ['Downloading', 'FetchingMetadata', 'Queued', 'Seeding'].includes(d.status)
-}
-export function isFinished(d: DownloadDto): boolean { return d.status === 'Completed' || d.status === 'Seeding' }
 export const ratioOf = (d: DownloadDto) => (d.totalBytes > 0 ? d.uploadedBytes / d.totalBytes : 0)
 
 /** One element for the lane; the canvas slice can read the same progress and status. */
@@ -29,17 +26,19 @@ export function DownloadFacts({ download: d, down, up, eta }: { download: Downlo
   const t = useT()
   const language = useLanguage()
   const date = useFormatDate()
-  const bytes = (n: number) => downloadBytes(n, language)
+  const bytes = useFormatBytes()
+  const rate = useFormatRate()
+  const etaText = useFormatEta()
   const done = isFinished(d)
   return <div className="download-meta">
     <span className="download-status" data-status={d.status}>{d.status === 'Error' ? (noPeersError(d.error) ? t('downloads.noPeers') : d.error || t(STATUS.Error)) : t(STATUS[d.status])}</span>
-    {(d.status === 'Downloading' || d.status === 'Paused') && <span>{new Intl.NumberFormat(language, { maximumFractionDigits: 1 }).format(d.progress)}%</span>}
+    {(d.status === 'Downloading' || d.status === 'Paused') && <span>{formatters(language).number(d.progress, { maximumFractionDigits: 1 })}%</span>}
     {d.totalBytes > 0 && <span>{done ? bytes(d.totalBytes) : t('downloads.sizeOf', bytes(d.totalBytes * d.progress / 100), bytes(d.totalBytes))}</span>}
-    {down > 0 && <span>{bytes(down)}/s</span>}
-    {up > 0 && <span>{t('details.uploaded')} {bytes(up)}/s</span>}
-    {eta !== null && <span>{downloadEta(t, eta, language)}</span>}
+    {down > 0 && <span>{rate(down)}</span>}
+    {up > 0 && <span>{t('details.uploaded')} {rate(up)}</span>}
+    {eta !== null && <span>{etaText(eta)}</span>}
     {isActive(d) && d.peers > 0 && <span>{t('downloads.peers', d.peers)}</span>}
-    {done && d.completedAt && <span title={date(d.completedAt, true)}>{downloadDay(t, language, d.completedAt)}</span>}
+    {done && d.completedAt && <span title={date(d.completedAt, true)}>{downloadDay(language, d.completedAt)}</span>}
     {d.status === 'Seeding' && d.uploadedBytes > 0 && <span>{t('downloads.ratio', ratioOf(d).toFixed(2))}</span>}
     {d.partialFiles && <span>{t('downloads.someFiles', d.partialFiles.selected, d.partialFiles.total)}</span>}
   </div>
@@ -83,19 +82,11 @@ class DownloadItem extends Component<{ download: DownloadDto; children: ReactNod
 export function DownloadActions({ download, onPlay, remove = true, between, prominent = false }: { download: DownloadDto; onPlay?: (id: number) => void; remove?: boolean; between?: ReactNode; prominent?: boolean }) {
   const t = useT()
   const connection = useConnection()
-  const run = useRun()
-  const lock = useRef(false)
-  const [busy, setBusy] = useState(false)
+  const { busy, run: act } = useLockedRun()
   const [confirming, setConfirming] = useState(false)
   const primary = isActive(download) ? { label: t('common.pause'), method: 'downloads.pause' as const }
     : download.status === 'Paused' ? { label: t('common.resume'), method: 'downloads.resume' as const }
     : download.status === 'Error' ? { label: t('downloads.tryAgain'), method: 'downloads.resume' as const } : null
-  const act = async (action: () => Promise<unknown>) => {
-    if (lock.current) return
-    lock.current = true
-    setBusy(true)
-    try { await run(action) } finally { lock.current = false; setBusy(false) }
-  }
   return <div className="download-actions">
     {primary && <button type="button" className={prominent ? 'infall-button' : 'infall-small'} disabled={busy} aria-busy={busy}
       onClick={() => void act(() => connection.call(primary.method, { id: download.id }))}>{primary.label}</button>}
@@ -107,5 +98,3 @@ export function DownloadActions({ download, onPlay, remove = true, between, prom
       onResult={deleteFiles => { setConfirming(false); if (deleteFiles !== null) void act(() => connection.call('downloads.delete', { id: download.id, deleteFiles })) }} />}
   </div>
 }
-
-DownloadRow.displayName = 'DownloadRow'

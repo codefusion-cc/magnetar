@@ -26,11 +26,17 @@ export interface SearchState {
 
 const EMPTY_SEARCH: SearchState = { query: '', ran: null, searchId: null, requestId: 0, searching: false, results: null, outcomes: [] }
 
+export interface ListRead {
+  loading: boolean
+  failed: boolean
+  retry: () => void
+}
+
 interface DeviceState {
   connection: RpcClient
   connectionState: ConnectionState
   info: AppInfoDto | null
-  seriesRead: { loading: boolean; failed: boolean; retry: () => void }
+  seriesRead: ListRead
   series: SeriesTaskDto[]
   watches: WatchDto[]
   settings: SettingsDto | null
@@ -99,8 +105,9 @@ const withIds = (sources: SourceDto[]) => sources.map(s => (s.id ? s : { ...s, i
 
 const DeviceContext = createContext<DeviceState | null>(null)
 /** Separate so the once-a-second progress updates re-render only the views that show downloads. */
-const DownloadReadContext = createContext<{ loading: boolean; failed: boolean; retry: () => void }>({ loading: true, failed: false, retry: () => {} })
+const DownloadReadContext = createContext<ListRead>({ loading: true, failed: false, retry: () => {} })
 const DownloadsContext = createContext<DownloadDto[]>([])
+const DownloadLookupContext = createContext<ReadonlyMap<number, DownloadDto>>(new Map())
 /** The search in progress, apart so typing and streamed results re-render only the search page. */
 const SearchContext = createContext<SearchContextValue | null>(null)
 interface SearchContextValue {
@@ -126,9 +133,11 @@ export function DeviceProvider({ connection, basePath, deviceName, children }: {
   // Reads the downloads and the watchlist again; set by the connection's effect.
   const readListsAgain = useRef<() => void>(() => {})
   const retryDownloads = useCallback(() => readListsAgain.current(), [])
-  const readValue = useMemo(() => ({ ...read, retry: retryDownloads }), [read, retryDownloads])
+  const readValue = useMemo<ListRead>(() => ({ ...read, retry: retryDownloads }), [read, retryDownloads])
   const [downloads, setDownloads] = useState<DownloadDto[]>([])
+  const downloadsById = useMemo(() => new Map(downloads.map(d => [d.id, d])), [downloads])
   const [seriesRead, setSeriesRead] = useState({ loading: true, failed: false })
+  const seriesReadValue = useMemo<ListRead>(() => ({ ...seriesRead, retry: retryDownloads }), [seriesRead, retryDownloads])
   const [series, setSeries] = useState<SeriesTaskDto[]>([])
   const [watches, setWatches] = useState<WatchDto[]>([])
   const [settings, setSettings] = useState<SettingsDto | null>(null)
@@ -168,23 +177,25 @@ export function DeviceProvider({ connection, basePath, deviceName, children }: {
     const readLists = () => {
       const attempt = ++listsId
       const version = downloadsVersion
+      const downloadsCurrent = () => !cancelled && attempt === listsId && version === downloadsVersion
       duringList = new Map()
       pendingList = true
       setRead({ loading: true, failed: false })
       void connection.call('downloads.list').then(list => {
-        if (cancelled || attempt !== listsId || version !== downloadsVersion) return
+        if (!downloadsCurrent()) return
         setDownloads(mergeRows(list, [...duringList.values()]))
         pendingList = false
         duringList.clear()
         setRead({ loading: false, failed: false })
       }, () => {
-        if (!cancelled && attempt === listsId && version === downloadsVersion) { pendingList = false; duringList.clear(); setRead({ loading: false, failed: true }) }
+        if (downloadsCurrent()) { pendingList = false; duringList.clear(); setRead({ loading: false, failed: true }) }
       })
       setSeriesRead({ loading: true, failed: false })
       const seriesAtRead = seriesVersion
+      const seriesCurrent = () => !cancelled && attempt === listsId && seriesAtRead === seriesVersion
       void connection.call('series.list').then(list => {
-        if (!cancelled && attempt === listsId && seriesAtRead === seriesVersion) { setSeries(list); setSeriesRead({ loading: false, failed: false }) }
-      }, () => { if (!cancelled && attempt === listsId && seriesAtRead === seriesVersion) setSeriesRead({ loading: false, failed: true }) })
+        if (seriesCurrent()) { setSeries(list); setSeriesRead({ loading: false, failed: false }) }
+      }, () => { if (seriesCurrent()) setSeriesRead({ loading: false, failed: true }) })
     }
     readListsAgain.current = () => { if (!cancelled && connection.state.status === 'open') readLists() }
     const refresh = async () => {
@@ -295,9 +306,9 @@ export function DeviceProvider({ connection, basePath, deviceName, children }: {
   const phase = installPhase(install.attempt, appView, now)
   const installedVersion = install.installed
   const value = useMemo<DeviceState>(() => ({
-    connection, connectionState, info, seriesRead: { ...seriesRead, retry: retryDownloads }, series, watches, settings, sources, updates, installPhase: phase, installedVersion, installUpdate, forgetInstall,
+    connection, connectionState, info, seriesRead: seriesReadValue, series, watches, settings, sources, updates, installPhase: phase, installedVersion, installUpdate, forgetInstall,
     remote, transfer, basePath, deviceName,
-  }), [connection, connectionState, info, seriesRead, retryDownloads, series, watches, settings, sources, updates, phase, installedVersion, installUpdate, forgetInstall, remote, transfer, basePath, deviceName])
+  }), [connection, connectionState, info, seriesReadValue, series, watches, settings, sources, updates, phase, installedVersion, installUpdate, forgetInstall, remote, transfer, basePath, deviceName])
   const searchValue = useMemo(() => ({ search, setSearch, setSearchAddress }), [search])
 
   return (
@@ -305,7 +316,7 @@ export function DeviceProvider({ connection, basePath, deviceName, children }: {
       <DeviceContext.Provider value={value}>
         <SearchContext.Provider value={searchValue}>
           <SearchAddressContext.Provider value={searchAddress}>
-            <DownloadReadContext.Provider value={readValue}><DownloadsContext.Provider value={downloads}>{children}</DownloadsContext.Provider></DownloadReadContext.Provider>
+            <DownloadReadContext.Provider value={readValue}><DownloadsContext.Provider value={downloads}><DownloadLookupContext.Provider value={downloadsById}>{children}</DownloadLookupContext.Provider></DownloadsContext.Provider></DownloadReadContext.Provider>
           </SearchAddressContext.Provider>
         </SearchContext.Provider>
       </DeviceContext.Provider>
@@ -344,3 +355,9 @@ export function useDownloads(): DownloadDto[] {
 }
 
 export function useDownloadRead() { return useContext(DownloadReadContext) }
+
+/** A shared lookup for file rows; one map is built per push instead of scanning per entry. */
+export function useDownload(id: number | undefined): DownloadDto | undefined {
+  const downloads = useContext(DownloadLookupContext)
+  return id === undefined ? undefined : downloads.get(id)
+}

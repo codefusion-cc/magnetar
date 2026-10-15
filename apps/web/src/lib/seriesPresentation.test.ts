@@ -4,7 +4,10 @@ import { describe, expect, test } from 'vitest'
 import en from '../i18n/en.json'
 import pl from '../i18n/pl.json'
 import ru from '../i18n/ru.json'
-import { calendarDistance, episodeAirDate, episodeArc, upcomingEpisodes } from './seriesPresentation.ts'
+import de from '../i18n/de.json'
+import { calendarDistance, episodeAirDate, episodeArc, upcomingEpisodes, seriesLine, seriesRule, episodeApproachDate } from './seriesPresentation.ts'
+
+const translate = (strings: Record<string, string>) => (key: string, ...args: (string | number)[]) => (strings[key] ?? key).replace(/\{(\d+)\}/g, (_, n) => String(args[Number(n)]))
 
 const episode = (number: number, airstamp: string | null, state: 'expected' | 'missed' = 'expected'): SeriesEpisodeDto => ({ number, airstamp, name: null, state })
 const now = new Date(2026, 9, 15, 0, 10).getTime()
@@ -52,11 +55,35 @@ test('one and sixty episode seasons have distinct, finite arcs with a gap', () =
 })
 
 test('air dates use native weekday cases and English day-month order', () => {
-  const translate = (strings: Record<string, string>) => (key: string) => strings[key] ?? key
   const wednesday = new Date(2026, 9, 14, 12).toISOString()
   const saturday = new Date(2026, 9, 17, 12).toISOString()
   expect(episodeAirDate(wednesday, 'en', translate(en.strings))).toBe('Wednesday, 14 October')
   expect(episodeAirDate(wednesday, 'pl', translate(pl.strings), true)).toBe('w środę')
   expect(episodeAirDate(saturday, 'pl', translate(pl.strings), true)).toBe('w sobotę')
   expect(episodeAirDate(wednesday, 'ru', translate(ru.strings), true)).toBe('в среду')
+})
+
+test('series sentences distinguish paused, finished, active, dated and undated episodes', () => {
+  const t = translate(en.strings)
+  const state = { task: { enabled: true, finished: false, nextEpisode: 7 }, got: 0, total: 1, date: null, checked: 'Not checked yet' }
+  expect(seriesLine(t, { ...state, task: { ...state.task, enabled: false } })).toBe('Paused — switch on to keep checking')
+  expect(seriesLine(t, { ...state, task: { ...state.task, finished: true }, got: 1 })).toBe('You have every episode. Not checked yet.')
+  expect(seriesLine(t, { ...state, task: { ...state.task, finished: true } })).toBe('Finished checking for new episodes. Not checked yet.')
+  expect(seriesLine(t, { ...state, active: episode(6, null), activeStatus: 'Error' })).toBe('Episode 6 could not be downloaded.')
+  expect(seriesLine(t, { ...state, next: episode(7, null), date: 'Friday' })).toBe('Episode 7 is expected on Friday.')
+  expect(seriesLine(t, state)).toBe('Waiting for episode 7. No air date announced.')
+  expect(seriesLine(t, { ...state, expected: episode(7, '2026-10-14') })).toBe('Waiting for a release of episode 7.')
+})
+
+test('orbit rules distinguish one episode, unknown season and a numbered season', () => {
+  const t = translate(en.strings)
+  const task = { season: null, resolution: null, minSeeders: 1, preferWords: '' }
+  expect(seriesRule(t, task, 1, 1)).toBe('1 of 1 episode. Takes any quality.')
+  expect(seriesRule(t, task, 2, 3)).toBe('2 of 3 episodes. Takes any quality.')
+  expect(seriesRule(t, { ...task, season: 4 }, 2, 3)).toBe('Season 4, 2 of 3 episodes. Takes any quality.')
+  expect(seriesRule(t, { ...task, season: 4 }, 1, 1)).toBe('Season 4, 1 of 1 episode. Takes any quality.')
+})
+
+test('German approach labels keep the standalone weekday abbreviation', () => {
+  expect(episodeApproachDate(new Date(2026, 9, 14, 12).toISOString(), 'de', translate(de.strings))).toBe('Mi 14')
 })

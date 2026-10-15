@@ -1,20 +1,20 @@
-import type { FolderEntryDto, FolderPageDto, FolderRootDto, FolderRootsDto, DownloadDto } from '@magnetar/protocol'
-import { formatBytes } from '@magnetar/protocol/bytes'
+import type { FolderEntryDto, FolderPageDto, FolderRootDto, FolderRootsDto } from '@magnetar/protocol'
 import {
   Download, FolderPlus, HardDrive, House, Info, Plus,
   RefreshCw, X,
 } from 'lucide-react'
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { memo, useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { errorMessage } from '../../lib/errors.ts'
 import { appendPage, baseName, crumbs, isWithin, joinPath, separatorOf, type Crumb, type Separator } from '../../lib/folderPaths.ts'
-import { useFormatDate, useLanguage, useT } from '../../lib/i18n.tsx'
+import { useFormatBytes, useFormatDate, useLanguage, useT } from '../../lib/i18n.tsx'
 import { RpcError } from '../../lib/rpcClient.ts'
 import { Field } from '../../ui/fields.tsx'
 import { ConfirmDialog } from '../../ui/Modal.tsx'
 import { ShowMore } from '../../ui/ShowMore.tsx'
-import { Star } from '../../ui/Star.tsx'
-import { downloadBytes, downloadDay } from '../../lib/downloadPresentation.ts'
-import { useDevice, useDownloads } from '../DeviceContext.tsx'
+import { Empty } from '../../ui/Empty.tsx'
+import { Loading } from '../../ui/Loading.tsx'
+import { downloadDay } from '../../lib/downloadPresentation.ts'
+import { useDevice, useDownload } from '../DeviceContext.tsx'
 import { useRun } from '../useRun.ts'
 
 /** The folders the dashboard may browse, read again when the download folder moves (the old one may stay as added). */
@@ -188,10 +188,10 @@ export function FolderPanel({ path, roots, foldersOnly = false, onOpen, onHome, 
 }) {
   const t = useT()
   const formatDate = useFormatDate()
+  const formatBytes = useFormatBytes()
+  const language = useLanguage()
   const { connection } = useDevice()
   const { state, reload, loadMore } = useFolder(path, foldersOnly)
-  const downloads = useDownloads()
-  const downloadsById = useMemo(() => new Map(downloads.map(d => [d.id, d])), [downloads])
   const [making, setMaking] = useState(false)
   const headingId = useId()
   const heading = useRef<HTMLHeadingElement>(null)
@@ -210,6 +210,13 @@ export function FolderPanel({ path, roots, foldersOnly = false, onOpen, onHome, 
 
   const page = state?.status === 'ready' ? state.page : null
   const separator = page?.separator ?? separatorOf(path)
+  const entries = state?.status === 'ready' ? state.entries : null
+  const rows = useMemo(() => entries?.map(entry => {
+    const modifiedToday = entry.modified !== null && new Date(entry.modified).toDateString() === new Date().toDateString()
+    const facts = [entry.size !== null ? formatBytes(entry.size) : null, entry.modified && downloadDay(language, entry.modified, modifiedToday, new Date(), 'file')].filter(Boolean) as string[]
+    return { entry, facts, title: entry.modified ? formatDate(entry.modified, true) : undefined }
+  }) ?? [], [entries, formatBytes, formatDate, language])
+  const openEntry = useCallback((name: string) => onOpen(joinPath(page?.path ?? path, name, separator)), [onOpen, page?.path, path, separator])
   // Before the page says, the outermost root holding the folder, as the device picks it.
   const root = page?.root ?? roots.filter(r => isWithin(path, r.path, separator)).sort((a, b) => a.path.length - b.path.length)[0]?.path ?? path
   const rootFound = roots.find(r => r.path === root)
@@ -262,28 +269,22 @@ export function FolderPanel({ path, roots, foldersOnly = false, onOpen, onHome, 
           }} />
       )}
 
-      {state?.status === 'loading' && <><div className="downloads-wait" role="status"><Star breathe />{t('files.reading')}</div><ul className="download-skeleton" aria-hidden="true">{[0,1,2,3].map(i => <li key={i}><i /><i /></li>)}</ul></>}
-      {state?.status === 'error' && <section role="alert" className="download-empty">
-        <div className="download-state-picture"><Star state="out" /></div>
-        <h1>{t('files.unreachable', name)}</h1><p>{state.message}</p>
+      {state?.status === 'loading' && <Loading text={t('files.reading')} rows={4} />}
+      {state?.status === 'error' && <Empty appearance="download" role="alert" state="out" title={t('files.unreachable', name)} text={state.message}>
         <div className="infall-acts">{state.code !== 'forbidden' && <button className="infall-button" onClick={reload}>{t('common.retry')}</button>}
           <button className="infall-button quiet" onClick={() => (up ? onOpen(up) : onHome())}>{up ? t('files.up') : t('files.backToFiles')}</button>
         </div>
-      </section>}
+      </Empty>}
       {state?.status === 'ready' && (
         <>
-          {header && trail.length === 1 && <p className="folder-where"><span>{state.page.path}</span> {toolbar?.(state.page)}</p>}
+          {header && trail.length === 1 && <p className="folder-where"><span role="note" aria-label={t('files.folderPath')}>{state.page.path}</span> {toolbar?.(state.page)}</p>}
           {state.page.truncated && <p className="muted text-xs">{t('files.truncated', state.page.total)}</p>}
           {state.entries.length === 0
             ? <p className="folder-empty">{t(foldersOnly ? 'files.noFolders' : 'files.empty')}</p>
             : (
               <ul aria-label={t('files.contents', name)} aria-busy={state.more === 'loading'}
                 className={`folder-entries ${compact ? 'max-h-80 overflow-y-auto' : ''}`}>
-                {state.entries.map(entry => (
-                  <EntryRow key={entry.name} download={entry.download ? downloadsById.get(entry.download.id) : undefined} entry={entry} formatDate={formatDate}
-                    onOpen={entry.kind === 'folder' ? () => onOpen(joinPath(state.page.path, entry.name, separator)) : undefined}
-                    actions={entry.download && <div className="file-actions">{fileActions?.(entry)}</div>} />
-                ))}
+                {rows.map(row => <EntryRow key={row.entry.name} {...row} onOpen={openEntry} fileActions={fileActions} />)}
               </ul>
             )}
           {state.entries.length === 0 && header && trail.length > 1 && toolbar?.(state.page)}
@@ -299,28 +300,28 @@ export function FolderPanel({ path, roots, foldersOnly = false, onOpen, onHome, 
   )
 }
 
-function EntryRow({ entry, formatDate, onOpen, actions, download }: {
-  entry: FolderEntryDto
-  download?: DownloadDto
-  formatDate: ReturnType<typeof useFormatDate>
-  onOpen?: () => void
-  actions?: ReactNode
+/** Only entries owned by a download subscribe to its once-a-second progress. */
+function DownloadEntry({ entry, children }: { entry: FolderEntryDto; children: (percent: number | null) => ReactNode }) {
+  const download = useDownload(entry.download!.id)
+  return children(download && download.progress < 100 ? download.progress : null)
+}
+
+const EntryRow = memo(function EntryRow({ entry, facts, title, onOpen, fileActions }: {
+  entry: FolderEntryDto; facts: string[]; title?: string
+  onOpen: (name: string) => void; fileActions?: (entry: FolderEntryDto) => ReactNode
 }) {
   const t = useT()
-  const language = useLanguage()
-  const partial = download && download.progress < 100
-  const percent = download?.progress ?? 0
-  const modifiedToday = entry.modified !== null && new Date(entry.modified).toDateString() === new Date().toDateString()
-  const modified = entry.modified && downloadDay(t, language, entry.modified, modifiedToday).replace(', ', ' ')
-  const facts = [entry.size !== null ? downloadBytes(entry.size, language) : null, modified].filter(Boolean)
-  const body = <div className="file-body"><h2>{onOpen ? <button type="button" onClick={onOpen}>{entry.name}</button> : entry.name}</h2>
-    <p className="file-meta" title={entry.modified ? formatDate(entry.modified, true) : undefined}>{facts.map(f => <span key={f}>{f}</span>)}
-      {partial && <span className="still-arriving">{t('files.arriving', Math.round(percent))}</span>}
-    </p></div>
-  return <li className={`file-entry ${entry.kind === 'folder' ? 'dir' : ''} ${partial ? 'part' : ''}`} style={{ '--z': Math.max(.15, Math.min(1, Math.log10(Math.max((entry.size ?? 1e8) / 1e6, 1)) / 4)) } as React.CSSProperties}>
-    <span className="file-star" aria-hidden="true"><i /></span>{body}{actions}
+  const render = (percent: number | null) => <li className={`file-entry ${entry.kind === 'folder' ? 'dir' : ''} ${percent !== null ? 'part' : ''}`} style={{ '--z': Math.max(.15, Math.min(1, Math.log10(Math.max((entry.size ?? 1e8) / 1e6, 1)) / 4)) } as React.CSSProperties}>
+    <span className="file-star" aria-hidden="true"><i /></span>
+    <div className="file-body"><h2>{entry.kind === 'folder' ? <button type="button" onClick={() => onOpen(entry.name)}>{entry.name}</button> : entry.name}</h2>
+      <p className="file-meta" title={title}>{facts.map(f => <span key={f}>{f}</span>)}
+        {percent !== null && <span className="still-arriving">{t('files.arriving', Math.round(percent))}</span>}
+      </p>
+    </div>
+    {entry.download && <div className="file-actions">{fileActions?.(entry)}</div>}
   </li>
-}
+  return entry.download ? <DownloadEntry entry={entry}>{render}</DownloadEntry> : render(null)
+})
 
 /** The folders that can be browsed, as cards; on the device itself, a way to add more. */
 export function RootList({ roots, canAdd, onOpen, onChanged, compact = false }: {
@@ -331,6 +332,7 @@ export function RootList({ roots, canAdd, onOpen, onChanged, compact = false }: 
   compact?: boolean
 }) {
   const t = useT()
+  const formatBytes = useFormatBytes()
   const run = useRun()
   const { connection, info, deviceName } = useDevice()
   const [adding, setAdding] = useState(false)

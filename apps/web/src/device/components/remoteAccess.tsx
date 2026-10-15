@@ -2,7 +2,7 @@ import { ExternalLink, Link2, Plus, QrCode, RefreshCw, ShieldCheck, TimerOff, Un
 import { reservedDeviceName, toDeviceName } from '@magnetar/protocol/device-name'
 import QRCode from 'qrcode'
 import { useEffect, useRef, useState } from 'react'
-import { useFormatEta, useFormatRelative, useT } from '../../lib/i18n.tsx'
+import { useFormatRelative, useT } from '../../lib/i18n.tsx'
 import { SettingGroup, SettingRow } from '../../ui/controls.tsx'
 import { CopyInput, Field } from '../../ui/fields.tsx'
 import { ConfirmDialog, Modal } from '../../ui/Modal.tsx'
@@ -226,7 +226,7 @@ export function RemoteAccessSection() {
 /** How long a link has left, kept current while it is shown. */
 function LinkExpiry({ deadline }: { deadline: number }) {
   const t = useT()
-  const formatEta = useFormatEta()
+  const formatRelative = useFormatRelative('short', 'always')
   const [now, setNow] = useState(Date.now)
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 15_000)
@@ -235,5 +235,5 @@ function LinkExpiry({ deadline }: { deadline: number }) {
   const seconds = (deadline - now) / 1000
   // Gone once the time is up: the device deletes the key then, and the dialog says the link expired.
   if (seconds <= 0) return null
-  return <p className="muted text-xs">{t('remote.linkExpires', formatEta(seconds))}</p>
+  return <p className="muted text-xs">{t('remote.linkExpires', formatRelative(Math.max(deadline, now + 1000), now))}</p>
 }

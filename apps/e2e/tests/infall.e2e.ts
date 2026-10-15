@@ -7,7 +7,7 @@ import { expectNoInvisibleClickTargets, expectVisibleTabStops } from '@codefusio
 test('pause and resume double clicks each send one call, and failed calls can be retried', async ({ page }) => {
   const device = await serveDevice(page, { design: 'downloads', delay: 200 })
   await page.goto('/')
-  const row = page.locator('[data-download-id="1"]')
+  const row = page.getByRole('listitem').filter({ has: page.getByRole('heading', { name: 'Sintel (2010) 1080p BluRay', exact: true }) })
   for (const [label, method, next] of [['Pause', 'downloads.pause', 'Resume'], ['Resume', 'downloads.resume', 'Pause']] as const) {
     await row.getByRole('button', { name: label, exact: true }).evaluate(button => { (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click() })
     await expect(row.getByRole('button', { name: next, exact: true })).toBeEnabled()
@@ -25,7 +25,7 @@ test('pause and resume double clicks each send one call, and failed calls can be
 test('a row finishing in Active keeps its position and becomes finished until the view changes', async ({ page }) => {
   const device = await serveDevice(page, { design: 'downloads' })
   await page.goto('/')
-  const row = page.locator('[data-download-id="1"]')
+  const row = page.getByRole('listitem').filter({ has: page.getByRole('heading', { name: 'Sintel (2010) 1080p BluRay', exact: true }) })
   await expect(row).toContainText('Downloading')
   const before = await row.boundingBox()
   device.send('downloads.updated', [{ ...device.downloads()[0]!, status: 'Completed', progress: 100, downloadSpeed: 0, completedAt: new Date().toISOString() }])
@@ -40,7 +40,7 @@ test('a row finishing in Active keeps its position and becomes finished until th
 
 test('one per-second push renders only its changed row', async ({ page }) => {
   await page.addInitScript(() => {
-    type Fiber = { flags: number; elementType?: { displayName?: string }; memoizedProps?: { download?: { id: number } }; child?: Fiber; sibling?: Fiber }
+    type Fiber = { flags: number; elementType?: { $$typeof?: symbol }; memoizedProps?: { download?: { id: number }; onOpen?: unknown }; child?: Fiber; sibling?: Fiber }
     const commits: number[][] = []
     Object.assign(window, { rowCommits: commits, __REACT_DEVTOOLS_GLOBAL_HOOK__: {
       supportsFiber: true, inject: () => 1, onCommitFiberUnmount: () => {},
@@ -48,7 +48,7 @@ test('one per-second push renders only its changed row', async ({ page }) => {
         const rows: number[] = []
         const walk = (fiber?: Fiber) => {
           if (!fiber) return
-          if (fiber.elementType?.displayName === 'DownloadRow' && (fiber.flags & 1) && fiber.memoizedProps?.download) rows.push(fiber.memoizedProps.download.id)
+          if (fiber.elementType?.$$typeof === Symbol.for('react.memo') && (fiber.flags & 1) && fiber.memoizedProps?.download && fiber.memoizedProps.onOpen) rows.push(fiber.memoizedProps.download.id)
           walk(fiber.child); walk(fiber.sibling)
         }
         walk(root.current)
@@ -58,7 +58,7 @@ test('one per-second push renders only its changed row', async ({ page }) => {
   })
   const device = await serveDevice(page, { design: 'downloads' })
   await page.goto('/')
-  const row = page.locator('[data-download-id="1"]')
+  const row = page.getByRole('listitem').filter({ has: page.getByRole('heading', { name: 'Sintel (2010) 1080p BluRay', exact: true }) })
   await expect(row).toContainText('64%')
   const rendered = () => page.evaluate(() => (window as unknown as { rowCommits: number[][] }).rowCommits)
   expect((await rendered()).flat()).toContain(1)
@@ -72,11 +72,11 @@ test('a 120-character title wraps on a phone and text actions remain reachable',
   await page.setViewportSize({ width: 390, height: 780 })
   const device = await serveDevice(page, { design: 'downloads' })
   await page.goto('/')
-  await expect(page.locator('[data-download-id="1"]')).toBeVisible()
+  await expect(page.getByRole('listitem').filter({ has: page.getByRole('heading', { name: 'Sintel (2010) 1080p BluRay', exact: true }) })).toBeVisible()
   const title = 'Żółw'.repeat(30)
   device.send('downloads.updated', [{ ...device.downloads()[0]!, name: title }])
   await expect(page.getByRole('button', { name: title, exact: true })).toBeVisible()
-  const row = page.locator('[data-download-id="1"]')
+  const row = page.getByRole('listitem').filter({ has: page.getByRole('heading', { name: title, exact: true }) })
   await expect(row.getByRole('button', { name: 'Pause', exact: true })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390)
   await page.keyboard.press('Tab')
@@ -125,7 +125,7 @@ test('failed details explain no peers and search using the title, without a dial
   await page.goto('/downloads/5')
   await expect(page.getByRole('heading', { name: 'Night of the Living Dead (1968)', exact: true })).toBeVisible()
   await expect(page.getByText('No peers after 3 minutes', { exact: true })).toBeVisible()
-  await expect(page.locator('dialog[open]')).toHaveCount(0)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
   const search = page.getByRole('link', { name: 'Search for it', exact: true })
   await expect(search).toHaveAttribute('href', '/search/Night%20of%20the%20Living%20Dead%20(1968)')
   await search.click()
@@ -137,20 +137,21 @@ test('read failure retries the real list and held downloads name the missing net
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Could not read the downloads', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Try again', exact: true }).click()
-  await expect(page.locator('[data-download-id="1"]')).toBeVisible()
+  await expect(page.getByRole('listitem').filter({ has: page.getByRole('heading', { name: 'Sintel (2010) 1080p BluRay', exact: true }) })).toBeVisible()
 })
 
 test('held downloads and slow schedule use quiet text actions', async ({ page }) => {
   const device = await serveDevice(page, { design: 'held' })
   await page.goto('/')
-  await expect(page.locator('.download-transfer-notice')).toContainText('utun4 is not connected, so downloads are waiting.')
-  await expect(page.locator('.downloads-summary')).toContainText('Mac-Mini-M1 downloads only through utun4.')
+  await expect(page.getByRole('status').filter({ hasText: 'utun4 is not connected' })).toContainText('utun4 is not connected, so downloads are waiting.')
+  await expect(page.getByRole('main')).toContainText('Mac-Mini-M1 downloads only through utun4.')
   await expect(page.getByRole('link', { name: 'Network settings', exact: true })).toHaveAttribute('href', '/settings/downloads')
   device.send('transfer.changed', { engine: 'running', message: null, networkInterface: null, altSpeedActive: true, downloadLimit: 0, uploadLimit: 0, freeBytes: 137.8e9, diskFull: null })
   device.send('settings.changed', { ...device.settings(), altSpeedMode: 'scheduled', altScheduleTo: 420 })
-  await expect(page.locator('.speed-control')).toContainText('Slowed down until 07:00')
-  await page.getByRole('button', { name: 'Full speed', exact: true }).click()
+  await expect(page.getByRole('main')).toContainText('Slowed down until 07:00')
+  await page.getByRole('button', { name: 'Full speed', exact: true }).evaluate(button => { (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click() })
   await expect(page.getByRole('button', { name: 'Slow down', exact: true })).toBeVisible()
+  expect(device.calls.filter(call => call === 'settings.update')).toHaveLength(1)
   await expect(page.locator('main button svg')).toHaveCount(0)
 })
 
@@ -179,8 +180,10 @@ test('failed file reads can be retried and a rejected selection keeps the edits'
 test('loading the list does not block the computer frame or other settings', async ({ page }) => {
   await serveDevice(page, { design: 'loading' })
   await page.goto('/')
-  await expect(page.locator('.downloads-wait')).toHaveText('Connecting to Mac-Mini-M1')
-  await expect(page.locator('.download-skeleton li')).toHaveCount(4)
+  await expect(page.getByRole('status').filter({ hasText: 'Connecting to Mac-Mini-M1' })).toHaveText('Connecting to Mac-Mini-M1')
+  const skeleton = page.getByRole('main').getByRole('list', { includeHidden: true })
+  await expect(skeleton).toHaveAttribute('aria-hidden', 'true')
+  await expect(skeleton.getByRole('listitem', { includeHidden: true })).toHaveCount(4)
   await page.getByRole('link', { name: 'Settings', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
 })
@@ -189,8 +192,8 @@ test('a phone row finishing keeps the next download at the same position', async
   await page.setViewportSize({ width: 390, height: 780 })
   const device = await serveDevice(page, { design: 'downloads' })
   await page.goto('/')
-  const row = page.locator('[data-download-id="1"]')
-  const next = page.locator('[data-download-id="2"]')
+  const row = page.getByRole('listitem').filter({ has: page.getByRole('heading', { name: 'Sintel (2010) 1080p BluRay', exact: true }) })
+  const next = page.getByRole('listitem').filter({ has: page.getByRole('heading', { name: 'ubuntu-26.04.1-desktop-amd64.iso', exact: true }) })
   await expect(row).toContainText('64%')
   const before = await next.boundingBox()
   device.send('downloads.updated', [{ ...device.downloads()[0]!, status: 'Completed', progress: 100, downloadSpeed: 0, completedAt: new Date().toISOString() }])
@@ -220,10 +223,10 @@ test('download views wrap with the arrow keys and Home and End select the bounda
 test('an initial list reply cannot overwrite a newer progress push', async ({ page }) => {
   const device = await serveDevice(page, { design: 'downloads', holdList: true })
   await page.goto('/')
-  await expect(page.locator('.downloads-wait')).toHaveText('Connecting to Mac-Mini-M1')
+  await expect(page.getByRole('status').filter({ hasText: 'Connecting to Mac-Mini-M1' })).toHaveText('Connecting to Mac-Mini-M1')
   device.send('downloads.updated', [{ ...device.downloads()[0]!, progress: 65 }])
   device.releaseList()
-  await expect(page.locator('[data-download-id="1"]')).toContainText('65%')
+  await expect(page.getByRole('listitem').filter({ has: page.getByRole('heading', { name: 'Sintel (2010) 1080p BluRay', exact: true }) })).toContainText('65%')
 })
 
 test('a download error with known files keeps them available and does not claim there are no peers', async ({ page }) => {
@@ -241,10 +244,10 @@ test('the last running download finishes without moving its row on a phone', asy
   const device = await serveDevice(page, { design: 'downloads' })
   await page.goto('/')
   const download = device.downloads()[0]!
-  const row = page.locator('[data-download-id="1"]')
+  const row = page.getByRole('listitem').filter({ has: page.getByRole('heading', { name: 'Sintel (2010) 1080p BluRay', exact: true }) })
   await expect(row).toContainText('64%')
   device.send('downloads.changed', [download])
-  await expect(page.locator('.downloads-summary')).toContainText('downloading one thing')
+  await expect(page.getByRole('main')).toContainText('downloading one thing')
   const before = await row.boundingBox()
   device.send('downloads.updated', [{ ...download, status: 'Completed', progress: 100, downloadSpeed: 0 }])
   await expect(row).toContainText('Finished')
@@ -254,7 +257,7 @@ test('the last running download finishes without moving its row on a phone', asy
 test('the remote frame and its computer menu use text controls without icons', async ({ page }) => {
   await serveDevice(page, { design: 'downloads', remote: true })
   await page.goto('/Mac-Mini-M1')
-  const frame = page.locator('.shell-header')
+  const frame = page.getByRole('banner')
   await frame.getByRole('button', { name: /Switch device/ }).click()
   await expect(frame.getByRole('menuitem', { name: 'All devices', exact: true })).toBeVisible()
   await expect(frame.locator('svg')).toHaveCount(0)
@@ -264,11 +267,11 @@ test('initial remote loading uses one connection message and the unreachable sta
   await page.clock.install()
   await serveDevice(page, { design: 'loading', remote: true })
   await page.goto('/Mac-Mini-M1')
-  await expect(page.locator('.downloads-wait')).toHaveText('Connecting to Mac-Mini-M1')
+  await expect(page.getByRole('status').filter({ hasText: 'Connecting to Mac-Mini-M1' })).toHaveText('Connecting to Mac-Mini-M1')
   await page.clock.runFor(1000)
-  await expect(page.locator('.shell-device .infall-star')).toHaveAttribute('data-state', 'out')
+  await expect(page.getByRole('group', { name: 'Mac-Mini-M1', exact: true }).locator('[data-state]')).toHaveAttribute('data-state', 'out')
   await expect(page.getByRole('alert')).toHaveCount(0)
-  await expect(page.locator('.shell-device .infall-star')).toHaveCSS('box-shadow', /^[a-z]+\([^)]*\) 0px 0px 0px 1\.5px$/)
+  await expect(page.getByRole('group', { name: 'Mac-Mini-M1', exact: true }).locator('[data-state]')).toHaveCSS('box-shadow', /^[a-z]+\([^)]*\) 0px 0px 0px 1\.5px$/)
 })
 
 
@@ -281,7 +284,7 @@ test('an unlinked browser still sees its rejection during the initial download r
     socket.onMessage(() => socket.send(Buffer.from(encodeHandshake({ t: 'reject', reason: 'unknown-key' }))))
   })
   await page.goto('/Mac-Mini-M1')
-  await expect(page.locator('.shell-device')).toContainText('This browser is no longer linked to the device.')
+  await expect(page.getByRole('group', { name: 'Mac-Mini-M1', exact: true })).toContainText('This browser is no longer linked to the device.')
   await page.clock.runFor(1000)
   await expect(page.getByRole('alert')).toHaveText('This browser is no longer linked to the device.')
 })
@@ -292,9 +295,9 @@ test('Try again after a failed read asks only for the lists, and pushes still ar
   await expect(page.getByRole('alert')).toBeVisible()
   const infoCalls = device.calls.filter(c => c === 'app.info').length
   await page.getByRole('button', { name: 'Try again' }).click()
-  await expect(page.locator('.download-row')).not.toHaveCount(0)
+  await expect(page.getByRole('list', { name: 'Downloads', exact: true }).getByRole('listitem')).not.toHaveCount(0)
   expect(device.calls.filter(c => c === 'app.info')).toHaveLength(infoCalls)
   expect(device.calls.filter(c => c === 'downloads.list')).toHaveLength(2)
   device.send('downloads.changed', [])
-  await expect(page.locator('.download-row')).toHaveCount(0)
+  await expect(page.getByRole('list', { name: 'Downloads', exact: true }).getByRole('listitem')).toHaveCount(0)
 })

@@ -3,7 +3,7 @@ import type { SourceOutcomeDto } from '@magnetar/protocol'
 import { expect, test } from 'vitest'
 import english from '../i18n/en.json'
 import polish from '../i18n/pl.json'
-import { searchCount, searchSummary } from './searchPresentation.ts'
+import { searchCount, searchSummary, outcomeTitle, outcomeCount } from './searchPresentation.ts'
 
 const translate = (strings: Record<string, string>) => (key: string, ...args: (string | number)[]) => (strings[key] ?? key).replace(/\{(\d+)\}/g, (_, n) => String(args[Number(n)]))
 const en = translate(english.strings), pl = translate(polish.strings)
@@ -42,4 +42,16 @@ test('a source filter uses a singular source, including the Polish wording', () 
   expect(searchSummary(en,'en',{...one,ran:false}).line).toBe('One source is asked. Results appear when it answers.')
   expect(searchSummary(en,'en',one).line).toBe('1 result from one source.')
   expect(searchSummary(pl,'pl',one).line).toBe('1 wynik z jednego źródła.')
+})
+
+test('source details and counts distinguish pending, failed, filtered and empty replies', () => {
+  const filtered = { ...sources[0]!, returned: 8, filtered: 3 }
+  expect(outcomeTitle(en, undefined)).toBeUndefined()
+  expect(outcomeCount(en, undefined, false)).toBe('')
+  expect(outcomeCount(en, undefined, true)).toBe('asking')
+  expect(outcomeCount(en, sources[5], false)).toBe('no answer')
+  expect(outcomeTitle(en, { ...sources[5]!, error: 'timeout' })).toBe('This source could not be reached (timeout). Its results are missing from the list below.')
+  expect(outcomeCount(en, filtered, false)).toBe(5)
+  expect(outcomeTitle(en, filtered)).toBe("Showing 5 of 8 results — 3 were dropped because their title didn't match every word of your query.")
+  expect(outcomeTitle(en, { ...sources[0]!, returned: 0 })).toBe('0 results from this source.')
 })

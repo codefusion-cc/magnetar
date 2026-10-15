@@ -1,19 +1,18 @@
 import type { SearchResultDto, SourceOutcomeDto, TorrentDetailsDto } from '@magnetar/protocol'
-import { formatBytes } from '@magnetar/protocol/bytes'
 import { Check, Copy, Download, ExternalLink, Sprout } from 'lucide-react'
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { askingWhere } from '../../lib/downloadFlow.ts'
 import { noticeExtra, offersOtherFolder, startedNotice } from '../../lib/recentFolders.ts'
 import { errorMessage } from '../../lib/errors.ts'
-import { useFormatDate, useFormatRelative, useLanguage, useT } from '../../lib/i18n.tsx'
+import { useFormatBytes, useFormatDate, useFormatRelative, useLanguage, useT } from '../../lib/i18n.tsx'
 import { RESOLUTIONS } from '../../lib/quality.ts'
 import { readSearch, searchAddress, searchKey, type SearchChoices } from '../../lib/urlState.ts'
 import { askNotificationPermission } from '../../lib/notifications.ts'
-import { downloadBytes } from '../../lib/downloadPresentation.ts'
-import { searchCount, searchSummary } from '../../lib/searchPresentation.ts'
+import { searchCount, searchSummary, outcomeTitle, outcomeCount } from '../../lib/searchPresentation.ts'
 import { releaseTags } from '../../lib/releaseTags.ts'
 import { Segmented } from '../../ui/controls.tsx'
+import { Loading } from '../../ui/Loading.tsx'
 import { Modal } from '../../ui/Modal.tsx'
 import { PAGE_SIZE, ShowMore } from '../../ui/ShowMore.tsx'
 import { useCopy, useToast } from '../../ui/toast.tsx'
@@ -59,6 +58,7 @@ function useStartDownload(onStarted: (result: SearchResultDto) => void) {
 
 export function SearchPage() {
   const t = useT()
+  const language = useLanguage()
   const { connection, connectionState, sources, basePath, settings, deviceName } = useDevice()
   const { search, setSearch, setSearchAddress } = useSearch()
   const navigate = useNavigate()
@@ -130,10 +130,14 @@ export function SearchPage() {
   const results = useMemo(() => (search.results ? [...search.results].sort(SORTS[sort]) : null), [search.results, sort])
   const downloadTo = useCallback((result: SearchResultDto) => request(result, true), [request])
 
+  const enabled = sources.filter(s => s.enabled && (!view.source || s.id === view.source))
+  const outcomes = enabled.map(s => ({ ...s, outcome: search.outcomes.find(o => o.source === s.name) }))
+  const { line, allFailed } = searchSummary(t, language, { outcomes: outcomes.flatMap(s => s.outcome ? [s.outcome] : []), total: results?.length ?? 0, sourceCount: enabled.length, searching: search.searching, ran: search.ran !== null, query: view.query })
+
   return (
     <>
       <header className="downloads-heading"><h1>{t('search.title')}</h1></header>
-      <form onSubmit={submit} className="search-query">
+      <form aria-label={t('search.title')} onSubmit={submit} className="search-query">
         <input type="search" enterKeyHint="search" autoComplete="off" aria-label={t('search.query')} value={search.query}
           onChange={e => setSearch(s => ({ ...s, query: e.target.value }))} />
         <button type="submit" className="infall-button" disabled={search.searching || !search.query.trim()}>{t('search.button')}</button>
@@ -153,18 +157,17 @@ export function SearchPage() {
           </select>
         </label>
       </div>
-      <Outcomes outcomes={search.outcomes} total={results?.length ?? 0} searching={search.searching}
-        query={view.query} ran={search.ran !== null} source={view.source} />
+      <Outcomes list={outcomes} line={line} allFailed={allFailed} searching={search.searching} />
       {!!results?.length && <>
-        <ul className="search-results">
+        <ul aria-label={t('search.title')} className="search-results">
           {results.slice(0, shown).map((r, i) => <ResultRow key={r.resultId} result={r} best={i === 0} busy={busy} added={added.has(r.resultId)} onOpen={setDetails} onDownload={request} />)}
         </ul>
         {results.length > shown && <ShowMore remaining={results.length - shown} onMore={() => setShown(n => n + PAGE_SIZE)} />}
       </>}
-      {search.searching && <ul className="download-skeleton" aria-label={t('search.searching')}>{[0, 1].map(i => <li key={i}><i /><i /></li>)}</ul>}
+      {search.searching && <Loading rows={2} text={t('search.searching')} skeletonOnly />}
       {search.ran && !search.searching && !results?.length && <>
-        <p className="search-hint">{t(search.outcomes.length && search.outcomes.every(o => o.status === 'failed') ? 'search.networkHint' : 'search.noResultsHint', deviceName)}</p>
-        {search.outcomes.length > 0 && search.outcomes.every(o => o.status === 'failed') && <p className="infall-acts"><button className="infall-button" onClick={() => void start(view)}>{t('downloads.tryAgain')}</button></p>}
+        <p className="search-hint">{t(allFailed ? 'search.networkHint' : 'search.noResultsHint', deviceName)}</p>
+        {allFailed && <p className="infall-acts"><button className="infall-button" onClick={() => void start(view)}>{t('downloads.tryAgain')}</button></p>}
       </>}
       {search.ran && !search.searching && <button type="button" className="search-watch" onClick={() => navigate(`${basePath}/series/releases`, { state: { watch: { query: view.query, resolution: view.resolution || null } } })}>{t('watch.fromSearch')}</button>}
 
@@ -208,6 +211,7 @@ const ResultRow = memo(function ResultRow({ result: r, added, best, busy, onOpen
   onDownload: (result: SearchResultDto) => void
 }) {
   const t = useT()
+  const formatBytes = useFormatBytes()
   const formatRelative = useFormatRelative('long')
   const label = added ? t('search.added') : t('common.download')
   const language = useLanguage()
@@ -220,7 +224,7 @@ const ResultRow = memo(function ResultRow({ result: r, added, best, busy, onOpen
       <div className="res-b">
         <h2><button type="button" onClick={() => onOpen(r)}>{r.title}</button></h2>
         <p className="search-meta">{tagLine && <span className="tags">{tagLine}</span>}
-          <span>{downloadBytes(r.sizeBytes, language)}</span><span>{searchCount(t, language, 'seeders', r.seeders)}</span>
+          <span>{formatBytes(r.sizeBytes)}</span><span>{searchCount(t, language, 'seeders', r.seeders)}</span>
           {r.publishedAt && <span>{formatRelative(r.publishedAt)}</span>}<span>{r.source}</span>
         </p>
       </div>
@@ -231,21 +235,19 @@ const ResultRow = memo(function ResultRow({ result: r, added, best, busy, onOpen
 })
 
 /** A source stays visible while it is answering, including a failed or empty answer. */
-function Outcomes({ outcomes, total, searching, query, ran, source }: { outcomes: SourceOutcomeDto[]; total: number; searching: boolean; query: string; ran: boolean; source: string }) {
+function Outcomes({ list, line, allFailed, searching }: {
+  list: { id: string; name: string; outcome: SourceOutcomeDto | undefined }[]
+  line: string; allFailed: boolean; searching: boolean
+}) {
   const t = useT()
-  const language = useLanguage()
-  const { sources } = useDevice()
-  const enabled = sources.filter(s => s.enabled && (!source || s.id === source))
-  const list = enabled.map(s => ({ ...s, outcome: outcomes.find(o => o.source === s.name) }))
-  const { line, allFailed } = searchSummary(t, language, { outcomes: list.flatMap(s => s.outcome ? [s.outcome] : []), total, sourceCount: list.length, searching, ran, query })
   return <div className="search-sources">
     <p role={allFailed ? 'alert' : 'status'} className={allFailed ? 'text-error' : ''}>{line}</p>
     <div className="source-figure">
       <svg className="search-fan" viewBox="0 0 1000 162" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="fan-heat"><stop stopColor="var(--mg-h0)" /><stop offset="1" stopColor="var(--mg-h2)" /></linearGradient></defs>
         {list.map((s, i) => <path key={s.id} d={`M 240 ${i * 27 + 13} Q 620 ${i * 27 + 13} 940 155`} fill="none" stroke="url(#fan-heat)" opacity={s.outcome?.status === 'ok' && s.outcome.returned ? '.35' : '.08'} />)}
       </svg>
-      <ul>{list.map(({ id, name, outcome }) => <li key={id} className={!outcome || outcome.status === 'failed' || outcome.returned === outcome.filtered ? 'none' : ''} title={outcome ? outcome.status === 'failed' ? t('search.outcomeFailedDetail', outcome.error ?? '') : outcome.filtered ? t('search.outcomeFiltered', outcome.returned - outcome.filtered, outcome.returned, outcome.filtered) : t('search.outcomeOk', outcome.returned) : undefined}>
-        <span>{name}</span><b>{outcome ? outcome.status === 'failed' ? t('search.outcomeFailed') : outcome.returned - outcome.filtered : searching ? t('search.asking') : ''}</b>
+      <ul>{list.map(({ id, name, outcome }) => <li key={id} className={!outcome || outcome.status === 'failed' || outcome.returned === outcome.filtered ? 'none' : ''} title={outcomeTitle(t, outcome)}>
+        <span>{name}</span><b>{outcomeCount(t, outcome, searching)}</b>
       </li>)}</ul>
     </div>
   </div>
@@ -265,6 +267,7 @@ function TorrentInfoDialog({ result, added, onClose, onDownload, onDownloadTo, a
   busy: boolean
 }) {
   const t = useT()
+  const formatBytes = useFormatBytes()
   const formatDate = useFormatDate()
   const copy = useCopy(t('info.copied'))
   const { connection } = useDevice()
@@ -286,7 +289,7 @@ function TorrentInfoDialog({ result, added, onClose, onDownload, onDownloadTo, a
   if (!result) return <Modal open={false} title="" onClose={onClose}>{null}</Modal>
   const row = details?.result ?? result
   const facts: [string, React.ReactNode][] = [
-    [t('info.size'), formatBytes(row.sizeBytes, 2)],
+    [t('info.size'), formatBytes(row.sizeBytes)],
     [t('info.seeders'), <Health key="h" seeders={row.seeders} />],
     [t('info.leechers'), row.leechers],
     [t('info.published'), formatDate(row.publishedAt, !isDayOnly(row.publishedAt))],

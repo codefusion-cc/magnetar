@@ -242,10 +242,6 @@ body {
     font-size: 13px;
   }
 
-  .frame-square {
-    width: 40px;
-    padding-inline: 0;
-  }
 
   .frame-control:hover {
     background: var(--cf-raised);
@@ -316,9 +312,6 @@ body {
     grid-template-columns: auto minmax(0, 1fr);
     gap: 8px;
     padding: 12px 16px;
-  }
-  .shell-header-controls {
-    grid-template-columns: minmax(0, auto) minmax(112px, 1fr);
   }
   .shell-column {
     padding-inline: 16px;

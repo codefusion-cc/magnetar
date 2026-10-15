@@ -1,31 +1,26 @@
 import type { DownloadDto, SeriesTaskDto, ShowInfoDto, WatchInput } from '@magnetar/protocol'
 import { ChevronDown, ExternalLink, Pencil, Plus, Trash2 } from 'lucide-react'
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router'
 import { useFormatRelative, useLanguage, useT } from '../../lib/i18n.tsx'
 import { usePathChoice } from '../../lib/urlState.ts'
-import { parseQuality, qualityForm, resolutionLabel, type QualityForm } from '../../lib/quality.ts'
+import { parseQuality, qualityForm, type QualityForm } from '../../lib/quality.ts'
 import { Segmented, Switch } from '../../ui/controls.tsx'
 import { Field, TextField } from '../../ui/fields.tsx'
-import { Star } from '../../ui/Star.tsx'
+import { Empty } from '../../ui/Empty.tsx'
+import { Loading } from '../../ui/Loading.tsx'
 import { SeasonOrbit, EpisodeApproach } from '../components/episodes.tsx'
-import { calendarDistance, episodeAirDate, upcomingEpisodes } from '../../lib/seriesPresentation.ts'
+import { calendarDistance, episodeAirDate, upcomingEpisodes, seriesLine, seriesRule } from '../../lib/seriesPresentation.ts'
 import { ConfirmDialog, Modal } from '../../ui/Modal.tsx'
 import { useToast } from '../../ui/toast.tsx'
 import { useConnection, useDevice, useDownloads } from '../DeviceContext.tsx'
 import { FolderField } from '../components/folders.tsx'
 import { intervalLabel, QualityFields } from '../components/qualityFields.tsx'
 import { WatchesSection } from '../components/watches.tsx'
-import { useRun } from '../useRun.ts'
+import { useLockedRun, useRun } from '../useRun.ts'
 import { DownloadList } from './DownloadsPage.tsx'
 
 const INTERVALS = [15, 30, 60, 120, 360, 720, 1440]
-const EPISODE_ACTIVITY: Record<DownloadDto['status'], string> = {
-  Queued: 'series.episodePreparing', FetchingMetadata: 'series.episodePreparing',
-  Downloading: 'series.downloadingEpisode', Paused: 'series.episodePaused', Error: 'series.episodeFailed',
-  Completed: 'series.episodeReady', Seeding: 'series.episodeReady',
-}
-
 const TABS = ['series', 'releases'] as const
 type Tab = (typeof TABS)[number]
 
@@ -53,6 +48,7 @@ export function SeriesPage() {
     return groups
   }, [downloads])
   const add = <button type="button" className="infall-button" onClick={() => setEditing('new')}>{t('series.add')}</button>
+  const waitForRelease = <button className="infall-button quiet" onClick={() => navigate(href('releases'), { state: { watch: {} } })}>{t('watch.add')}</button>
   // The tab is part of the path: /series and /series/releases.
   const { value: tab, redirect } = usePathChoice(useParams().tab, TABS, 'tab')
   const href = (to: Tab) => `${basePath}/series${to === 'releases' ? '/releases' : ''}`
@@ -68,20 +64,16 @@ export function SeriesPage() {
   return (
     <>
       <header className="downloads-heading watch-heading"><h1>{t('watch.pageTitle')}</h1>
-        {(tab === 'series' && !seriesRead.loading && (series.length > 0 || seriesRead.failed)) && <div className="infall-acts">{add}<button className="infall-button quiet" onClick={() => navigate(href('releases'), { state: { watch: {} } })}>{t('watch.add')}</button></div>}
+        {(tab === 'series' && !seriesRead.loading && (series.length > 0 || seriesRead.failed)) && <div className="infall-acts">{add}{waitForRelease}</div>}
       </header>
       <div className="watch-tabs"><Segmented appearance="quiet" label={t('watch.pageTitle')} value={tab} onChange={next => navigate(href(next))}
         options={[{ value: 'series', label: t('series.title') }, { value: 'releases', label: t('watch.tab') }]} /></div>
-      {tab === 'releases' ? <WatchesSection start={handed} onStarted={clearHanded} /> : seriesRead.loading ? <>
-        <div className="downloads-wait" role="status"><Star breathe />{t('series.reading')}</div>
-        <ul className="download-skeleton" aria-hidden="true">{[0,1,2].map(i => <li key={i}><i /><i /></li>)}</ul>
-      </> : seriesRead.failed ? <section className="download-empty" role="alert">
-        <div className="download-state-picture"><Star state="far" /></div><h1>{t('series.readFailed')}</h1><p>{t('series.readFailedHint', deviceName)}</p>
-        <button className="infall-button" onClick={seriesRead.retry}>{t('downloads.tryAgain')}</button>
-      </section> : series.length === 0 ? <section className="download-empty">
-        <div className="download-state-picture"><Star /></div><h1>{t('series.emptyTitle')}</h1><p>{t('series.emptyHint')}</p>
-        <div className="infall-acts">{add}<button className="infall-button quiet" onClick={() => navigate(href('releases'), { state: { watch: {} } })}>{t('watch.add')}</button></div>
-      </section> : <ul className="series-shows">
+      {tab === 'releases' ? <WatchesSection start={handed} onStarted={clearHanded} /> : seriesRead.loading ? <Loading text={t('series.reading')} rows={3} />
+        : seriesRead.failed ? <Empty appearance="download" role="alert" state="far" title={t('series.readFailed')} text={t('series.readFailedHint', deviceName)}>
+          <button className="infall-button" onClick={seriesRead.retry}>{t('downloads.tryAgain')}</button>
+        </Empty> : series.length === 0 ? <Empty appearance="download" title={t('series.emptyTitle')} text={t('series.emptyHint')}>
+          <div className="infall-acts">{add}{waitForRelease}</div>
+        </Empty> : <ul aria-label={t('series.title')} className="series-shows">
         {series.map(task => <SeriesCard key={task.id} now={now} task={task} downloads={byTask.get(task.id) ?? NONE} onEdit={setEditing} />)}
       </ul>}
       <SeriesDialog task={editing} onClose={() => setEditing(null)} />
@@ -131,19 +123,13 @@ const SeriesCard = memo(function SeriesCard({ task, downloads, onEdit, now }: {
   const toast = useToast()
   const run = useRun()
   const connection = useConnection()
-  const checkingRef = useRef(false)
-  const [checking, setChecking] = useState(false)
+  const { busy: checking, run: lockedRun } = useLockedRun()
   const [deleting, setDeleting] = useState(false)
   const [showMetadata, setShowMetadata] = useState(false)
   const [showDownloads, setShowDownloads] = useState(false)
 
   const checkNow = async () => {
-    if (checkingRef.current) return
-    checkingRef.current = true
-    setChecking(true)
-    const done = await run(() => connection.call('series.checkNow', { id: task.id }), 'series.checkFailed')
-    checkingRef.current = false
-    setChecking(false)
+    const done = await lockedRun(() => connection.call('series.checkNow', { id: task.id }), 'series.checkFailed')
     if (done) toast(t('series.checkDone'), 'info')
   }
 
@@ -153,16 +139,16 @@ const SeriesCard = memo(function SeriesCard({ task, downloads, onEdit, now }: {
   const total = task.episodes?.total ?? (task.endEpisode === null ? 0 : task.endEpisode - task.startEpisode + 1)
   const active = episodes.find(e => e.state === 'downloading')
   const activeDownload = active ? downloads.find(d => d.id === active.downloadId) : undefined
-  const activity = activeDownload ? EPISODE_ACTIVITY[activeDownload.status] : 'series.downloadingEpisode'
-  const future = upcomingEpisodes(episodes, now)
-  const expected = episodes.find(e => e.state === 'expected' && e.number >= task.nextEpisode)
-  const next = active ? upcomingEpisodes(episodes, now, Infinity).find(e => e.state === 'expected') : expected
-  const date = next?.airstamp && calendarDistance(next.airstamp, now) >= 0 ? episodeAirDate(next.airstamp, language, t, Boolean(active)) : null
-  const line = !task.enabled && !task.finished ? t('series.pausedHint') : task.finished ? t(got === total && total > 0 ? 'series.allHere' : 'series.ruleFinished') + ' ' + (task.lastCheckedAt ? t('series.checkedAgo', formatRelative(task.lastCheckedAt)) : t('series.notCheckedYet')) + '.'
-    : active ? t(activity, active.number) + (next && date ? ' ' + t('series.expectedEpisode', next.number, date) : '')
-    : next && date ? t('series.expectedEpisode', next.number, date) : t(expected?.airstamp ? 'series.waitingReleaseEpisode' : 'series.waitingEpisode', task.nextEpisode)
-  const quality = [resolutionLabel(task.resolution) || t('series.anyQuality'), task.minSeeders > 1 && t('watch.seedersAtLeast', task.minSeeders), task.preferWords && t('watch.prefers', task.preferWords)].filter(Boolean).join(', ')
-  const rule = total === 1 ? (task.season === null ? '' : t('series.seasonN', task.season) + ', ') + t('series.orbitFactsOne', got, quality) : task.season === null ? t('series.orbitFactsNoSeason', got, total, quality) : t('series.orbitFacts', task.season, got, total, quality)
+  const { future, next, expected, date } = useMemo(() => {
+    const future = upcomingEpisodes(episodes, now)
+    const expected = episodes.find(e => e.state === 'expected' && e.number >= task.nextEpisode)
+    const next = active ? upcomingEpisodes(episodes, now, Infinity).find(e => e.state === 'expected') : expected
+    const date = next?.airstamp && calendarDistance(next.airstamp, now) >= 0 ? episodeAirDate(next.airstamp, language, t, Boolean(active)) : null
+    return { future, next, expected, date }
+  }, [task.episodes, task.nextEpisode, now, language, t])
+  const checked = task.lastCheckedAt ? t('series.checkedAgo', formatRelative(task.lastCheckedAt)) : t('series.notCheckedYet')
+  const line = seriesLine(t, { task, got, total, active, activeStatus: activeDownload?.status, next, expected, date, checked })
+  const rule = seriesRule(t, task, got, total)
   const show = task.show
   return (
     <li className={task.enabled || task.finished ? '' : 'series-paused'}>

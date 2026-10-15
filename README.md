@@ -107,6 +107,7 @@ website, the device's name at the top of the page switches to another one and ke
 shows whether it is online and whether this browser is linked to it. A computer's own dashboard links to the others once it is on an account.
 Downloads, Search, Watchlist, Files and Settings sit in the top row on a computer and in a fixed bottom tab bar
 on a phone. The number beside Downloads counts running downloads, including those waiting for metadata.
+Sizes and transfer rates use decimal units (KB, MB, GB) and the dashboard language’s decimal separator.
 Build details and Features are in **Settings → About**. The Downloads summary shows this computer, its combined
 download speed and free space; **Slow down** and **Full speed** change the limits there, while the schedule stays
 in **Settings → Downloads**. Open a download for its own page (`/downloads/<id>`, after the computer name on the

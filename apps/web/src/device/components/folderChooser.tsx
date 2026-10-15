@@ -1,10 +1,9 @@
 import { CircleAlert, TriangleAlert } from 'lucide-react'
 import { useEffect } from 'react'
-import { formatBytes } from '@magnetar/protocol/bytes'
 import { fileBrowserNotice } from '../../lib/buildVersion.ts'
 import { chipLabels, exceedsFreeSpace, usableOrDefault } from '../../lib/recentFolders.ts'
 import { isWithin, separatorOf } from '../../lib/folderPaths.ts'
-import { useT } from '../../lib/i18n.tsx'
+import { useFormatBytes, useT } from '../../lib/i18n.tsx'
 import { BUILD } from '../../lib/updates.ts'
 import { Loading } from '../../ui/Loading.tsx'
 import { useDevice } from '../DeviceContext.tsx'
@@ -28,6 +27,7 @@ export function Chooser({ start, path, onPath, recent, fallback, needBytes, onRe
   onReady?: () => void
 }) {
   const t = useT()
+  const formatBytes = useFormatBytes()
   const { connection, info } = useDevice()
   const { supported, roots, error, setRoots } = useRoots()
   const rootOf = (folder: string) => roots?.roots.find(r => isWithin(folder, r.path, separatorOf(r.path)))

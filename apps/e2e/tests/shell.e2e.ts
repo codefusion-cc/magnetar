@@ -24,7 +24,7 @@ test('Downloads has visible tab stops and no invisible click targets on desktop'
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Downloads', exact: true })).toBeVisible()
   await page.keyboard.press('Tab')
-  const firstTab = page.locator('.shell-tab').first()
+  const firstTab = page.getByRole('navigation', { name: 'Menu', exact: true }).getByRole('link').first()
   await expect(firstTab).toBeFocused()
   await expect(firstTab).toHaveCSS('outline-style', 'solid')
   await expect(firstTab).toHaveCSS('outline-width', '2px')
@@ -41,7 +41,7 @@ test('the Downloads count follows active state changes and disappears after remo
   await expect(downloads).toHaveText('Downloads')
   const link = `magnet:?xt=urn:btih:${'9'.repeat(40)}&dn=Shell%20count`
   await page.getByRole('button', { name: 'Add', exact: true }).click()
-  const add = page.locator('dialog[open]').filter({ hasText: 'Add magnet links or torrent files' })
+  const add = page.getByRole('dialog', { name: 'Add magnet links or torrent files', exact: true })
   await add.getByRole('textbox').fill(link)
   await add.getByRole('button', { name: 'Download', exact: true }).click()
   await page.getByRole('button', { name: 'Download here', exact: true }).click()
@@ -54,7 +54,7 @@ test('the Downloads count follows active state changes and disappears after remo
     await expect(downloads).toHaveText(count ? /^Downloads\s*1$/ : 'Downloads')
   }
   await row.getByRole('button', { name: 'Remove', exact: true }).click()
-  await page.locator('dialog[open]').filter({ hasText: 'Delete download' }).getByRole('button', { name: 'Keep files', exact: true }).click()
+  await page.getByRole('dialog', { name: 'Delete download', exact: true }).getByRole('button', { name: 'Keep files', exact: true }).click()
   await expect(row).toHaveCount(0)
   await expect(downloads).toHaveText('Downloads')
 })
@@ -62,22 +62,22 @@ test('the Downloads count follows active state changes and disappears after remo
 test('a connection opened during mount is shown as connected once the page has loaded', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Downloads', exact: true })).toBeVisible()
-  await expect(page.locator('.shell-device .infall-star')).toHaveAttribute('data-state', 'lit')
-  await expect(page.locator('.shell-device')).toContainText('On this computer')
+  await expect(page.getByRole('group', { name: 'Test computer', exact: true }).locator('[data-state]')).toHaveAttribute('data-state', 'lit')
+  await expect(page.getByRole('group', { name: 'Test computer', exact: true })).toContainText('On this computer')
   await expect(page.getByRole('alert')).toHaveCount(0)
 })
 
 test('the star returns to lit after a dropped connection reconnects', async ({ page, device }) => {
   await page.clock.install()
   await page.goto('/')
-  const star = page.locator('.shell-device .infall-star')
+  const star = page.getByRole('group', { name: 'Test computer', exact: true }).locator('[data-state]')
   await expect(star).toHaveAttribute('data-state', 'lit')
   device.disconnect()
   await expect(star).toHaveAttribute('data-state', 'far')
-  await expect(page.locator('.shell-device')).toContainText('Reconnecting')
+  await expect(page.getByRole('group', { name: 'Test computer', exact: true })).toContainText('Reconnecting')
   await page.clock.runFor(1500)
   await expect(star).toHaveAttribute('data-state', 'lit')
-  await expect(page.locator('.shell-device')).toContainText('On this computer')
+  await expect(page.getByRole('group', { name: 'Test computer', exact: true })).toContainText('On this computer')
 })
 
 test('the screen loader announces its words and honours reduced motion', async ({ page }) => {

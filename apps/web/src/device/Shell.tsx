@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { Link, NavLink, Outlet, useLocation } from 'react-router'
+import { Link, matchPath, Outlet, useLocation } from 'react-router'
+import { isActive, isFinished } from '../lib/downloadViews.ts'
 import { deviceStar } from '../lib/deviceStar.ts'
 import { Star } from '../ui/Star.tsx'
 import { expectsAway } from '../lib/updateInstall.ts'
@@ -17,42 +18,37 @@ export type DeviceMenu = (label: ReactNode, placement: 'up' | 'down') => ReactNo
  * The device's name opens `deviceMenu`, or, on
  * this computer's own dashboard once it is on an account, a link to the account's other devices.
  */
-export function Shell({ headerStart, headerEnd, deviceMenu }: { headerStart?: ReactNode; headerEnd?: ReactNode; deviceMenu?: DeviceMenu }) {
+export function Shell({ deviceMenu }: { deviceMenu?: DeviceMenu }) {
   const t = useT()
-  const { basePath, connection, remote } = useDevice()
+  const { basePath, connection, remote, deviceName } = useDevice()
   const menu = deviceMenu ?? (connection.kind === 'local' && remote?.paired ? localDeviceMenu(remote.cloudUrl, t) : undefined)
-  const active = useDownloads().filter(d => ['Downloading', 'FetchingMetadata', 'Queued'].includes(d.status)).length
+  const active = useDownloads().filter(d => isActive(d) && !isFinished(d)).length
   const searchLink = useSearchLink()
   const { pathname } = useLocation()
-  const atDownloads = pathname === (basePath || '/') || pathname.startsWith(`${basePath}/downloads/`)
 
   const nav = [
-    { to: basePath || '/', end: true, label: t('nav.downloads'), count: active },
-    { to: searchLink, end: false, label: t('nav.search') },
-    { to: `${basePath}/series`, end: false, label: t('nav.series') },
-    { to: `${basePath}/files`, end: false, label: t('nav.files') },
-    { to: `${basePath}/settings`, end: false, label: t('nav.settings') },
+    { to: basePath || '/', routes: [basePath || '/', `${basePath}/downloads/:id`], label: t('nav.downloads'), count: active },
+    { to: searchLink, routes: [`${basePath}/search/*`], label: t('nav.search') },
+    { to: `${basePath}/series`, routes: [`${basePath}/series/:tab?`], label: t('nav.series') },
+    { to: `${basePath}/files`, routes: [`${basePath}/files`], label: t('nav.files') },
+    { to: `${basePath}/settings`, routes: [`${basePath}/settings/:section?`], label: t('nav.settings') },
   ]
 
   return (
     <div className="pb-tabbar flex min-h-screen min-w-0 flex-col bg-page text-ink">
-      <header className={`shell-header${headerStart || headerEnd ? ' shell-header-controls' : ''}`}>
+      <header className="shell-header">
         <div className="flex min-w-0 items-center gap-2">
-          {headerStart}
           <Brand />
         </div>
         <nav aria-label={t('nav.menu')} className="shell-nav">
-          {nav.map(item => {
-            const Place = item.end ? Link : NavLink
-            return <Place key={item.to} to={item.to} className="shell-tab" aria-current={item.end && atDownloads ? 'page' : undefined}>
-              <span className="shell-tab-label">{item.label}</span>
-              {!!item.count && <span className="shrink-0 tabular-nums">{item.count}</span>}
-            </Place>
-          })}
+          {nav.map(item => <Link key={item.to} to={item.to} className="shell-tab"
+            aria-current={item.routes.some(path => matchPath({ path, end: true }, pathname)) ? 'page' : undefined}>
+            <span className="shell-tab-label">{item.label}</span>
+            {!!item.count && <span className="shrink-0 tabular-nums">{item.count}</span>}
+          </Link>)}
         </nav>
-        <div className="shell-device flex min-w-0 items-center gap-2">
+        <div role="group" aria-label={deviceName} className="shell-device flex min-w-0 items-center gap-2">
           <DeviceStatus menu={menu} />
-          {headerEnd}
         </div>
       </header>
       <ConnectionBanner />

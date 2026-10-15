@@ -1,11 +1,10 @@
 import type { SettingsDto, TransferStatusDto } from '@magnetar/protocol'
 import { HardDrive } from 'lucide-react'
-import { useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { useT } from '../../lib/i18n.tsx'
 import { useDevice } from '../DeviceContext.tsx'
 import { useToast } from '../../ui/toast.tsx'
-import { useRun } from '../useRun.ts'
+import { useLockedRun } from '../useRun.ts'
 
 /** Why nothing is downloading, when the engine isn't running: a missing VPN, a failed start. */
 export function TransferNotice({ transfer }: { transfer: TransferStatusDto | null }) {
@@ -42,23 +41,16 @@ export function DiskFullNotice({ transfer }: { transfer: TransferStatusDto | nul
 /** The alternative ("slow") limits, switched on and off from the Downloads page. */
 export function AltSpeedToggle({ settings, transfer }: { settings: SettingsDto; transfer: TransferStatusDto | null }) {
   const t = useT()
-  const run = useRun()
+  const { busy, run } = useLockedRun()
   const toast = useToast()
   const { connection } = useDevice()
   const active = transfer?.altSpeedActive ?? settings.altSpeedMode === 'on'
   const end = `${String(Math.floor(settings.altScheduleTo / 60)).padStart(2, '0')}:${String(settings.altScheduleTo % 60).padStart(2, '0')}`
-  const [busy, setBusy] = useState(false)
-  const lock = useRef(false)
   return <span className="speed-control">
     {active && <span>{settings.altSpeedMode === 'scheduled' ? t('transfer.slowUntil', end) : t('transfer.slowed')}</span>}
     <button type="button" disabled={busy} aria-pressed={active} onClick={async () => {
-      if (lock.current) return
-      lock.current = true
-      setBusy(true)
-      try {
-        const saved = await run(() => connection.call('settings.update', { altSpeedMode: active ? 'off' : 'on' }), 'settings.saveFailed')
-        if (saved && settings.altSpeedMode === 'scheduled') toast(t('transfer.scheduleOff'), 'info')
-      } finally { lock.current = false; setBusy(false) }
+      const saved = await run(() => connection.call('settings.update', { altSpeedMode: active ? 'off' : 'on' }), 'settings.saveFailed')
+      if (saved && settings.altSpeedMode === 'scheduled') toast(t('transfer.scheduleOff'), 'info')
     }}>{t(active ? 'transfer.fullSpeed' : 'transfer.slowDown')}</button>
   </span>
 }

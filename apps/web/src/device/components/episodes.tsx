@@ -1,7 +1,8 @@
 import type { SeriesEpisodeDto } from '@magnetar/protocol'
 import type { CSSProperties } from 'react'
 import { useLanguage, useT } from '../../lib/i18n.tsx'
-import { calendarDistance, episodeArc } from '../../lib/seriesPresentation.ts'
+import { calendarDistance, episodeArc, episodeApproachDate } from '../../lib/seriesPresentation.ts'
+import { calendarWord, downloadDay } from '../../lib/downloadPresentation.ts'
 import { Star } from '../../ui/Star.tsx'
 
 export function SeasonOrbit({ episodes, total, label, progress = 0 }: { episodes: readonly SeriesEpisodeDto[]; total: number; label: string; progress?: number }) {
@@ -28,11 +29,11 @@ export function EpisodeApproach({ episodes, now = Date.now() }: { episodes: read
     days.set(day, [...(days.get(day) ?? []), e])
   }
   return <div className={`episode-approach ${days.size ? '' : 'none'}`}>
-    {[...days].map(([day, group], i) => <span key={day} className={`approaching-episode ${day === 0 ? 'now' : ''}`}
+    {[...days].map(([day, group], i) => <span role="img" key={day} className={`approaching-episode ${day === 0 ? 'now' : ''}`}
       style={{ '--d': Math.max(day, 1.1) / 14, '--i': i } as CSSProperties}
-      aria-label={group.map(e => `${e.number}: ${new Date(e.airstamp!).toLocaleDateString(language)}`).join(', ')}>
-      {day !== 0 && <small>{`${new Date(group[0]!.airstamp!).toLocaleDateString(language, { weekday: 'short' })} ${new Date(group[0]!.airstamp!).getDate()}`}{group.length > 1 ? ` (${group.length})` : ''}</small>}
+      aria-label={group.map(e => `${e.number}: ${downloadDay(language, e.airstamp!, false, new Date(now))}`).join(', ')}>
+      {day !== 0 && <small>{episodeApproachDate(group[0]!.airstamp!, language, t)}{group.length > 1 ? ` (${group.length})` : ''}</small>}
     </span>)}
-    <span className="approach-today"><Star /><small>{t('downloads.today')}</small></span>
+    <span className="approach-today"><Star /><small>{calendarWord(language, 0)}</small></span>
   </div>
 }

@@ -1,7 +1,6 @@
 import { Download, FolderOpen } from 'lucide-react'
-import { formatBytes } from '@magnetar/protocol/bytes'
 import { lazy, Suspense, useEffect, useId, useRef, useState } from 'react'
-import { useT } from '../../lib/i18n.tsx'
+import { useFormatBytes, useT } from '../../lib/i18n.tsx'
 import { updates } from '../../lib/updates.ts'
 import { blurOnEnter } from '../../ui/fields.tsx'
 import { Loading } from '../../ui/Loading.tsx'
@@ -29,6 +28,7 @@ export function FolderBrowser({ open, start, onClose, onSelect, save }: {
   save?: { canAlways: boolean; recent: string[]; fallback: string; busy: boolean; error: string | null; subject?: { name: string; bytes: number | null } }
 }) {
   const t = useT()
+  const formatBytes = useFormatBytes()
   // The folder on screen: null on the list of folders, undefined until the chooser has placed itself.
   const [chosen, setChosen] = useState<string | null | undefined>(undefined)
   const primary = useRef<HTMLButtonElement>(null)

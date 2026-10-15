@@ -1,32 +1,21 @@
 import type { DownloadDto, DownloadFileDto } from '@magnetar/protocol'
 import { FileAudio, FileText, FileVideo } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
-import { downloadBytes, downloadDay, noPeersError } from '../../lib/downloadPresentation.ts'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useParams } from 'react-router'
+import { isFinished } from '../../lib/downloadViews.ts'
+import { downloadDay, noPeersError } from '../../lib/downloadPresentation.ts'
 import { useSteadySpeeds } from '../../lib/steadySpeed.ts'
 import { errorMessage } from '../../lib/errors.ts'
 import { isWithin, separatorOf } from '../../lib/folderPaths.ts'
 import type { FilesLocation } from '../pages/FilesPage.tsx'
-import { useFormatDate, useLanguage, useT } from '../../lib/i18n.tsx'
-import { useDevice, useDownloads, useDownloadRead } from '../DeviceContext.tsx'
-import { useRun } from '../useRun.ts'
-import { DownloadActions, DownloadFacts, isFinished, ProgressBar, ratioOf } from './downloads.tsx'
+import { formatters, useFormatBytes, useFormatDate, useLanguage, useT } from '../../lib/i18n.tsx'
+import { useConnection, useDevice, useDownloads, useDownloadRead } from '../DeviceContext.tsx'
+import { useLockedRun, useRun } from '../useRun.ts'
+import { DownloadActions, DownloadFacts, ProgressBar, ratioOf } from './downloads.tsx'
 import { PlayerDialog, subtitlesFor, type PlayTarget } from './player.tsx'
 
 /** While the download is running, the file list's progress is read again this often. */
 const REFRESH_MS = 2000
-
-/** Older callers that opened details now navigate to the same address as the list. */
-export function DownloadDetailsDialog({ id, onClose }: { id: number | null; onClose: () => void }) {
-  const navigate = useNavigate()
-  const { basePath } = useDevice()
-  useEffect(() => {
-    if (id === null) return
-    navigate(`${basePath}/downloads/${id}`)
-    onClose()
-  }, [id, basePath, navigate, onClose])
-  return null
-}
 
 export function DownloadDetailsPage() {
   const { id } = useParams()
@@ -35,10 +24,10 @@ export function DownloadDetailsPage() {
   const downloads = useDownloads()
   const read = useDownloadRead()
   const download = downloads.find(d => String(d.id) === id)
-  return <>
-    <p className="download-back"><Link to={basePath || '/'}>{t('details.allDownloads')}</Link></p>
-    {read.failed ? <div role="alert"><p>{t('downloads.readFailed')}</p><button type="button" className="infall-small" onClick={read.retry}>{t('downloads.tryAgain')}</button></div> : download ? <Details key={download.id} download={download} /> : <p role="status" className="muted">{t(read.loading ? 'details.filesLoading' : 'details.notFound')}</p>}
-  </>
+  const back = <p className="download-back"><Link to={basePath || '/'}>{t('details.allDownloads')}</Link></p>
+  if (read.failed) return <>{back}<div role="alert"><p>{t('downloads.readFailed')}</p><button type="button" className="infall-small" onClick={read.retry}>{t('downloads.tryAgain')}</button></div></>
+  if (download) return <>{back}<Details key={download.id} download={download} /></>
+  return <>{back}<p role="status" className="muted">{t(read.loading ? 'details.filesLoading' : 'details.notFound')}</p></>
 }
 
 function Details({ download: d }: { download: DownloadDto }) {
@@ -47,19 +36,20 @@ function Details({ download: d }: { download: DownloadDto }) {
   const date = useFormatDate()
   const run = useRun()
   const { connection, info, settings, basePath } = useDevice()
-  const bytes = (n: number) => downloadBytes(n, language)
+  const bytes = useFormatBytes()
   const speeds = useSteadySpeeds(useMemo(() => [d], [d])).get(d.id)!
   const local = connection.kind === 'local'
   const browsable = info?.fileBrowser === true && !!settings && isWithin(d.savePath, settings.downloadFolder, separatorOf(settings.downloadFolder))
   const [play, setPlay] = useState(false)
+  const onPlayed = useCallback(() => setPlay(false), [])
   const [canPlay, setCanPlay] = useState(false)
   const failed = d.status === 'Error'
   const hasMetadata = d.totalBytes > 0
   const facts: [string, string][] = [
     [t(failed ? 'details.willSave' : 'details.savedTo'), d.savePath],
-    [t('details.added'), downloadDay(t, language, d.addedAt, true)],
+    [t('details.added'), downloadDay(language, d.addedAt, true)],
     [t('details.foundOn'), d.source || '—'],
-    failed && !hasMetadata ? [t('details.filesHeading'), t('details.filesPending')] : [t('details.sentBack'), t('details.sentRatio', bytes(d.uploadedBytes), new Intl.NumberFormat(language, { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(ratioOf(d)))],
+    failed && !hasMetadata ? [t('details.filesHeading'), t('details.filesPending')] : [t('details.sentBack'), t('details.sentRatio', bytes(d.uploadedBytes), formatters(language).number(ratioOf(d), { maximumFractionDigits: 2, minimumFractionDigits: 2 }))],
   ]
   return <article className="download-one">
     <header className="download-one-heading"><h1 className="break-release">{d.name}</h1><ProgressBar download={d} /><DownloadFacts download={d} {...speeds} /></header>
@@ -73,7 +63,7 @@ function Details({ download: d }: { download: DownloadDto }) {
       </>}
     </div>
     <dl className="download-facts">{facts.map(([label, value]) => <div key={label}><dt>{label}</dt><dd title={label === t('details.added') ? date(d.addedAt, true) : undefined}>{value}</dd></div>)}</dl>
-    {(!failed || hasMetadata) && <FileList download={d} play={play} onPlayable={setCanPlay} onPlayed={() => setPlay(false)} />}
+    {(!failed || hasMetadata) && <FileList id={d.id} status={d.status} hasMetadata={d.totalBytes > 0} play={play} onPlayable={setCanPlay} onPlayed={onPlayed} />}
   </article>
 }
 
@@ -85,33 +75,29 @@ export function MediaIcon({ media, size = 16 }: { media: 'video' | 'audio' | nul
 }
 
 /** The torrent's files with a checkbox each; the choice is saved with one button, not per click. */
-function FileList({ download: d, play, onPlayable, onPlayed }: { download: DownloadDto; play: boolean; onPlayable: (playable: boolean) => void; onPlayed: () => void }) {
+const FileList = memo(function FileList({ id, status, hasMetadata, play, onPlayable, onPlayed }: { id: number; status: DownloadDto['status']; hasMetadata: boolean; play: boolean; onPlayable: (playable: boolean) => void; onPlayed: () => void }) {
   const t = useT()
-  const language = useLanguage()
-  const formatBytes = (n: number) => downloadBytes(n, language)
-  const run = useRun()
-  const { connection } = useDevice()
+  const formatBytes = useFormatBytes()
+  const { busy: saving, run, isBusy } = useLockedRun()
+  const connection = useConnection()
   const [files, setFiles] = useState<DownloadFileDto[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [chosen, setChosen] = useState<Map<number, boolean>>(new Map())
-  const [saving, setSaving] = useState(false)
   const [playing, setPlaying] = useState<PlayTarget | null>(null)
   const revision = useRef(0)
   const [retry, setRetry] = useState(0)
-  const saveLock = useRef(false)
-  const running = d.status === 'Downloading' || d.status === 'Seeding'
-  const hasMetadata = d.totalBytes > 0
+  const running = status === 'Downloading' || status === 'Seeding'
 
   useEffect(() => {
     if (!hasMetadata) return
     let cancelled = false
     let inFlight = false
     const load = async () => {
-      if (inFlight || saveLock.current) return
+      if (inFlight || isBusy()) return
       const started = revision.current
       inFlight = true
       try {
-        const list = await connection.call('downloads.files', { id: d.id })
+        const list = await connection.call('downloads.files', { id })
         if (!cancelled && started === revision.current) { setFiles(list); setError(null) }
       } catch (e) { if (!cancelled && started === revision.current) setError(errorMessage(e)) }
       finally { inFlight = false }
@@ -119,7 +105,7 @@ function FileList({ download: d, play, onPlayable, onPlayed }: { download: Downl
     void load()
     const timer = running ? setInterval(() => void load(), REFRESH_MS) : undefined
     return () => { cancelled = true; clearInterval(timer) }
-  }, [connection, d.id, running, hasMetadata, retry])
+  }, [connection, id, running, hasMetadata, retry, isBusy])
 
   const selected = useMemo(() => new Set(files?.filter(f => chosen.get(f.index) ?? f.selected).map(f => f.index)), [chosen, files])
   const dirty = files !== null && files.some(f => f.selected !== selected.has(f.index))
@@ -128,9 +114,9 @@ function FileList({ download: d, play, onPlayable, onPlayed }: { download: Downl
   useEffect(() => {
     if (!play || !files) return
     const file = files.find(f => f.media && f.selected && (f.done > 0 || running))
-    if (file) setPlaying({ downloadId: d.id, file, subtitles: subtitlesFor(file, files) })
+    if (file) setPlaying({ downloadId: id, file, subtitles: subtitlesFor(file, files) })
     onPlayed()
-  }, [play, files, running, d.id, onPlayed])
+  }, [play, files, running, id, onPlayed])
 
   if (!hasMetadata) return <p className="muted text-sm">{t('details.filesPending')}</p>
   if (error && !files) return <div role="alert"><p className="text-error">{error}</p><button type="button" className="infall-small" onClick={() => setRetry(n => n + 1)}>{t('downloads.tryAgain')}</button></div>
@@ -138,18 +124,15 @@ function FileList({ download: d, play, onPlayable, onPlayed }: { download: Downl
 
   const toggle = (index: number) => setChosen(current => new Map(current).set(index, !selected.has(index)))
   const save = async () => {
-    if (saveLock.current) return
-    saveLock.current = true
-    revision.current++
-    setSaving(true)
     const submitted = new Set(selected)
-    try {
-      const updated = await run(() => connection.call('downloads.selectFiles', { id: d.id, files: [...submitted] }), 'details.selectFailed')
+    await run(async () => {
+      revision.current++
+      const updated = await connection.call('downloads.selectFiles', { id, files: [...submitted] })
       if (updated) {
         setChosen(new Map())
         setFiles(list => list?.map(f => ({ ...f, selected: submitted.has(f.index) })) ?? null)
       }
-    } finally { saveLock.current = false; setSaving(false) }
+    }, 'details.selectFailed')
   }
 
   return (
@@ -170,7 +153,7 @@ function FileList({ download: d, play, onPlayable, onPlayed }: { download: Downl
               <div className="download-file-label">
                 <input type="checkbox" disabled={saving} checked={selected.has(file.index)}
                   aria-label={t('details.fileChoose', file.path)} onChange={() => toggle(file.index)} />
-              {file.media && file.selected && (file.done > 0 || running) ? <button type="button" className="break-release text-left hover:underline" aria-label={t('player.play', file.path)} onClick={() => setPlaying({ downloadId: d.id, file, subtitles: subtitlesFor(file, files) })}>{file.path}</button> : <span className="break-release">{file.path}</span>}</div>
+              {file.media && file.selected && (file.done > 0 || running) ? <button type="button" className="break-release text-left hover:underline" aria-label={t('player.play', file.path)} onClick={() => setPlaying({ downloadId: id, file, subtitles: subtitlesFor(file, files) })}>{file.path}</button> : <span className="break-release">{file.path}</span>}</div>
               <div className="download-file-size">
                 {formatBytes(file.size)}
               </div>
@@ -188,7 +171,7 @@ function FileList({ download: d, play, onPlayable, onPlayed }: { download: Downl
           </button>
         </div>
       )}
-      <PlayerDialog target={playing} finished={isFinished(d)} onClose={() => setPlaying(null)} />
+      <PlayerDialog target={playing} finished={isFinished({ status })} onClose={() => setPlaying(null)} />
     </section>
   )
-}
+})
