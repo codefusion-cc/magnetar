@@ -47,7 +47,7 @@ export const content: FeaturesContent = {
           points: [
             'Étiquettes tirées du titre : résolution (480p à 4K), HDR ou Dolby Vision, codec (H.264, HEVC, AV1) et source (BluRay, WEB, HDTV, DVD)',
             'Filtrez par résolution et par source ; triez par seeders, plus récents, plus grands ou plus petits',
-            'Une source lente ou en panne ne retarde jamais les autres : celle qui n’a pas répondu en 15 secondes est écartée, et « Afficher les sources » indique ce que chacune a trouvé',
+            'Une source lente ou indisponible ne bloque pas les autres. Au-dessus des résultats, une phrase et les chiffres par source indiquent les réponses, les recherches sans résultat et les échecs.',
             'Les miroirs se relaient : si l’un ne répond pas en une seconde et demie, le suivant est interrogé, et le plus rapide est mémorisé',
             'Seuls les titres qui contiennent tous les mots saisis, quel que soit l’alphabet ; les titres aux caractères corrompus sont réparés',
             'Ouvrez un résultat pour voir ses détails, copiez son lien magnet ou envoyez-le dans n’importe quel dossier',
@@ -83,7 +83,7 @@ export const content: FeaturesContent = {
             'Des règles par série : résolution, seeders minimum, taille maximale, mots à préférer et à éviter',
             'Commencez par l’épisode de votre choix, par le dernier, ou seulement avec les nouveaux',
             'Vérification toutes les 15 minutes à une fois par jour (toutes les heures par défaut), 25 épisodes au plus à la fois',
-            'Chaque carte indique la prochaine date de diffusion et l’avancement de la série',
+            'La saison forme une orbite, avec un arc par épisode : présent, en téléchargement ou attendu. Une phrase annonce la suite, et les dates de diffusion se rapprochent d’aujourd’hui sur une ligne de deux semaines.',
           ],
         },
         watches: {
@@ -105,12 +105,12 @@ export const content: FeaturesContent = {
       features: {
         engine: {
           title: 'Un moteur de téléchargement intégré',
-          gain: 'Progression, vitesse, pairs et temps restant en direct pour chaque téléchargement, sans rien d’autre à installer.',
+          gain: 'Progression, débit et temps restant pour chaque téléchargement, sans rien installer de plus.',
           text: 'Les téléchargements tournent dans Magnetar sur librqbit, avec DHT et trackers, et le tableau de bord se met à jour chaque seconde. Une pause, un redémarrage ou une mise à jour ne relit jamais les pièces déjà terminées.',
           points: [
-            'Vues Actifs, Terminés et Tous avec leur nombre, et un ordre au choix (récents, anciens, nom, taille, progression), retenu pour chaque appareil ; chaque téléchargement indique quand il a été ajouté et terminé ; mettez en pause, reprenez, réessayez ou supprimez chacun',
+            'Vues En cours, Terminés et Tous, ordre mémorisé par ordinateur et boutons texte pour mettre en pause, reprendre, réessayer ou retirer. Un téléchargement terminé reste visible jusqu’au changement de vue.',
             'La suppression demande s’il faut garder les fichiers',
-            'Vitesses totales de réception et d’envoi, et espace libre restant, signalé en avertissement sous 5 Go',
+            'Le résumé indique l’ordinateur, les téléchargements en cours, le débit total et l’espace libre. Réduisez le débit ou revenez à pleine vitesse ici; les horaires restent dans Paramètres → Téléchargements.',
             'Le port du routeur est ouvert par UPnP, et un torrent qui ne trouve aucun pair en trois minutes le signale au lieu d’attendre indéfiniment',
             'Un torrent de plusieurs fichiers a son propre dossier',
           ],
@@ -122,14 +122,14 @@ export const content: FeaturesContent = {
           points: [
             'L’explorateur s’ouvre dans le dernier dossier utilisé : enregistrer deux fois au même endroit, c’est deux clics',
             'Cochez « Toujours enregistrer ici, ne plus demander » pour en faire le dossier de téléchargement et ne plus être interrogé ; Paramètres → Téléchargements rétablit la question',
-            'Sans question, Télécharger ajoute dans le dossier de téléchargement en un clic, et les détails gardent un lien « Enregistrer dans un autre dossier… »',
+            'Sans la question du dossier, Télécharger ajoute au dossier de téléchargement en un clic. Paramètres → Téléchargements permet de réactiver la question.',
             'Par le site, seuls le dossier de téléchargement et les dossiers ajoutés sur l’ordinateur peuvent être choisis, comme partout',
           ],
         },
         files: {
           title: 'Seulement les fichiers voulus',
           gain: 'Téléchargez un seul épisode d’une saison, ou laissez de côté les bonus, et suivez chaque fichier séparément.',
-          text: 'Les détails d’un téléchargement listent ses fichiers, chacun avec une case à cocher et sa progression, actualisée toutes les deux secondes pendant le téléchargement, ainsi que sa taille, son ratio, ses dates, sa source et son dossier.',
+          text: 'Chaque téléchargement a sa page avec un lien de retour, sa piste, son dossier, ses dates, sa source et son ratio. Les fichiers ont des cases à cocher, leur taille et une progression actualisée toutes les deux secondes. Les mises à jour conservent les choix en cours.',
           points: [
             'Modifiez la sélection à tout moment ; un bouton l’enregistre',
             '« Afficher dans le dossier » ouvre le Finder ou l’Explorateur de fichiers sur le fichier, sur votre ordinateur',
@@ -148,7 +148,7 @@ export const content: FeaturesContent = {
         browse: {
           title: 'Vos téléchargements, dossier par dossier',
           gain: 'Voyez ce qui est arrivé où, lisez-le ou choisissez un nouveau dossier de téléchargement, depuis l\'ordinateur ou votre téléphone.',
-          text: 'Fichiers affiche le dossier de téléchargement et tout dossier ajouté sur l\'ordinateur qui exécute Magnetar : d\'abord les dossiers, puis les fichiers, avec leur taille et leur date. Les fichiers d\'un téléchargement se lisent ou s\'ouvrent dans ses détails.',
+          text: 'Fichiers ouvre le dossier de téléchargement, avec des vues par emplacement et un chemin cliquable pour revenir. Un dossier est un amas, un fichier terminé une étoile bleu-blanc et un téléchargement en cours une braise avec son pourcentage. Tailles, dates, lecture et détails restent accessibles.',
           points: [
             'Triés comme on lit les noms : l\'épisode 2 avant l\'épisode 10',
             'Créez un dossier, ou utilisez celui affiché comme dossier de téléchargement',
@@ -328,7 +328,7 @@ export const content: FeaturesContent = {
   shots: {
     search: 'Résultats de recherche avec étiquettes de version, fusionnés depuis toutes les sources',
     'search-phone': 'La recherche sur un téléphone, avec les filtres de résolution',
-    'search-sources': 'Ce que chaque source a trouvé, et en combien de temps',
+    'search-sources': 'Les résultats par source et les sources sans réponse',
     add: 'La fenêtre Ajouter avec des liens magnet collés',
     watchlist: 'La liste À suivre : les séries et leur prochain épisode',
     watches: 'Les suivis de versions, avec la fréquence de vérification de chacun',

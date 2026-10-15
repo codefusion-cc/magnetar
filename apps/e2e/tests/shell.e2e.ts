@@ -36,7 +36,7 @@ test('the Downloads count follows active state changes and disappears after remo
   await page.goto('/')
   const places = page.getByRole('navigation', { name: 'Menu', exact: true })
   const downloads = places.getByRole('link', { name: /^Downloads/ })
-  await expect(page.getByRole('contentinfo')).toContainText('Magnetar')
+  await expect(page.getByRole('contentinfo')).toHaveCount(0)
   const row = page.getByRole('listitem').filter({ hasText: 'Shell count' })
   await expect(downloads).toHaveText('Downloads')
   const link = `magnet:?xt=urn:btih:${'9'.repeat(40)}&dn=Shell%20count`
@@ -48,12 +48,12 @@ test('the Downloads count follows active state changes and disappears after remo
   await expect(downloads).toHaveText(/^Downloads\s*1$/)
   const download = device.downloads()[0]!
   for (const [status, count] of [
-    ['Paused', 0], ['Downloading', 1], ['Completed', 0], ['Seeding', 1], ['Error', 0], ['Queued', 1],
+    ['Paused', 0], ['Downloading', 1], ['Completed', 0], ['Seeding', 0], ['Error', 0], ['Queued', 1],
   ] as const) {
     device.send('downloads.updated', [{ ...download, status }])
     await expect(downloads).toHaveText(count ? /^Downloads\s*1$/ : 'Downloads')
   }
-  await row.getByRole('button', { name: 'Delete', exact: true }).click()
+  await row.getByRole('button', { name: 'Remove', exact: true }).click()
   await page.locator('dialog[open]').filter({ hasText: 'Delete download' }).getByRole('button', { name: 'Keep files', exact: true }).click()
   await expect(row).toHaveCount(0)
   await expect(downloads).toHaveText('Downloads')

@@ -3,7 +3,7 @@ import type {
   TransferStatusDto, UpdateStatusDto, WatchDto,
 } from '@magnetar/protocol'
 import { mergeByInfoHash } from '@magnetar/protocol/merge'
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { pushEnabledFor } from '../lib/push.ts'
 import type { ConnectionState, RpcClient } from '../lib/rpcClient.ts'
 import {
@@ -18,17 +18,19 @@ export interface SearchState {
   /** The search whose results are on screen (`searchKey`), so it isn't run twice. */
   ran: string | null
   searchId: string | null
+  requestId: number
   searching: boolean
   results: SearchResultDto[] | null
   outcomes: SourceOutcomeDto[]
 }
 
-const EMPTY_SEARCH: SearchState = { query: '', ran: null, searchId: null, searching: false, results: null, outcomes: [] }
+const EMPTY_SEARCH: SearchState = { query: '', ran: null, searchId: null, requestId: 0, searching: false, results: null, outcomes: [] }
 
 interface DeviceState {
   connection: RpcClient
   connectionState: ConnectionState
   info: AppInfoDto | null
+  seriesRead: { loading: boolean; failed: boolean; retry: () => void }
   series: SeriesTaskDto[]
   watches: WatchDto[]
   settings: SettingsDto | null
@@ -97,6 +99,7 @@ const withIds = (sources: SourceDto[]) => sources.map(s => (s.id ? s : { ...s, i
 
 const DeviceContext = createContext<DeviceState | null>(null)
 /** Separate so the once-a-second progress updates re-render only the views that show downloads. */
+const DownloadReadContext = createContext<{ loading: boolean; failed: boolean; retry: () => void }>({ loading: true, failed: false, retry: () => {} })
 const DownloadsContext = createContext<DownloadDto[]>([])
 /** The search in progress, apart so typing and streamed results re-render only the search page. */
 const SearchContext = createContext<SearchContextValue | null>(null)
@@ -119,7 +122,13 @@ export function DeviceProvider({ connection, basePath, deviceName, children }: {
 }) {
   const [connectionState, setConnectionState] = useState<ConnectionState>(connection.state)
   const [info, setInfo] = useState<AppInfoDto | null>(null)
+  const [read, setRead] = useState({ loading: true, failed: false })
+  // Reads the downloads and the watchlist again; set by the connection's effect.
+  const readListsAgain = useRef<() => void>(() => {})
+  const retryDownloads = useCallback(() => readListsAgain.current(), [])
+  const readValue = useMemo(() => ({ ...read, retry: retryDownloads }), [read, retryDownloads])
   const [downloads, setDownloads] = useState<DownloadDto[]>([])
+  const [seriesRead, setSeriesRead] = useState({ loading: true, failed: false })
   const [series, setSeries] = useState<SeriesTaskDto[]>([])
   const [watches, setWatches] = useState<WatchDto[]>([])
   const [settings, setSettings] = useState<SettingsDto | null>(null)
@@ -136,6 +145,12 @@ export function DeviceProvider({ connection, basePath, deviceName, children }: {
   const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
+    let cancelled = false
+    let refreshId = 0
+    let downloadsVersion = 0
+    let seriesVersion = 0
+    let duringList = new Map<number, DownloadDto>()
+    let pendingList = false
     const observe = (view: AppView) => {
       setAppView(view)
       setNow(Date.now())
@@ -148,19 +163,44 @@ export function DeviceProvider({ connection, basePath, deviceName, children }: {
       setUpdates(status)
       observe({ online: true, running: status.currentVersion, installing: status.installing })
     }
+    // The two lists the pages wait for, apart from the rest so "Try again" reads only them.
+    let listsId = 0
+    const readLists = () => {
+      const attempt = ++listsId
+      const version = downloadsVersion
+      duringList = new Map()
+      pendingList = true
+      setRead({ loading: true, failed: false })
+      void connection.call('downloads.list').then(list => {
+        if (cancelled || attempt !== listsId || version !== downloadsVersion) return
+        setDownloads(mergeRows(list, [...duringList.values()]))
+        pendingList = false
+        duringList.clear()
+        setRead({ loading: false, failed: false })
+      }, () => {
+        if (!cancelled && attempt === listsId && version === downloadsVersion) { pendingList = false; duringList.clear(); setRead({ loading: false, failed: true }) }
+      })
+      setSeriesRead({ loading: true, failed: false })
+      const seriesAtRead = seriesVersion
+      void connection.call('series.list').then(list => {
+        if (!cancelled && attempt === listsId && seriesAtRead === seriesVersion) { setSeries(list); setSeriesRead({ loading: false, failed: false }) }
+      }, () => { if (!cancelled && attempt === listsId && seriesAtRead === seriesVersion) setSeriesRead({ loading: false, failed: true }) })
+    }
+    readListsAgain.current = () => { if (!cancelled && connection.state.status === 'open') readLists() }
     const refresh = async () => {
+      const attempt = ++refreshId
+      readLists()
       try {
         // The website can be newer than the device's app: what an older app lacks is left out.
         const optional = <T,>(call: Promise<T>) => call.catch(() => null)
-        const [i, d, s, st, src, u, r, tr] = await Promise.all([
-          connection.call('app.info'), connection.call('downloads.list'), connection.call('series.list'),
+        const [i, st, src, u, r, tr] = await Promise.all([
+          connection.call('app.info'),
           connection.call('settings.get'), connection.call('sources.list'), connection.call('updates.status'),
           connection.call('remote.status'), optional(connection.call('transfer.status')),
         ])
-        void optional(connection.call('watches.list')).then(w => setWatches(w ?? []))
+        if (cancelled || attempt !== refreshId) return
+        void optional(connection.call('watches.list')).then(w => { if (!cancelled && attempt === refreshId) setWatches(w ?? []) })
         setInfo(i)
-        setDownloads(d)
-        setSeries(s)
         setSettings(st)
         setSources(withIds(src))
         report(u)
@@ -183,10 +223,13 @@ export function DeviceProvider({ connection, basePath, deviceName, children }: {
 
     const off = [
       offState,
-      connection.on('downloads.changed', setDownloads),
-      connection.on('downloads.updated', rows => setDownloads(list => mergeRows(list, rows))),
+      connection.on('downloads.changed', list => { downloadsVersion++; pendingList = false; duringList.clear(); setDownloads(list); setRead({ loading: false, failed: false }) }),
+      connection.on('downloads.updated', rows => {
+        if (pendingList) for (const row of rows) duringList.set(row.id, row)
+        setDownloads(list => mergeRows(list, rows))
+      }),
       connection.on('transfer.changed', setTransfer),
-      connection.on('series.changed', setSeries),
+      connection.on('series.changed', list => { seriesVersion++; setSeries(list); setSeriesRead({ loading: false, failed: false }) }),
       connection.on('watches.changed', setWatches),
       connection.on('settings.changed', next => {
         setSettings(next)
@@ -197,7 +240,7 @@ export function DeviceProvider({ connection, basePath, deviceName, children }: {
       connection.on('search.results', ({ searchId, results }) =>
         setSearch(s => (s.searchId === searchId ? { ...s, results: mergeByInfoHash([...(s.results ?? []), ...results]) } : s))),
       connection.on('search.source', ({ searchId, outcome }) =>
-        setSearch(s => (s.searchId === searchId ? { ...s, outcomes: [...s.outcomes, outcome] } : s))),
+        setSearch(s => (s.searchId === searchId ? { ...s, outcomes: [...s.outcomes.filter(o => o.source !== outcome.source), outcome] } : s))),
       connection.on('search.done', ({ searchId }) =>
         setSearch(s => (s.searchId === searchId ? { ...s, searching: false } : s))),
       connection.on('notification', event => {
@@ -210,7 +253,7 @@ export function DeviceProvider({ connection, basePath, deviceName, children }: {
         }
       }),
     ]
-    return () => off.forEach(fn => fn())
+    return () => { cancelled = true; off.forEach(fn => fn()) }
   }, [connection])
 
   const awaySince = install.attempt?.offlineSince ?? null
@@ -252,9 +295,9 @@ export function DeviceProvider({ connection, basePath, deviceName, children }: {
   const phase = installPhase(install.attempt, appView, now)
   const installedVersion = install.installed
   const value = useMemo<DeviceState>(() => ({
-    connection, connectionState, info, series, watches, settings, sources, updates, installPhase: phase, installedVersion, installUpdate, forgetInstall,
+    connection, connectionState, info, seriesRead: { ...seriesRead, retry: retryDownloads }, series, watches, settings, sources, updates, installPhase: phase, installedVersion, installUpdate, forgetInstall,
     remote, transfer, basePath, deviceName,
-  }), [connection, connectionState, info, series, watches, settings, sources, updates, phase, installedVersion, installUpdate, forgetInstall, remote, transfer, basePath, deviceName])
+  }), [connection, connectionState, info, seriesRead, retryDownloads, series, watches, settings, sources, updates, phase, installedVersion, installUpdate, forgetInstall, remote, transfer, basePath, deviceName])
   const searchValue = useMemo(() => ({ search, setSearch, setSearchAddress }), [search])
 
   return (
@@ -262,7 +305,7 @@ export function DeviceProvider({ connection, basePath, deviceName, children }: {
       <DeviceContext.Provider value={value}>
         <SearchContext.Provider value={searchValue}>
           <SearchAddressContext.Provider value={searchAddress}>
-            <DownloadsContext.Provider value={downloads}>{children}</DownloadsContext.Provider>
+            <DownloadReadContext.Provider value={readValue}><DownloadsContext.Provider value={downloads}>{children}</DownloadsContext.Provider></DownloadReadContext.Provider>
           </SearchAddressContext.Provider>
         </SearchContext.Provider>
       </DeviceContext.Provider>
@@ -299,3 +342,5 @@ export function useSearch(): SearchContextValue {
 export function useDownloads(): DownloadDto[] {
   return useContext(DownloadsContext)
 }
+
+export function useDownloadRead() { return useContext(DownloadReadContext) }

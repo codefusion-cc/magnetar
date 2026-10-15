@@ -47,7 +47,7 @@ export const content: FeaturesContent = {
           points: [
             'Etiquetas de versión sacadas del título: resolución (de 480p a 4K), HDR o Dolby Vision, el códec (H.264, HEVC, AV1) y el origen (BluRay, WEB, HDTV, DVD)',
             'Filtra por resolución y origen; ordena por seeders, más recientes, más grandes o más pequeños',
-            'Una fuente lenta o caída nunca retrasa a las demás: la que no responde en 15 segundos se queda fuera, y «Mostrar fuentes» indica lo que encontró cada una',
+            'Una fuente lenta o no disponible no frena a las demás. Sobre los resultados, una frase y las cifras de cada fuente indican cuáles han respondido, no han encontrado nada o han fallado.',
             'Los servidores espejo se turnan: si uno no responde en segundo y medio, se consulta el siguiente, y se recuerda el más rápido',
             'Solo títulos con todas las palabras que escribiste, en cualquier alfabeto; los títulos con caracteres corruptos se reparan',
             'Abre un resultado para ver sus detalles, copia su enlace magnet o envíalo a cualquier carpeta',
@@ -83,7 +83,7 @@ export const content: FeaturesContent = {
             'Reglas por serie: resolución, mínimo de seeders, tamaño máximo, palabras que preferir y que evitar',
             'Empieza desde el episodio que elijas, desde el último o solo con los episodios nuevos',
             'Comprueba desde cada 15 minutos hasta una vez al día (cada hora por defecto), con un máximo de 25 episodios a la vez',
-            'Cada tarjeta muestra la próxima fecha de emisión y cuánto llevas de la serie',
+            'La temporada es una órbita con un arco por episodio: descargado, en descarga o pendiente. Una frase indica qué viene después y las fechas se acercan a hoy en una línea de dos semanas.',
           ],
         },
         watches: {
@@ -105,12 +105,12 @@ export const content: FeaturesContent = {
       features: {
         engine: {
           title: 'Un motor de descarga integrado',
-          gain: 'Progreso, velocidad, pares y tiempo restante en directo para cada descarga, sin instalar nada más.',
+          gain: 'Progreso, velocidad y tiempo restante de cada descarga, sin instalar nada más.',
           text: 'Las descargas se ejecutan dentro de Magnetar con librqbit, con DHT y trackers, y el panel se actualiza una vez por segundo. Pausar, reiniciar o actualizar nunca vuelve a leer las piezas ya terminadas.',
           points: [
-            'Vistas Activas, Terminadas y Todas con su recuento, y un orden a elegir (recientes, antiguas, nombre, tamaño, progreso), recordado en cada dispositivo; cada descarga muestra cuándo se añadió y cuándo terminó; pausa, reanuda, reintenta o elimina cada una',
+            'Vistas Activas, Finalizadas y Todas, orden guardado por ordenador y botones de texto para pausar, reanudar, reintentar o quitar. Una descarga finalizada permanece hasta que cambies de vista.',
             'Al eliminar, pregunta si quieres conservar los archivos',
-            'La velocidad total de descarga y subida y el espacio libre, que pasa a ser un aviso por debajo de 5 GB',
+            'El resumen muestra el ordenador, las descargas en curso, la velocidad total y el espacio libre. Ahí puedes reducir la velocidad o volver a la máxima; los horarios siguen en Ajustes → Descargas.',
             'El puerto del router se abre por UPnP, y un torrent que no encuentra pares en tres minutos lo indica en lugar de esperar para siempre',
             'Un torrent de varios archivos tiene su propia carpeta',
           ],
@@ -122,14 +122,14 @@ export const content: FeaturesContent = {
           points: [
             'El explorador se abre en la última carpeta usada, así que guardar dos veces en el mismo sitio son dos toques',
             'Marca «Guardar siempre aquí, no volver a preguntar» para que esa carpeta sea la de descargas y dejar de recibir la pregunta; Ajustes → Descargas la devuelve',
-            'Sin preguntar, Descargar añade a la carpeta de descargas con un clic, y los detalles mantienen un enlace «Guardar en otra carpeta…»',
+            'Sin la pregunta de carpeta, Descargar añade al destino predeterminado con un clic. Ajustes → Descargas permite volver a activar la pregunta.',
             'Por la web solo se pueden elegir la carpeta de descargas y las añadidas en el ordenador, como en todas partes',
           ],
         },
         files: {
           title: 'Solo los archivos que quieres',
           gain: 'Descarga un episodio de una temporada, o sáltate los extras, y sigue cada archivo por separado.',
-          text: 'Los detalles de una descarga muestran sus archivos, cada uno con su casilla y su progreso, actualizados cada dos segundos mientras avanza, junto con su tamaño, ratio, fechas, origen y carpeta.',
+          text: 'Cada descarga se abre en su propia página con enlace de vuelta, pista de progreso, carpeta, fechas, fuente y proporción. Los archivos tienen casillas, tamaños y progreso actualizado cada dos segundos. Las actualizaciones conservan los cambios de selección.',
           points: [
             'Cambia la selección cuando quieras; un botón la guarda',
             '«Mostrar en la carpeta» abre Finder o el Explorador de archivos en el archivo, en tu ordenador',
@@ -148,7 +148,7 @@ export const content: FeaturesContent = {
         browse: {
           title: 'Tus descargas, carpeta a carpeta',
           gain: 'Mira qué llegó a dónde, reprodúcelo o elige otra carpeta de descarga, desde el ordenador o desde el móvil.',
-          text: 'Archivos muestra la carpeta de descarga y cualquier carpeta que añadas en el ordenador que ejecuta Magnetar: primero carpetas, luego archivos, con su tamaño y fecha. Los archivos de una descarga se pueden reproducir o abrir en sus detalles.',
+          text: 'Archivos abre la carpeta de descargas, con vistas para cada ubicación y rutas enlazadas para volver. Una carpeta es un cúmulo, un archivo terminado una estrella azul y blanca y una descarga en curso una brasa con su porcentaje. Se conservan tamaños, fechas, reproducción y detalles.',
           points: [
             'Ordenados como se leen los nombres: el episodio 2 antes del 10',
             'Crea una carpeta o usa la que ves como carpeta de descarga',
@@ -328,7 +328,7 @@ export const content: FeaturesContent = {
   shots: {
     search: 'Resultados de búsqueda con etiquetas de versión, reunidos de todas las fuentes',
     'search-phone': 'Búsqueda en un móvil, con los botones de resolución',
-    'search-sources': 'Lo que encontró cada fuente y lo rápido que respondió',
+    'search-sources': 'Qué encontró cada fuente y cuáles no respondieron',
     add: 'El diálogo Añadir con enlaces magnet pegados',
     watchlist: 'El seguimiento: series con su próximo episodio',
     watches: 'Seguimientos de versiones, con la frecuencia con que comprueba cada uno',

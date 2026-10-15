@@ -145,13 +145,13 @@ function relative(format: Intl.RelativeTimeFormat, seconds: number): string {
 }
 
 /** "3 yr. ago", "in 5 min." — in the dashboard language. */
-export function useFormatRelative(): (iso: string | null) => string {
+export function useFormatRelative(style: Intl.RelativeTimeFormatStyle = 'short'): (iso: string | null) => string {
   const language = useLanguage()
   return useCallback((iso: string | null) => {
     if (!iso) return '—'
-    const format = new Intl.RelativeTimeFormat(language, { numeric: 'auto', style: 'short' })
+    const format = new Intl.RelativeTimeFormat(language, { numeric: 'auto', style })
     return relative(format, (new Date(iso).getTime() - Date.now()) / 1000)
-  }, [language])
+  }, [language, style])
 }
 
 /** Time left, as "in 4 min." — from now plus `seconds`. */

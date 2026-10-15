@@ -47,7 +47,7 @@ export const en: FeaturesContent = {
           points: [
             'Release tags from the title: resolution (480p to 4K), HDR or Dolby Vision, the codec (H.264, HEVC, AV1) and the source (BluRay, WEB, HDTV, DVD)',
             'Narrow by resolution and source; sort by seeders, newest, largest or smallest',
-            'A source that is slow or down never holds up the others: one that hasn\'t answered in 15 seconds is left out, and "Show sources" says what each one found',
+            'A slow or unavailable source never holds up the others. Above the results, a sentence and a count for each source show what answered, found nothing or failed.',
             'Mirrors take turns: when one doesn\'t answer within a second and a half, the next is asked, and the fastest is remembered',
             'Only titles with every word you typed, in any script; garbled titles are repaired',
             'Open a result for its details, copy its magnet link, or send it to any folder',
@@ -83,7 +83,7 @@ export const en: FeaturesContent = {
             'Rules per series: resolution, minimum seeders, maximum size, words to prefer and to avoid',
             'Start from an episode you choose, from the latest one, or with new episodes only',
             'Checks every 15 minutes to once a day (every hour by default), at most 25 episodes at a time',
-            'Each card shows the next air date and how far along the series is',
+            'The season is an orbit with an arc per episode: held, downloading or waiting. A sentence says what comes next, and dated episodes approach today on a two-week line.',
           ],
         },
         watches: {
@@ -105,12 +105,12 @@ export const en: FeaturesContent = {
       features: {
         engine: {
           title: 'A download engine built in',
-          gain: 'Live progress, speed, peers and time left for every download, with nothing else to install.',
+          gain: 'Live progress, speed and time left for every download, with nothing else to install.',
           text: 'Downloads run inside Magnetar on librqbit, with DHT and trackers, and the dashboard updates once a second. Pausing, restarting or an update never reads finished pieces again.',
           points: [
-            'Active, Finished and All views with their counts, and an order of your choice (newest, oldest, name, size, progress), remembered on that device; each download shows when it was added and finished; pause, resume, retry or delete each one',
+            'Active, Finished and All views, an order remembered for each computer, and text buttons to pause, resume, try again or remove a download. A row that finishes stays in view until you change views.',
             'Deleting asks whether to keep the files',
-            'Total download and upload speed and the free space left, which turns to a warning below 5 GB',
+            'The summary names the computer, its running downloads, combined download speed and free space. Slow down or return to full speed there; schedules stay in Settings → Downloads.',
             'The router\'s port is opened by UPnP, and a torrent that finds no peers in three minutes says so instead of waiting forever',
             'A torrent of several files gets its own folder',
           ],
@@ -122,14 +122,14 @@ export const en: FeaturesContent = {
           points: [
             'The browser opens in the folder you used last, so saving to the same place twice is two taps',
             'Tick "Always save here, don\'t ask again" to make that folder the download folder and stop being asked; Settings → Downloads brings the question back',
-            'With asking off, Download adds to the download folder in one click, and the details dialog keeps a "Save to another folder…" link',
+            'With asking off, Download adds to the download folder in one click. Settings → Downloads lets you turn the folder question back on.',
             'Through the website only the download folder and folders added on the computer can be chosen, as everywhere else',
           ],
         },
         files: {
           title: 'Just the files you want',
           gain: 'Download one episode out of a season, or skip the extras, and follow each file on its own.',
-          text: 'A download\'s details list its files with a checkbox each and their progress, refreshed every two seconds while it runs, with its size, ratio, dates, source and folder.',
+          text: 'A download opens on its own page with a link back to all downloads, its lane, folder, dates, source and ratio. Files have checkboxes, sizes and progress that refreshes every two seconds while it runs. Edits stay selected when the list refreshes.',
           points: [
             'Change the selection at any time; one button saves it',
             '"Show in folder" opens Finder or Explorer at the file, on your computer',
@@ -148,7 +148,7 @@ export const en: FeaturesContent = {
         browse: {
           title: 'Your downloads, folder by folder',
           gain: 'See what landed where, play it, or pick a new download folder, from the computer or from your phone.',
-          text: 'Files shows the download folder and any folder you add on the computer running Magnetar: folders first, then files, with their sizes and dates. Files that came from a download can be played or opened in its details.',
+          text: 'Files opens the download folder, with your places as views and linked paths for going back. A folder is a cluster, a finished file a blue-white star, and a download still arriving an ember with its percentage. Sizes, dates, playback and download details remain beside each file.',
           points: [
             'Sorted as people read names: episode 2 before episode 10',
             'Make a folder, or use the one on screen as the download folder',
@@ -328,7 +328,7 @@ export const en: FeaturesContent = {
   shots: {
     search: 'Search results with release tags, merged from every source',
     'search-phone': 'Search on a phone, with the resolution chips',
-    'search-sources': 'What each source found, and how fast',
+    'search-sources': 'What each source found and which did not answer',
     add: 'The Add dialog with magnet links pasted in',
     watchlist: 'The watchlist: series with their next episode',
     watches: 'Watches for releases, with how often each checks',

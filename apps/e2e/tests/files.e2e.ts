@@ -8,10 +8,10 @@ const entries = (page: Page) => page.getByRole('list', { name: /^Contents of / }
 
 /** The download folder as Files shows it, filled with a show, a note, a hidden file and a link out of it. */
 async function downloadFolder(page: Page): Promise<string> {
+  // Files opens on the download folder, its path under the places.
   await page.goto('/files')
-  const card = page.getByRole('list', { name: 'Folders you can browse' }).getByRole('button', { name: /Download folder/ })
-  await expect(card).toBeVisible()
-  const path = (await card.locator('.font-mono').textContent())!.trim()
+  await expect(page.getByRole('heading', { name: 'Download folder', level: 2 })).toBeVisible()
+  const path = (await page.locator('.folder-where > span').first().textContent())!.trim().replace(/[\\/]+$/, '')
   mkdirSync(join(path, 'Show S01'), { recursive: true })
   for (const episode of ['E10', 'E2', 'E1']) writeFileSync(join(path, 'Show S01', `Show ${episode}.mkv`), 'x')
   writeFileSync(join(path, 'notes.txt'), 'hello')
@@ -22,12 +22,12 @@ async function downloadFolder(page: Page): Promise<string> {
   } catch {
     // Already there from an earlier run, or links need rights this system doesn't give.
   }
+  await page.getByRole('button', { name: 'Refresh' }).click()
   return path
 }
 
 test('Files lists the download folder folders first, by name as people read it, and nothing hidden or outside', async ({ page }) => {
   await downloadFolder(page)
-  await page.getByRole('button', { name: /Download folder/ }).click()
   await expect(page.getByRole('heading', { name: 'Download folder', level: 2 })).toBeVisible()
   await expect(page.getByText('notes.txt')).toBeVisible()
   const names = await entries(page).allInnerTexts()
@@ -37,7 +37,8 @@ test('Files lists the download folder folders first, by name as people read it, 
   await expect(page.getByText('escape', { exact: true })).toHaveCount(0)
 
   await page.getByRole('button', { name: /Show S01/ }).click()
-  await expect(page.getByRole('heading', { name: 'Show S01', level: 2 })).toBeFocused()
+  // Entries are headings too; the folder's own heading comes first.
+  await expect(page.getByRole('heading', { name: 'Show S01', level: 2 }).first()).toBeFocused()
   await expect(entries(page)).toHaveText([/Show E1\.mkv/, /Show E2\.mkv/, /Show E10\.mkv/])
   // The path stays out of the address: on the website it would reach the server.
   expect(page.url()).not.toContain('Show')
@@ -52,7 +53,6 @@ test('Files lists the download folder folders first, by name as people read it, 
 
 test('a new folder is made, opened empty, and chosen as the download folder', async ({ page }) => {
   const path = await downloadFolder(page)
-  await page.getByRole('button', { name: /Download folder/ }).click()
   await page.getByRole('button', { name: 'New folder' }).click()
   await page.getByLabel('New folder name').fill('../escape')
   await page.getByRole('button', { name: 'Create' }).click()
@@ -71,6 +71,7 @@ test('a new folder is made, opened empty, and chosen as the download folder', as
 
   // The old download folder stays in Files, where its files still are.
   await page.goto('/files')
+  await page.locator('summary', { hasText: 'Folders you can browse' }).click()
   await expect(page.getByRole('list', { name: 'Folders you can browse' }).getByText(path, { exact: true })).toBeVisible()
 
   // Put it back for the other tests.

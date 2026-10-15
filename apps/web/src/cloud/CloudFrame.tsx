@@ -1,5 +1,4 @@
 import { useTheme } from '@codefusion-cc/theme/react'
-import { MonitorDown, Moon, Sun } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Link, NavLink } from 'react-router'
 import { useT } from '../lib/i18n.tsx'
@@ -25,9 +24,10 @@ export function CloudFrame({ children, wide = false }: { children: ReactNode; wi
             <BrandMark />
             <span className="font-display text-[15px]">Magnetar</span>
           </Link>
+          <Link to="/features" className="download-text-action">{t('footer.features')}</Link>
           {install && (
-            <button type="button" className="frame-control gap-2 max-sm:w-10 max-sm:px-0" onClick={install} aria-label={t('install.button')} title={t('install.hint')}>
-              <MonitorDown size={16} aria-hidden /><span className="hidden sm:inline">{t('install.button')}</span>
+            <button type="button" className="frame-control" onClick={install} aria-label={t('install.button')} title={t('install.hint')}>
+              {t('install.button')}
             </button>
           )}
           {account && <AccountMenu />}
@@ -35,7 +35,6 @@ export function CloudFrame({ children, wide = false }: { children: ReactNode; wi
         </div>
       </header>
       <main className={`mx-auto w-full flex-1 px-4 py-8 sm:py-12 ${wide ? 'max-w-5xl' : 'max-w-3xl'}`}>{children}</main>
-      <SiteFooter column={`mx-auto w-full px-4 ${wide ? 'max-w-5xl' : 'max-w-3xl'}`} />
     </div>
   )
 }
@@ -61,9 +60,8 @@ export function ThemeToggle() {
   const { resolved } = useTheme(theme)
   const next = resolved === 'dark' ? 'light' : 'dark'
   return (
-    // The sun or the moon of the mode it switches to: a bare "Light" on a dark page reads as the mode it is in.
-    <button type="button" className="frame-control w-10 px-0" onClick={theme.toggle} aria-label={t(`theme.${next}`)} title={t(`theme.${next}`)}>
-      {next === 'light' ? <Sun size={18} aria-hidden /> : <Moon size={18} aria-hidden />}
+    <button type="button" className="frame-control" onClick={theme.toggle} aria-label={t(`theme.${next}`)} title={t(`theme.${next}`)}>
+      {t(`theme.${next}`)}
     </button>
   )
 }
@@ -73,11 +71,8 @@ export function AccountMenu() {
   const { account, signOut } = useAccount()
   if (!account) return null
   return (
-    <MenuButton label={account.email} className="frame-account w-10 shrink-0" button={
-      <span className="frame-control frame-square">
-        {account.picture
-          ? <img src={account.picture} alt="" className="size-7 rounded-ctl" referrerPolicy="no-referrer" />
-          : <span aria-hidden="true" className="text-sm font-semibold">{account.email[0]?.toUpperCase()}</span>}
+    <MenuButton label={account.email} className="frame-account min-w-0 max-w-48" button={
+      <span className="frame-control max-w-full truncate" title={account.email}>{account.email}
       </span>
     } items={close => (
       <>

@@ -10,7 +10,6 @@ import { browserLanguage, useT } from '../lib/i18n.tsx'
 import { getDeviceKey, type StoredDeviceKey } from '../lib/keyStore.ts'
 import { RelayConnection } from '../lib/relayConnection.ts'
 import { Loading } from '../ui/Loading.tsx'
-import { AccountMenu } from './CloudFrame.tsx'
 import { CloudFrame } from './CloudFrame.tsx'
 import { deviceIdPath, devicePath, samePageOn } from './devicePaths.ts'
 import { DeviceSwitcher } from './DeviceSwitcher.tsx'
@@ -127,8 +126,6 @@ function DeviceView({ device, onRenamed }: { device: CloudDeviceDto; onRenamed: 
     <DeviceProvider connection={connection} basePath={devicePath(device.name)} deviceName={device.name}>
       <FollowRename device={device} onRenamed={onRenamed} />
       <DeviceRoutes fallbackLanguage={browserLanguage()}
-        headerStart={<Link to="/" className="btn btn-ghost btn-square btn-sm" aria-label={t('devices.back')} title={t('devices.back')}><ArrowLeft size={18} /></Link>}
-        headerEnd={<AccountMenu />}
         deviceMenu={(label, placement) => <DeviceSwitcher placement={placement}>{label}</DeviceSwitcher>} />
     </DeviceProvider>
   )

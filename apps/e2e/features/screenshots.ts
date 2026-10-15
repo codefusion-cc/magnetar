@@ -280,7 +280,7 @@ const dialog = (page: Page, title: string) => page.locator('dialog[open]').filte
 async function search(page: Page, address: string): Promise<void> {
   await page.goto(`${local()}${address}`)
   await heading(page, 'Search')
-  await page.locator('button[aria-label="Search"]:not([disabled])').waitFor({ timeout: 60_000 })
+  await page.locator('.search-query button:not([disabled])').waitFor({ timeout: 60_000 })
   await blur(page)
 }
 
@@ -299,14 +299,14 @@ function scenes(website: Website): Scene<BrowserContext, Page>[] {
     shot('search', (page: Page) => search(page, '/search/sintel')),
     shot('save-folder', async (page: Page) => {
       await search(page, '/search/sintel')
-      await page.getByRole('button', { name: 'Download', exact: true }).first().click()
+      await page.locator('.search-results').getByRole('button', { name: /^Download:/ }).first().click()
       await dialog(page, 'Download to').getByText('free').first().waitFor()
       await page.waitForTimeout(800)
     }),
     shot('search-phone', (page: Page) => search(page, '/search/big+buck+bunny?res=1080p'), { device: DEVICES.phone }),
     shot('search-sources', async (page: Page) => {
       await search(page, '/search/tears+of+steel')
-      await page.getByRole('button', { name: 'Show sources' }).click()
+      await page.locator('.source-figure').waitFor()
     }),
     localShot('add', '/', 'Downloads', {
       ready: async page => {
@@ -327,8 +327,8 @@ function scenes(website: Website): Scene<BrowserContext, Page>[] {
         await page.goto(`${local()}/downloads?view=finished`)
         await heading(page, 'Downloads')
         await page.locator('li').filter({ hasText: 'Sintel' }).getByRole('button', { name: 'Sintel', exact: true }).click()
-        const details = dialog(page, 'Download details')
-        await details.getByText('Sintel.mp4').waitFor()
+        const details = page.locator('.download-one')
+        await details.getByRole('button', { name: 'Play Sintel.mp4', exact: true }).waitFor()
         await tidy(page)
         await shoot(page, 'details')
         if (!wants('player')) return
