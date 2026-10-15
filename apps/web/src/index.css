@@ -707,6 +707,9 @@ body {
 }
 .download-one > .infall-acts .download-actions {
   gap: 10px;
+  /* Long words (German "Erneut versuchen", "Danach suchen") take a second line on a phone rather than the page's width. */
+  flex-wrap: wrap;
+  flex-shrink: 1;
 }
 
 .download-list-many .download-row {
@@ -770,7 +773,8 @@ body {
 .approaching-episode small, .approach-today small { position: absolute; bottom: 16px; left: 50%; translate: -50% 0; font: 400 12px/1 var(--cf-font-body); color: var(--cf-muted); white-space: nowrap; }
 .approach-today { position: absolute; right: 0; top: 14px; width: 26px; height: 26px; display: grid; place-items: center; }
 .approach-today .infall-star { width: 8px; height: 8px; box-shadow: var(--mg-halo-small); }
-.approach-today small { bottom: auto; top: 28px; }
+/* "Today" ends with the line, so a long word ("aujourd'hui") stays inside the row. */
+.approach-today small { bottom: auto; top: 28px; left: auto; right: 0; translate: none; }
 .series-paused { opacity: .8; }
 .file-places { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 14px; }
 .file-places button { min-height: 38px; padding: 0 13px; border-radius: 8px; color: var(--cf-muted); cursor: pointer; }
@@ -891,6 +895,7 @@ body {
 .setting-mono { font-family: var(--cf-font-mono); font-size: 14px; }
 .setting-inline { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; max-width: 560px; }
 .setting-inline input { flex: 1 1 12em; }
+.setting-inline :is(.infall-button, .infall-small) { white-space: normal; text-align: center; }
 .setting-days { display: flex; flex-wrap: wrap; gap: 4px; }
 .setting-days button { min-width: 44px; min-height: 36px; padding: 0 10px; border-radius: 8px; color: var(--cf-muted); box-shadow: inset 0 0 0 1px var(--cf-line); }
 .setting-days button[aria-pressed=true] { color: var(--cf-ink); font-weight: 600; background: var(--cf-raised); box-shadow: none; }

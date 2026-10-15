@@ -10,7 +10,7 @@ export async function serveDevice(page: Page, { name = 'Test computer', language
   const calls: string[] = []
   /** Every call with its parameters, for tests that care what was asked, not only that it was. */
   const log: { method: string; params: Record<string, any> }[] = []
-  const failures = new Map<string, { message: string; code: string }>()
+  const failures = new Map<string, { message: string; code: string; when?: (params: Record<string, any>) => boolean }>()
   const holds = new Map<string, Promise<void>>()
   const heldLists = new Set<() => void>()
   let files: DownloadFileDto[] = design ? infallFiles() : []
@@ -105,7 +105,7 @@ export async function serveDevice(page: Page, { name = 'Test computer', language
       if (held) { holds.delete(method); await held }
       if (delay && ['downloads.pause', 'downloads.resume', 'downloads.files', 'downloads.selectFiles'].includes(method)) await new Promise(resolve => setTimeout(resolve, delay))
       const failure = failures.get(method)
-      if (failure) {
+      if (failure && (!failure.when || failure.when(params ?? {}))) {
         failures.delete(method)
         reply(socket, { id, error: failure })
         return
@@ -188,7 +188,8 @@ export async function serveDevice(page: Page, { name = 'Test computer', language
     setReply: <M extends keyof RpcResults>(method: M, result: RpcResults[M]) => { replies[method] = result },
     releaseList: () => { holdList = false; for (const release of heldLists) release(); heldLists.clear() },
     /** The next call of `method` fails; `timeout` reads as a computer that did not answer. */
-    failNext: (method: string, message: string, code = 'test_failure') => failures.set(method, { message, code }),
+    /** Fails the next call of `method`, or only the next one whose parameters `when` picks. */
+    failNext: (method: string, message: string, code = 'test_failure', when?: (params: Record<string, any>) => boolean) => failures.set(method, { message, code, when }),
     setFiles: (next: DownloadFileDto[]) => { files = next },
     downloads: () => downloads,
     settings: () => settings,

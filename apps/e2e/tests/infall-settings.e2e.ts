@@ -158,14 +158,18 @@ test('every section can be reached and used by keyboard', async ({ page }) => {
 })
 
 for (const language of ['en', 'pl', 'de', 'fr', 'es', 'it', 'pt', 'ru']) {
-  test(`every section fits a phone in ${language}`, async ({ page }) => {
+  test(`every section fits a phone in ${language}, also in a wide font`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 780 })
     await serveDevice(page, { design: 'set-dl', language })
     for (const section of ['', '/downloads', '/notifications', '/sources', '/remote', '/agents', '/about']) {
       await page.goto(`/settings${section}`)
       await page.locator('.settings-panel .setting').first().waitFor()
-      const wide = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)
-      expect(wide, `/settings${section} in ${language}`).toBeLessThanOrEqual(0)
+      // Until the page's own fonts arrive (or where a phone blocks them) a wider one stands in: Linux has DejaVu Sans.
+      for (const font of ['the look\'s own', 'a wide stand-in']) {
+        if (font !== 'the look\'s own') await page.addStyleTag({ content: '* { font-family: Verdana, "DejaVu Sans", sans-serif !important }' })
+        const wide = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)
+        expect(wide, `/settings${section} in ${language}, ${font} font`).toBeLessThanOrEqual(0)
+      }
     }
   })
 }

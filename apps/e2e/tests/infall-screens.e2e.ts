@@ -111,7 +111,8 @@ test('Files keeps deep Unicode paths readable on a phone, bounds a 5000-item fol
   await expect(page.getByRole('navigation',{name:'Folder path'})).toContainText('مجلد-é-11')
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390)
   await expect(page.getByRole('button',{name:/Show.*4750/})).toBeVisible()
-  device.failNext('fs.browse','Folder was removed')
+  // Refresh sits under the list on a phone: getting to it brings Show more into view, which may read more first.
+  device.failNext('fs.browse','Folder was removed','test_failure',params => params.offset === undefined)
   await page.getByRole('button',{name:'Refresh',exact:true}).click()
   await expect(page.getByRole('alert')).toBeVisible()
   await expect(page.getByRole('alert')).toContainText('Folder was removed')
@@ -341,3 +342,19 @@ test('download pushes reuse folder rows and the details file list while updating
   await expect(page.getByRole('main')).toContainText('66%')
   expect(await rendered()).toEqual([])
 })
+
+for (const language of ['de', 'fr']) {
+  test(`the main screens fit a phone in ${language}, also in a wide font`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 780 })
+    for (const [design, path] of [['downloads', '/'], ['details-fail', '/downloads/5'], ['search', '/search/sintel'], ['watchlist', '/series'], ['files', '/files']] as const) {
+      await page.unrouteAll({ behavior: 'ignoreErrors' })
+      await serveDevice(page, { design, language })
+      await page.goto(path)
+      await page.locator('main h1').first().waitFor()
+      // Until the page's own fonts arrive (or where a phone blocks them) a wider one stands in: Linux has DejaVu Sans.
+      await page.addStyleTag({ content: '* { font-family: Verdana, "DejaVu Sans", sans-serif !important }' })
+      const wide = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)
+      expect(wide, `${design} in ${language}`).toBeLessThanOrEqual(0)
+    }
+  })
+}
