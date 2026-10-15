@@ -7,6 +7,8 @@
     "deploy": "npm run build -w @magnetar/web && wrangler deploy",
     "migrate:local": "wrangler d1 migrations apply magnetar --local --env dev",
     "migrate:remote": "wrangler d1 migrations apply magnetar --remote",
+    "deploy:staging": "npm run build -w @magnetar/web && wrangler deploy -c wrangler.preview.jsonc",
+    "migrate:staging": "wrangler d1 migrations apply DB --remote -c wrangler.preview.jsonc",
     "typecheck": "tsc -p . && tsc -p test"
   },
   "dependencies": {
@@ -14,6 +16,7 @@
     "@codefusion-cc/base58": "^0.1.0",
     "@codefusion-cc/console": "^0.10.0",
     "@codefusion-cc/google-sign-in": "^0.1.0",
+    "@codefusion-cc/previews": "^0.1.2",
     "@codefusion-cc/web-push": "^0.1.0",
     "@codefusion-cc/workers-crypto": "^0.1.0",
     "@codefusion-cc/workers-http": "^0.1.0",

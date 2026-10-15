@@ -157,4 +157,38 @@ describe("Google's way back to the site", () => {
     expect((await handOn(fromVite, production, production.ORIGIN)).status).toBe(400)
     expect((await handOn(fromVite)).status).toBe(200)
   })
+
+  test("only staging hands a sign-in to its branch Previews, and never to anything else under its host", async () => {
+    const STAGING = 'https://preview.magnetar.codefusion.cc'
+    const staging = { ...env, ORIGIN: STAGING, APP_ENV: 'staging', AUTH_PREVIEW_PARENTS: 'enabled', DEV_LOGIN: undefined }
+    const toPreview = (origin: string) => ({ state: signInState(origin, '/login'), id_token: 'aaa.bbb.ccc' })
+    const preview = 'https://feat-staging-previews.preview.magnetar.codefusion.cc'
+    const landed = await handOn(toPreview(preview), staging, STAGING)
+    expect(landed.status).toBe(200)
+    expect(new URL((await landed.json<{ location: string }>()).location).origin).toBe(preview)
+    for (const bad of ['https://a.b.preview.magnetar.codefusion.cc', 'http://feat.preview.magnetar.codefusion.cc', 'https://feat.preview.magnetar.codefusion.cc.evil.example', 'https://feat.magnetar.codefusion.cc', 'https://magnetar.codefusion.cc']) {
+      expect((await handOn(toPreview(bad), staging, STAGING)).status, bad).toBe(400)
+    }
+    // Production, a Preview, or staging without the setting: no Preview gets a token.
+    const production = { ...staging, ORIGIN: 'https://magnetar.codefusion.cc', APP_ENV: 'production' }
+    for (const [label, environment] of [
+      ['production', production],
+      ['production with the setting under the staging host', { ...staging, APP_ENV: 'production' }],
+      ['a Preview', { ...staging, ORIGIN: preview, APP_ENV: 'preview' }],
+      ['staging without the setting', { ...staging, AUTH_PREVIEW_PARENTS: undefined }],
+    ] as const) {
+      expect((await handOn(toPreview('https://feat-x.preview.magnetar.codefusion.cc'), environment, environment.ORIGIN)).status, label).toBe(400)
+      expect((await handOn(toPreview('https://feat-x.magnetar.codefusion.cc'), environment, environment.ORIGIN)).status, label).toBe(400)
+    }
+  })
+
+  test("a Preview's page may not call staging's API, though staging returns its sign-ins", async () => {
+    const STAGING = 'https://preview.magnetar.codefusion.cc'
+    const staging = { ...env, ORIGIN: STAGING, APP_ENV: 'staging', AUTH_PREVIEW_PARENTS: 'enabled', DEV_LOGIN: undefined }
+    const start = (origin: string) => worker.fetch(new Request(`${STAGING}/api/auth/start`, {
+      method: 'POST', headers: { origin, 'sec-fetch-site': 'same-site' },
+    }) as Parameters<typeof worker.fetch>[0], staging, createExecutionContext())
+    expect((await start('https://feat-x.preview.magnetar.codefusion.cc')).status).toBe(403)
+    expect((await start(STAGING)).status).toBe(200)
+  })
 })

@@ -1,7 +1,8 @@
 # Deploying magnetar.codefusion.cc
 
 The Worker in `apps/worker` serves the website, sign-in, pairing and the relay. After the one-time setup below, every
-merge to `main` deploys it: the CI workflow's **Deploy magnetar.codefusion.cc** job runs once every check has passed.
+merge to `main` goes to staging (preview.magnetar.codefusion.cc) once every check has passed, and to production
+(magnetar.codefusion.cc) once the owner approves it in CodeFusion Console.
 
 ## 1. Google OAuth client
 
@@ -26,24 +27,45 @@ The console (codefusion-cc/codefusion-console) lists Magnetar in `config/apps.js
 Worker's `ConsoleAdmin` entrypoint. Deploy this Worker first, so the console's deploy binds a service that exists.
 Its Deployments page reads this repository with the console's GitHub token, which must include codefusion-cc/magnetar.
 
-## 4. Deploy on merge
+## 4. Deploy on approval
 
-The `deploy` job in `.github/workflows/ci.yml` runs on every push to `main` after the checks and the end-to-end tests
-pass. It builds the dashboard (its `version.json` names the commit), applies the D1 migrations, deploys the Worker, its
-assets and the `DeviceRelay` Durable Object, and waits until the website serves the new commit. Deploys run one at a
-time and are never cancelled midway; merges that land meanwhile wait, and only the newest of them deploys. The custom
-domain route creates the DNS record in the `codefusion.cc` zone.
+On every push to `main`, after the checks and the end-to-end tests pass, the CI workflow runs three jobs:
 
-CodeFusion Console's Deployments page shows the commit the website serves, how far behind `main` it is, and the
-outcome of the newest deploy (the job's GitHub deployment in the `production` environment, linked to its run).
+1. **Deploy staging** deploys the commit to staging (section 5).
+2. **Approve production** waits for the owner: the `production-approval` environment has the owner as its required
+   reviewer. CodeFusion Console's Deployments page shows what staging runs that production doesn't, and approves this
+   job once staging still serves that very commit (or approve it on GitHub). A newer merge replaces the one waiting, so
+   at most one waits, always for the commit staging just got. A failed staging deploy leaves nothing to approve.
+3. **Deploy production** deploys it to production, with the `production` environment's token.
+
+Both deploys are `.github/workflows/deploy-worker.yml`: build the dashboard (its `version.json` names the full commit),
+apply the D1 migrations, deploy the Worker, its assets and the `DeviceRelay` Durable Object, and wait until the
+website serves the new commit. Each environment deploys one at a time and is never cancelled midway; merges that land
+meanwhile wait, and only the newest of them deploys. The custom domain route creates the DNS record in the
+`codefusion.cc` zone.
+
+App releases still follow `main` (`release.yml`), whatever production runs: an app released before its Worker change
+is approved meets the production Worker before it. The app must keep working with the Worker it may meet, as it must
+already while a deploy runs.
+
+CodeFusion Console's Deployments page shows the commit each environment serves, how far behind `main` it is, and the
+outcome of the newest deploy (the job's GitHub deployment in the `staging` and `production` environments, linked to
+its run).
 
 It needs a Cloudflare API token, once. On dash.cloudflare.com, **My Profile → API Tokens → Create Token**, template
 **Edit Cloudflare Workers**, then add **Account · Workers · Editor** (the template's older "Workers Scripts: Edit" alone
 is refused) and **Account · D1 · Edit**. Keep the template's zone permissions (the custom domain needs nothing more) and
-limit the token to your account. Store it in the `production` environment, which only `main` may deploy to:
+limit the token to your account. Store it in the `production` environment, which only `main` may deploy to (CodeFusion
+Console's Infrastructure → Deploy tokens makes one for each environment instead):
 
 ```bash
 cd /Users/xeon/Projects/mediadownloader-v2 && gh api -X PUT repos/codefusion-cc/magnetar/environments/production --input - <<<'{"deployment_branch_policy":{"protected_branches":false,"custom_branch_policies":true}}' && gh api -X POST repos/codefusion-cc/magnetar/environments/production/deployment-branch-policies -f name=main -f type=branch && gh secret set CLOUDFLARE_API_TOKEN --env production --repo codefusion-cc/magnetar
+```
+
+The `production-approval` environment, once: the owner as required reviewer, self-review allowed, `main` only.
+
+```bash
+cd /Users/xeon/Projects/mediadownloader-v2 && gh api -X PUT repos/codefusion-cc/magnetar/environments/production-approval --input - <<<'{"reviewers":[{"type":"User","id":8079877}],"prevent_self_review":false,"deployment_branch_policy":{"protected_branches":false,"custom_branch_policies":true}}' && gh api -X POST repos/codefusion-cc/magnetar/environments/production-approval/deployment-branch-policies -f name=main -f type=branch
 ```
 
 A failed deploy leaves the website on the previous build: fix the cause and merge again, or re-run the job. In an
@@ -52,6 +74,64 @@ emergency, deploy the checkout from this Mac, applying a new migration first:
 ```bash
 cd /Users/xeon/Projects/mediadownloader-v2 && codefusion-console cloudflare workers:edit,d1:edit,domains:edit -- sh -c 'npm run migrate:remote -w @magnetar/worker && npm run deploy -w @magnetar/worker'
 ```
+
+## 5. Staging and branch Previews
+
+Staging is the Worker `magnetar-preview` at https://preview.magnetar.codefusion.cc, from `apps/worker/wrangler.preview.jsonc`:
+its own D1 database (`magnetar-preview`), DeviceRelay objects, rate limits, secrets and Google OAuth client. The same
+`deploy` job deploys every merge to `main` there, migrations first, next to production. The console's Deployments
+page lists it as staging and each open pull request's Preview under it.
+
+Every pull request from this repository gets a Worker Preview of staging at
+`https://<branch>.preview.magnetar.codefusion.cc` (the name as `@codefusion-cc/previews` makes it: `feat/Login` →
+`feat-login`): the `preview` job in `ci.yml` makes the branch's own database `magnetar-previews-<name>` on its first
+push, applies the migrations and uploads the Preview on every push. Each Preview has its own DeviceRelay objects
+too. When the pull request closes, `preview-cleanup.yml` deletes the Preview and its database. Previews are not
+indexed: outside production the Worker answers `robots.txt` with `Disallow: /` and marks its pages `noindex`.
+
+### Sign-in
+
+Staging and Previews use their own OAuth client, never production's: a page holding a token for production's client
+could sign its holder in to magnetar.codefusion.cc, and Previews run code nobody merged. Google Cloud Console →
+**APIs & Services → Credentials → Create credentials → OAuth client ID**, type **Web application**, name
+`Magnetar staging`:
+
+- Authorized JavaScript origins: `https://preview.magnetar.codefusion.cc`
+- Authorized redirect URIs: `https://preview.magnetar.codefusion.cc/api/auth/google/callback`
+
+Put its client id in `wrangler.preview.jsonc` as `GOOGLE_CLIENT_ID`, both in `vars` and in `previews.vars`
+(`apps/worker/environments.test.ts` keeps them equal and unlike production's). Until then staging offers no sign-in.
+Google takes no wildcard addresses, so a Preview signs in through staging's callback (`GOOGLE_CALLBACK_ORIGIN`), which
+returns the token to `https://<branch>.preview.magnetar.codefusion.cc/login` only because staging sets
+`AUTH_PREVIEW_PARENTS`. Production never does. A Preview's own API takes calls only from its own address.
+
+### Tokens and secrets
+
+Each environment deploys with a Cloudflare token of its own, made by CodeFusion Console (Infrastructure → Deploy
+tokens, or `deploy_token_provision` with config `apps/worker/wrangler.preview.jsonc`) for the GitHub environments
+`staging` and `preview`. The preview token also makes and deletes the branch databases (D1 edit).
+
+Staging's Worker secrets (`VAPID_PRIVATE_KEY` for browser notifications, optionally `GITHUB_TOKEN`) are set on the
+console's Secrets page or with its `set_secrets` tool, never in a chat. Previews take theirs from the Preview base
+config:
+
+```bash
+cd /Users/xeon/Projects/mediadownloader-v2/apps/worker && codefusion-console cloudflare workers:edit -- sh -c 'npx -p @codefusion-cc/web-push codefusion-vapid | npx wrangler preview base-config secret put VAPID_PRIVATE_KEY -c wrangler.preview.jsonc'
+```
+
+### The app on staging
+
+A dev build pairs with staging when run with its address, and a data folder of its own, so its link never mixes with
+the one your installed app has:
+
+```bash
+cd /Users/xeon/Projects/mediadownloader-v2 && MAGNETAR_CLOUD_URL=https://preview.magnetar.codefusion.cc MAGNETAR_DATA_DIRECTORY="$HOME/.magnetar-staging" MAGNETAR_DOWNLOAD_FOLDER="$HOME/Downloads/magnetar-staging" npm run dev:client
+```
+
+A branch Preview's address works the same way. The app remembers which Worker it paired with and sends that link's
+device token to no other: started against another Worker, it stays offline and says so. A released build ignores
+`MAGNETAR_CLOUD_URL` unless it names a Worker on this computer (`apps/client/src/config.rs`), so the released app only
+ever talks to magnetar.codefusion.cc.
 
 ## Cloudflare from this Mac
 
@@ -66,6 +146,8 @@ through `sh -c '…'`. Once on the Mac: `npm install -g @codefusion-cc/console &
 |---|---|
 | `npm run migrate:remote -w @magnetar/worker` | `d1:edit` |
 | `npm run deploy -w @magnetar/worker` | `workers:edit,d1:edit,domains:edit` (the `DB` binding, the custom domain) |
+| `npm run migrate:staging -w @magnetar/worker`, `npm run deploy:staging -w @magnetar/worker` | as for production |
+| `npx wrangler preview delete -c wrangler.preview.jsonc --name <name>` | `workers:edit` |
 | `npx wrangler secret put …` | `workers:edit` |
 | `npx wrangler tail` | `tail:read` |
 

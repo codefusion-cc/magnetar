@@ -52,8 +52,10 @@ Read docs/MAP.md before exploring; update it when you move or add something it n
   `apps/worker/wrangler.jsonc`, and `run_worker_first` on `/_console/*` so the source maps stay private.
 - Test and scratch runs: set `MAGNETAR_DATA_DIRECTORY` and `MAGNETAR_DOWNLOAD_FOLDER`, or they use the user's real folders.
 - `npm run e2e` drives the real app with Playwright; its specs end in `.e2e.ts` so Vitest skips them.
-- Every merge to `main` deploys the Worker (the `deploy` job in `.github/workflows/ci.yml`), migrations first: a new
-  migration must leave the Worker still running meanwhile working.
+- Every merge to `main` deploys the Worker to staging (preview.magnetar.codefusion.cc), and to production once the owner
+  approves (`.github/workflows/ci.yml`, docs/DEPLOY.md), migrations first: a new migration must leave the Worker
+  still running meanwhile working, and a released app must keep working with the production Worker before its change.
+  Staging and branch Previews are `apps/worker/wrangler.preview.jsonc`; dev builds reach them with `MAGNETAR_CLOUD_URL`.
 - PR titles become the release notes the app's What's new shows (`.github/workflows/release.yml`, grouped by the
   branch type): write them for the people using Magnetar. Label `skip-changelog` what they never notice.
 - Dev ports: app 47820, Vite 5173, Worker 8790.

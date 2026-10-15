@@ -99,59 +99,126 @@ jobs:
     uses: ./.github/workflows/release.yml
     secrets: inherit
 
-  # Every merge to main goes live on magnetar.codefusion.cc once every check above passed, so the website never runs
-  # an older build than main. CodeFusion Console reads what runs from the deployed version.json, and the outcome of
-  # each deploy from this job's GitHub deployment.
-  deploy:
-    name: Deploy magnetar.codefusion.cc
+  # Every merge to main goes to staging at preview.magnetar.codefusion.cc once every check above passed, and to
+  # production at magnetar.codefusion.cc once the owner approves (deploy-worker.yml: migrations first, each with its
+  # own database, relay and secrets). CodeFusion Console reads what runs from each one's version.json, and the
+  # outcome of each deploy from its GitHub deployment.
+  deploy-staging:
+    name: Deploy staging
     needs: [check, e2e]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/deploy-worker.yml
+    with:
+      environment: staging
+      config: wrangler.preview.jsonc
+      origin: https://preview.magnetar.codefusion.cc
+    secrets: inherit
+
+  # Waits for the owner's approval (the production-approval environment's required reviewer), which CodeFusion
+  # Console gives once staging still serves this very commit. A newer merge replaces the one waiting, so at most one
+  # waits, and it is always the commit staging just got. The reviewers sit here rather than on production, whose
+  # deploy a newer merge must never cancel.
+  approve-production:
+    name: Approve production
+    needs: [deploy-staging]
+    runs-on: ubuntu-latest
+    environment: production-approval
+    concurrency:
+      group: approve-production
+      cancel-in-progress: true
+    steps:
+      - run: echo "Production deploy of $GITHUB_SHA approved"
+
+  deploy-production:
+    name: Deploy production
+    needs: [approve-production]
+    uses: ./.github/workflows/deploy-worker.yml
+    with:
+      environment: production
+      config: wrangler.jsonc
+      origin: https://magnetar.codefusion.cc
+    secrets: inherit
+
+  # Every pull request from this repository gets its own Worker Preview of staging at
+  # https://<branch>.preview.magnetar.codefusion.cc, with a database of its own (@codefusion-cc/previews), updated on
+  # each push and deleted with its database when the pull request closes (preview-cleanup.yml). Forks get no token.
+  preview:
+    name: Branch Preview
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     environment:
-      name: production
-      url: https://magnetar.codefusion.cc
-    # One deploy at a time, never cancelled once started (it may have migrated the database). Merges that land
-    # meanwhile wait; only the newest of them runs.
+      name: preview
+      url: ${{ steps.upload.outputs.url }}
+    # One upload per branch at a time; a newer push replaces an older one, and the cleanup (the same group) cancels
+    # one under way.
     concurrency:
-      group: deploy-production
-      cancel-in-progress: false
+      group: preview-${{ github.head_ref }}
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      pull-requests: read
     env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      HEAD_REF: ${{ github.head_ref }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
     defaults:
       run:
         working-directory: apps/worker
     steps:
-      # Before checkout, so apps/worker doesn't exist yet: run it from the workspace root.
-      - name: Require the deploy token
+      # Closing a pull request stops none of its checks: one closed while they ran has had its cleanup already, which
+      # a Preview made now would outlive.
+      - id: open
+        name: The pull request is still open
         working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
-            echo "::error::The production environment's CLOUDFLARE_API_TOKEN secret is not set; see docs/DEPLOY.md"
-            exit 1
-          fi
-      - uses: actions/checkout@v4
+          state=$(gh pr view "$PR_NUMBER" -R "$GITHUB_REPOSITORY" --json state -q .state)
+          echo "open=$([ "$state" = OPEN ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          [ "$state" = OPEN ] || echo "::notice::#$PR_NUMBER is ${state,,}: no Preview for it"
+      - if: steps.open.outputs.open == 'true'
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           fetch-tags: true
-      - uses: actions/setup-node@v6
+      - if: steps.open.outputs.open == 'true'
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
-      - run: npm ci
+      # Without the token: dependencies' install scripts never see it.
+      - if: steps.open.outputs.open == 'true'
+        run: npm ci
         working-directory: .
-      # The version the app has, or gets from the release started by this merge (scripts/release-version.ts), so the
-      # website and the app show the same version for the same code. Until that release has published it, the
-      # website is ahead of the downloads. Stamps apps/web/dist/version.json with this commit (GITHUB_SHA), which
-      # the console and open pages read.
-      - name: Build the dashboard
-        run: VITE_APP_VERSION="$(node scripts/release-version.ts display --sha "$GITHUB_SHA")" npm run build -w @magnetar/web
+      - if: steps.open.outputs.open == 'true'
+        name: Build the dashboard
+        run: VITE_APP_VERSION="$(node scripts/release-version.ts display --sha "$HEAD_SHA")" npm run build -w @magnetar/web
         working-directory: .
-      # Before the Worker, so the new code never meets the old schema. Migrations only add, so the running Worker
-      # keeps working on the new one meanwhile.
-      - name: Apply D1 migrations
-        run: npx wrangler d1 migrations apply magnetar --remote
-      - name: Deploy the Worker
-        run: npx wrangler deploy --message "${GITHUB_SHA::7} ${GITHUB_EVENT_NAME} by ${GITHUB_ACTOR}"
-      # Fails the job when the site doesn't serve this commit a minute after the deploy (@codefusion-cc/console).
-      - name: The website serves this commit
-        run: npx --yes -p @codefusion-cc/console@^0.27.0 codefusion-console wait-for-deploy https://magnetar.codefusion.cc
+      # The branch's database (made on its first push, kept after) and the configs that point the Preview at it and
+      # at its own address.
+      - id: branch
+        if: steps.open.outputs.open == 'true'
+        name: Open the branch's database
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::The preview environment's CLOUDFLARE_API_TOKEN secret is not set; see docs/DEPLOY.md"
+            exit 1
+          fi
+          npx --no codefusion-previews up "$HEAD_REF" --config wrangler.preview.jsonc --database-prefix magnetar-previews \
+            --set 'https://preview-origin.invalid=https://{name}.preview.magnetar.codefusion.cc' >> "$GITHUB_OUTPUT"
+      - if: steps.open.outputs.open == 'true'
+        name: Apply D1 migrations
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx wrangler d1 migrations apply DB --remote -c wrangler.preview-db.generated.jsonc
+      - id: upload
+        if: steps.open.outputs.open == 'true'
+        name: Upload the Preview
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          NAME: ${{ steps.branch.outputs.name }}
+        run: |
+          npx wrangler preview -c wrangler.preview.generated.jsonc --name "$NAME" --message "${HEAD_SHA::7} #${PR_NUMBER}"
+          npx --no codefusion-previews url "$HEAD_REF" --config wrangler.preview.jsonc --domain preview.magnetar.codefusion.cc >> "$GITHUB_OUTPUT"

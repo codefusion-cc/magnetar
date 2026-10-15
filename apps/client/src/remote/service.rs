@@ -21,7 +21,7 @@ use tokio_util::sync::CancellationToken;
 use super::browser_keys::{BrowserKeyStore, MintedLink};
 use super::push::{PushPayload, PushSubscriptions};
 use crate::app::App;
-use crate::config::{CLOUD_URL, PLATFORM, USER_AGENT, VERSION};
+use crate::config::{CLOUD_URL, DEFAULT_CLOUD_URL, PLATFORM, USER_AGENT, VERSION};
 use crate::db::{KeyValue, SecretName, SecretStore};
 use crate::error::{ApiError, ApiResult};
 use crate::events::EventBus;
@@ -166,7 +166,7 @@ impl RemoteService {
     pub async fn push(&self, event: &NotificationEvent) -> anyhow::Result<()> {
         let subscriptions = self.pushes.all();
         let (Some(device_id), false) = (self.device_id(), subscriptions.is_empty()) else { return Ok(()) };
-        let token = self.secrets.get(SecretName::DeviceToken);
+        let token = self.device_token();
         anyhow::ensure!(!token.is_empty(), "This device is not connected to an account");
         let payload = serde_json::to_vec(&PushPayload {
             title: &event.title,
@@ -205,6 +205,21 @@ impl RemoteService {
         self.kv.get("remote.deviceId")
     }
 
+    /// The Worker this device's link was made with. Links from before it was recorded were made with production:
+    /// released builds talked to nothing else.
+    fn linked_cloud(&self) -> String {
+        self.kv.get("remote.cloudUrl").unwrap_or_else(|| DEFAULT_CLOUD_URL.to_owned())
+    }
+
+    /// The device token, only for the Worker the link was made with: a production token never goes to staging or a
+    /// Preview that a dev build talks to. Empty when the device is not linked, or linked through another Worker.
+    fn device_token(&self) -> String {
+        if self.linked_cloud() != self.cloud_url {
+            return String::new();
+        }
+        self.secrets.get(SecretName::DeviceToken)
+    }
+
     pub fn device_name(&self) -> String {
         self.kv.get("remote.deviceName").unwrap_or_else(default_device_name)
     }
@@ -213,7 +228,16 @@ impl RemoteService {
         // Links that went unused while the app was not running, and a watch on those still pending.
         self.keys.revoke_expired();
         self.sweep_links();
-        if self.device_id().is_some() && self.secrets.has(SecretName::DeviceToken) {
+        if self.device_id().is_none() {
+            return;
+        }
+        if self.linked_cloud() != self.cloud_url {
+            let (linked, here) = (self.linked_cloud(), self.cloud_url.clone());
+            tracing::warn!("This device is linked through {linked}; this build talks to {here}, so it stays offline");
+            self.set_error(Some(&format!(
+                "This device is connected through {linked}, and this build talks to {here}. Use another data folder (MAGNETAR_DATA_DIRECTORY) for it."
+            )));
+        } else if !self.device_token().is_empty() {
             self.connect();
         }
     }
@@ -344,6 +368,7 @@ impl RemoteService {
                     crate::log_failure!(&error, "Could not save the device token: {error}");
                     return false;
                 }
+                self.kv.set("remote.cloudUrl", Some(&self.cloud_url));
                 self.kv.set("remote.deviceId", Some(&device_id));
                 // The name the account gave it, made unique there.
                 if let Some(name) = &device_name {
@@ -385,7 +410,7 @@ impl RemoteService {
 
     /// Disconnects from the account: revokes the device on the server and forgets every browser key.
     pub async fn unpair(&self) -> RemoteStatusDto {
-        let token = self.secrets.get(SecretName::DeviceToken);
+        let token = self.device_token();
         if !token.is_empty()
             && let Err(error) = self.cloud("DELETE", "/api/device", None, Some(&token)).await
         {
@@ -398,7 +423,7 @@ impl RemoteService {
     /// Renames the device, on its account first when it has one: a name another device there has is refused
     /// and nothing changes.
     pub async fn rename(&self, device_name: &str) -> ApiResult<RemoteStatusDto> {
-        let token = self.secrets.get(SecretName::DeviceToken);
+        let token = self.device_token();
         let name = if token.is_empty() {
             device_name.to_owned()
         } else {
@@ -487,6 +512,7 @@ impl RemoteService {
 
     fn forget(&self) {
         self.kv.set("remote.deviceId", None);
+        self.kv.set("remote.cloudUrl", None);
         self.kv.set("remote.accountEmail", None);
         // Without its id the token is never used again; a copy left in a database that refused the write is harmless.
         if let Err(error) = self.secrets.set(SecretName::DeviceToken, "") {
@@ -522,7 +548,7 @@ impl RemoteService {
     async fn run_relay(self: Arc<Self>, cancel: CancellationToken) {
         let mut backoff = Duration::from_secs(1);
         loop {
-            let token = self.secrets.get(SecretName::DeviceToken);
+            let token = self.device_token();
             if cancel.is_cancelled() || self.device_id().is_none() || token.is_empty() {
                 return;
             }
@@ -803,8 +829,13 @@ mod tests {
     /// A service talking to the Worker at `cloud_url`, linked to no account.
     fn service_at(cloud_url: &str) -> (RemoteService, tempfile::TempDir) {
         let dir = tempfile::tempdir().unwrap();
-        let db = Db::open(&dir.path().join("magnetar.db")).unwrap();
-        let sealer = Arc::new(SecretBox::open(&dir.path().join("secret.key")).unwrap());
+        (service_in(dir.path(), cloud_url), dir)
+    }
+
+    /// A service on the data folder `dir`, talking to the Worker at `cloud_url`: what a build run with that folder has.
+    fn service_in(dir: &std::path::Path, cloud_url: &str) -> RemoteService {
+        let db = Db::open(&dir.join("magnetar.db")).unwrap();
+        let sealer = Arc::new(SecretBox::open(&dir.join("secret.key")).unwrap());
         let mut service = RemoteService::new(
             KeyValue(db.clone()),
             Arc::new(SecretStore::new(db.clone(), sealer.clone())),
@@ -814,7 +845,7 @@ mod tests {
             Weak::new(),
         );
         service.cloud_url = cloud_url.to_owned();
-        (service, dir)
+        service
     }
 
     fn linked_service() -> (Arc<RemoteService>, tempfile::TempDir) {
@@ -854,9 +885,16 @@ mod tests {
             polls: Arc::new(Mutex::new(polls.into())),
             ack_status,
         };
+        /// A call on the device itself (rename, revoke): its method and path, and a device's answer.
+        async fn device(State(cloud): State<FakeCloud>, method: axum::http::Method, uri: Uri) -> Json<Value> {
+            cloud.requests.lock().unwrap().push((format!("{method} {}", uri.path()), Value::Null));
+            Json(json!({ "name": "Renamed" }))
+        }
+
         let app = axum::Router::new()
             .route("/api/pair/poll", axum::routing::post(answer))
             .route("/api/pair/ack", axum::routing::post(answer))
+            .route("/api/device", axum::routing::patch(device).delete(device))
             .with_state(cloud.clone());
         tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
         cloud
@@ -918,6 +956,48 @@ mod tests {
             ]
         );
         service.stop();
+    }
+
+    #[tokio::test]
+    async fn a_link_sends_its_token_only_to_the_worker_it_was_made_with() {
+        let production = fake_cloud(vec![approved()], 200).await;
+        let (service, dir) = service_at(&production.url);
+        let service = Arc::new(service);
+        pending_pairing(&service, 5);
+        assert!(service.poll_pairing_once(&CancellationToken::new()).await);
+        assert_eq!(service.kv.get("remote.cloudUrl"), Some(production.url.clone()));
+        service.rename("Studio").await.unwrap();
+        assert_eq!(production.requests.lock().unwrap().last().map(|r| r.0.clone()).as_deref(), Some("PATCH /api/device"));
+        service.stop();
+        let reached_production = production.requests.lock().unwrap().len();
+
+        // The same data folder in a dev build pointed at staging or a Preview.
+        let staging = fake_cloud(vec![], 200).await;
+        let other = Arc::new(service_in(dir.path(), &staging.url));
+        other.start();
+        let error = other.status().last_error.unwrap();
+        assert!(error.contains(&production.url) && error.contains(&staging.url), "{error}");
+        assert!(other.state().relay.is_none(), "it stays offline");
+        let renamed = other.rename("Elsewhere").await.unwrap();
+        assert_eq!(renamed.device_name, "Elsewhere");
+        let status = other.unpair().await;
+        assert!(!status.paired);
+        assert!(staging.requests.lock().unwrap().is_empty(), "nothing, and no token, reached the other Worker");
+        assert_eq!(production.requests.lock().unwrap().len(), reached_production);
+        assert_eq!(other.kv.get("remote.cloudUrl"), None, "disconnecting forgets the Worker too");
+        other.stop();
+    }
+
+    #[test]
+    fn a_link_from_before_the_worker_was_recorded_belongs_to_production() {
+        let (service, _dir) = service_at(DEFAULT_CLOUD_URL);
+        service.kv.set("remote.deviceId", Some("dev_1"));
+        service.secrets.set(SecretName::DeviceToken, "token-1").unwrap();
+        assert_eq!(service.device_token(), "token-1");
+        let (elsewhere, _dir) = service_at("https://preview.magnetar.codefusion.cc");
+        elsewhere.kv.set("remote.deviceId", Some("dev_1"));
+        elsewhere.secrets.set(SecretName::DeviceToken, "token-1").unwrap();
+        assert_eq!(elsewhere.device_token(), "");
     }
 
     #[tokio::test]

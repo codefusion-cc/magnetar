@@ -6,6 +6,8 @@ export const DEFAULT_CLOUD_URL = 'https://magnetar.codefusion.cc'
 export interface AppConfig {
   mode: 'local' | 'cloud'
   googleClientId?: string
+  /** A branch Preview's: the deployment whose Google callback it signs in through (staging). */
+  googleCallbackOrigin?: string
   /** Development-only passwordless sign-in, never enabled in production. */
   devLogin?: boolean
 }
