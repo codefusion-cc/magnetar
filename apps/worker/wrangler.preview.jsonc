@@ -24,8 +24,8 @@
   "assets": {
     "directory": "../web/dist",
     "binding": "ASSETS",
-    // As in wrangler.jsonc, and robots.txt from the Worker, which keeps search engines out of staging and Previews.
-    "run_worker_first": ["/_console/*", "/robots.txt"]
+    // As in wrangler.jsonc, and the home page through the Worker too, so every page here is marked noindex.
+    "run_worker_first": ["/_console/*", "/"]
   },
   "d1_databases": [
     { "binding": "DB", "database_name": "magnetar-preview", "database_id": "567db2ce-5b5d-4783-af98-56a307d8058f", "migrations_dir": "migrations" }
@@ -52,9 +52,9 @@
     "APP_ID": "magnetar",
     "APP_ENV": "staging",
     "ORIGIN": "https://preview.magnetar.codefusion.cc",
-    // The staging OAuth client (docs/DEPLOY.md, Staging). Empty until it exists: the website then offers no sign-in.
-    "GOOGLE_CLIENT_ID": "",
-    // Google's callback here may hand a token to a Preview (src/env.ts `googleReturnOrigins`). Never set it in
+    // The staging OAuth client "Magnetar staging" (docs/DEPLOY.md, Staging), shared with the Previews.
+    "GOOGLE_CLIENT_ID": "724645084534-e29vc126dvuodlnh3hfrbkggnmbsqg0j.apps.googleusercontent.com",
+    // Google's callback here may hand a token to a Preview (src/env.ts `googleReturnOrigin`). Never set it in
     // wrangler.jsonc or in the `previews` block.
     "AUTH_PREVIEW_PARENTS": "enabled"
   },
@@ -67,7 +67,7 @@
       "APP_ID": "magnetar",
       "APP_ENV": "preview",
       "ORIGIN": "https://preview-origin.invalid",
-      "GOOGLE_CLIENT_ID": "",
+      "GOOGLE_CLIENT_ID": "724645084534-e29vc126dvuodlnh3hfrbkggnmbsqg0j.apps.googleusercontent.com",
       "GOOGLE_CALLBACK_ORIGIN": "https://preview.magnetar.codefusion.cc"
     },
     "d1_databases": [

@@ -86,24 +86,23 @@ Every pull request from this repository gets a Worker Preview of staging at
 `https://<branch>.preview.magnetar.codefusion.cc` (the name as `@codefusion-cc/previews` makes it: `feat/Login` →
 `feat-login`): the `preview` job in `ci.yml` makes the branch's own database `magnetar-previews-<name>` on its first
 push, applies the migrations and uploads the Preview on every push. Each Preview has its own DeviceRelay objects
-too. When the pull request closes, `preview-cleanup.yml` deletes the Preview and its database. Previews are not
-indexed: outside production the Worker answers `robots.txt` with `Disallow: /` and marks its pages `noindex`.
+too. When the pull request closes, `preview-cleanup.yml` deletes the Preview and its database. Neither is indexed:
+outside production the Worker marks every page `noindex`.
 
 ### Sign-in
 
-Staging and Previews use their own OAuth client, never production's: a page holding a token for production's client
-could sign its holder in to magnetar.codefusion.cc, and Previews run code nobody merged. Google Cloud Console →
-**APIs & Services → Credentials → Create credentials → OAuth client ID**, type **Web application**, name
-`Magnetar staging`:
+Staging and Previews use their own OAuth client, `Magnetar staging`, never production's: a page holding a token for
+production's client could sign its holder in to magnetar.codefusion.cc, and Previews run code nobody merged. It was
+made like production's (section 1):
 
 - Authorized JavaScript origins: `https://preview.magnetar.codefusion.cc`
 - Authorized redirect URIs: `https://preview.magnetar.codefusion.cc/api/auth/google/callback`
 
-Put its client id in `wrangler.preview.jsonc` as `GOOGLE_CLIENT_ID`, both in `vars` and in `previews.vars`
-(`apps/worker/environments.test.ts` keeps them equal and unlike production's). Until then staging offers no sign-in.
-Google takes no wildcard addresses, so a Preview signs in through staging's callback (`GOOGLE_CALLBACK_ORIGIN`), which
-returns the token to `https://<branch>.preview.magnetar.codefusion.cc/login` only because staging sets
-`AUTH_PREVIEW_PARENTS`. Production never does. A Preview's own API takes calls only from its own address.
+Its client id is `GOOGLE_CLIENT_ID` in `wrangler.preview.jsonc`, both in `vars` and in `previews.vars`
+(`apps/worker/environments.test.ts` keeps them equal and unlike production's). Google takes no wildcard addresses, so a
+Preview signs in through staging's callback (`GOOGLE_CALLBACK_ORIGIN`), which returns the token to
+`https://<branch>.preview.magnetar.codefusion.cc/login` only because staging sets `AUTH_PREVIEW_PARENTS`. Production
+never does. A Preview's own API takes calls only from its own address.
 
 ### Tokens and secrets
 

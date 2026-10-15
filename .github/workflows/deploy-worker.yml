@@ -35,8 +35,8 @@ jobs:
     concurrency:
       group: deploy-${{ inputs.environment }}
       cancel-in-progress: false
+    # The Cloudflare token only on the steps that call Cloudflare: dependencies' install scripts never see it.
     env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CONFIG: ${{ inputs.config }}
       ORIGIN: ${{ inputs.origin }}
       ENVIRONMENT: ${{ inputs.environment }}
@@ -47,6 +47,8 @@ jobs:
       # Before checkout, so apps/worker doesn't exist yet: run it from the workspace root.
       - name: Require the deploy token
         working-directory: .
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
             echo "::error::The $ENVIRONMENT environment's CLOUDFLARE_API_TOKEN secret is not set; see docs/DEPLOY.md"
@@ -56,23 +58,21 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-      - uses: actions/setup-node@v6
+          # scripts/release-version.ts reads tags, commits and trees, never file contents.
+          filter: blob:none
+      # Until the release this merge starts has published its version, the website is ahead of the downloads.
+      - uses: ./.github/actions/build-dashboard
         with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-        working-directory: .
-      # The version the app has, or gets from the release started by this merge (scripts/release-version.ts), so the
-      # website and the app show the same version for the same code. Until that release has published it, the
-      # website is ahead of the downloads.
-      - name: Build the dashboard
-        run: VITE_APP_VERSION="$(node scripts/release-version.ts display --sha "$GITHUB_SHA")" npm run build -w @magnetar/web
-        working-directory: .
+          sha: ${{ github.sha }}
       # Before the Worker, so the new code never meets the old schema. Migrations only add, so the running Worker
       # keeps working on the new one meanwhile.
       - name: Apply D1 migrations
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: npx wrangler d1 migrations apply DB --remote -c "$CONFIG"
       - name: Deploy the Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: npx wrangler deploy -c "$CONFIG" --message "${GITHUB_SHA::7} ${GITHUB_EVENT_NAME} by ${GITHUB_ACTOR}"
       # Fails the job when the site doesn't serve this commit a minute after the deploy (@codefusion-cc/console).
       - name: The website serves this commit

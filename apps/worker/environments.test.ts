@@ -49,7 +49,7 @@ describe('the deployments of the Worker', () => {
     expect(previews.vars!.GOOGLE_CLIENT_ID).toBe(staging.vars!.GOOGLE_CLIENT_ID)
     expect(production.vars!.GOOGLE_CLIENT_ID).toMatch(/\.apps\.googleusercontent\.com$/)
     expect(staging.vars!.GOOGLE_CLIENT_ID).not.toBe(production.vars!.GOOGLE_CLIENT_ID)
-    expect(staging.vars!.GOOGLE_CLIENT_ID).toMatch(/^$|^[\w-]+\.apps\.googleusercontent\.com$/)
+    expect(staging.vars!.GOOGLE_CLIENT_ID).toMatch(/^[\w-]+\.apps\.googleusercontent\.com$/)
   })
 
   test("staging answers on its own origin's host, and Previews under it; production has no Previews", () => {

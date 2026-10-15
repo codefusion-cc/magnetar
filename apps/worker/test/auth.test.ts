@@ -128,6 +128,8 @@ describe('signing in with Google', () => {
 })
 
 describe("Google's way back to the site", () => {
+  const STAGING = 'https://preview.magnetar.codefusion.cc'
+  const staging = { ...env, ORIGIN: STAGING, APP_ENV: 'staging', AUTH_PREVIEW_PARENTS: 'enabled', DEV_LOGIN: undefined }
   /** The callback page posting what Google sent back, to the Worker with `environment` at `origin`. */
   const handOn = (fields: Record<string, string>, environment: Env = env, origin = ORIGIN) =>
     worker.fetch(new Request(`${origin}${GOOGLE_CALLBACK_PATH}`, {
@@ -159,8 +161,6 @@ describe("Google's way back to the site", () => {
   })
 
   test("only staging hands a sign-in to its branch Previews, and never to anything else under its host", async () => {
-    const STAGING = 'https://preview.magnetar.codefusion.cc'
-    const staging = { ...env, ORIGIN: STAGING, APP_ENV: 'staging', AUTH_PREVIEW_PARENTS: 'enabled', DEV_LOGIN: undefined }
     const toPreview = (origin: string) => ({ state: signInState(origin, '/login'), id_token: 'aaa.bbb.ccc' })
     const preview = 'https://feat-staging-previews.preview.magnetar.codefusion.cc'
     const landed = await handOn(toPreview(preview), staging, STAGING)
@@ -183,8 +183,6 @@ describe("Google's way back to the site", () => {
   })
 
   test("a Preview's page may not call staging's API, though staging returns its sign-ins", async () => {
-    const STAGING = 'https://preview.magnetar.codefusion.cc'
-    const staging = { ...env, ORIGIN: STAGING, APP_ENV: 'staging', AUTH_PREVIEW_PARENTS: 'enabled', DEV_LOGIN: undefined }
     const start = (origin: string) => worker.fetch(new Request(`${STAGING}/api/auth/start`, {
       method: 'POST', headers: { origin, 'sec-fetch-site': 'same-site' },
     }) as Parameters<typeof worker.fetch>[0], staging, createExecutionContext())

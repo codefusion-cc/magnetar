@@ -58,8 +58,6 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
       devLogin: devLoginEnabled(env) || undefined,
     } satisfies AppConfig)
   }
-  // Staging and Previews hold test data and run unreleased code: no search engine lists them.
-  if (path === '/robots.txt' && env.APP_ENV !== 'production') return new Response('User-agent: *\nDisallow: /\n', { headers: { 'content-type': 'text/plain; charset=utf-8' } })
   if (path === '/api/telemetry/failure' && request.method === 'POST') return reportFailure(request, env)
   // Google's redirect back: the page it lands on, in the dashboard's background so it never flashes white, and
   // the hand-off that sends the token to /login on one of our origins.
@@ -79,6 +77,7 @@ export default {
     const headers = new Headers(response.headers)
     headers.set('x-content-type-options', 'nosniff')
     headers.set('referrer-policy', 'no-referrer')
+    // Staging and Previews hold test data and run unreleased code: no search engine lists them.
     if (env.APP_ENV !== 'production') headers.set('x-robots-tag', 'noindex')
     return new Response(response.body, { status: response.status, statusText: response.statusText, headers })
   },

@@ -166,7 +166,7 @@ impl RemoteService {
     pub async fn push(&self, event: &NotificationEvent) -> anyhow::Result<()> {
         let subscriptions = self.pushes.all();
         let (Some(device_id), false) = (self.device_id(), subscriptions.is_empty()) else { return Ok(()) };
-        let token = self.device_token();
+        let token = self.device_token().map_err(anyhow::Error::msg)?;
         anyhow::ensure!(!token.is_empty(), "This device is not connected to an account");
         let payload = serde_json::to_vec(&PushPayload {
             title: &event.title,
@@ -212,12 +212,20 @@ impl RemoteService {
     }
 
     /// The device token, only for the Worker the link was made with: a production token never goes to staging or a
-    /// Preview that a dev build talks to. Empty when the device is not linked, or linked through another Worker.
-    fn device_token(&self) -> String {
-        if self.linked_cloud() != self.cloud_url {
-            return String::new();
+    /// Preview that a dev build talks to. Empty when the device is not linked; why not, when it is linked through
+    /// another Worker than this build talks to.
+    fn device_token(&self) -> Result<String, String> {
+        if self.device_id().is_none() {
+            return Ok(String::new());
         }
-        self.secrets.get(SecretName::DeviceToken)
+        let linked = self.linked_cloud();
+        if linked != self.cloud_url {
+            return Err(format!(
+                "This device is connected through {linked}, and this build talks to {}. Use another data folder (MAGNETAR_DATA_DIRECTORY) for it.",
+                self.cloud_url
+            ));
+        }
+        Ok(self.secrets.get(SecretName::DeviceToken))
     }
 
     pub fn device_name(&self) -> String {
@@ -228,17 +236,13 @@ impl RemoteService {
         // Links that went unused while the app was not running, and a watch on those still pending.
         self.keys.revoke_expired();
         self.sweep_links();
-        if self.device_id().is_none() {
-            return;
-        }
-        if self.linked_cloud() != self.cloud_url {
-            let (linked, here) = (self.linked_cloud(), self.cloud_url.clone());
-            tracing::warn!("This device is linked through {linked}; this build talks to {here}, so it stays offline");
-            self.set_error(Some(&format!(
-                "This device is connected through {linked}, and this build talks to {here}. Use another data folder (MAGNETAR_DATA_DIRECTORY) for it."
-            )));
-        } else if !self.device_token().is_empty() {
-            self.connect();
+        match self.device_token() {
+            Err(problem) => {
+                tracing::warn!("Staying offline: {problem}");
+                self.set_error(Some(&problem));
+            }
+            Ok(token) if !token.is_empty() => self.connect(),
+            Ok(_) => {}
         }
     }
 
@@ -410,7 +414,8 @@ impl RemoteService {
 
     /// Disconnects from the account: revokes the device on the server and forgets every browser key.
     pub async fn unpair(&self) -> RemoteStatusDto {
-        let token = self.device_token();
+        // Linked through another Worker, it is forgotten here alone: its token goes to no other.
+        let token = self.device_token().unwrap_or_default();
         if !token.is_empty()
             && let Err(error) = self.cloud("DELETE", "/api/device", None, Some(&token)).await
         {
@@ -423,7 +428,8 @@ impl RemoteService {
     /// Renames the device, on its account first when it has one: a name another device there has is refused
     /// and nothing changes.
     pub async fn rename(&self, device_name: &str) -> ApiResult<RemoteStatusDto> {
-        let token = self.device_token();
+        // Linked through another Worker, renamed here alone it would differ from the name its account shows.
+        let token = self.device_token().map_err(ApiError::bad)?;
         let name = if token.is_empty() {
             device_name.to_owned()
         } else {
@@ -440,6 +446,8 @@ impl RemoteService {
     /// leave the list; the first use deletes the other.
     pub fn link_browser(self: &Arc<Self>, label: Option<&str>) -> ApiResult<Value> {
         let device_id = self.device_id().ok_or_else(|| ApiError::bad("Connect this device to your account first."))?;
+        // A link through this build's Worker would name a device only another Worker knows.
+        self.device_token().map_err(ApiError::bad)?;
         let label = label.map(str::trim).filter(|l| !l.is_empty()).unwrap_or("Linked browser");
         let expires_at = iso(chrono::Utc::now() + LINK_TTL);
         let MintedLink { key_id, key, code, code_key_id } = self.keys.mint_link(label, &expires_at)?;
@@ -548,7 +556,7 @@ impl RemoteService {
     async fn run_relay(self: Arc<Self>, cancel: CancellationToken) {
         let mut backoff = Duration::from_secs(1);
         loop {
-            let token = self.device_token();
+            let token = self.device_token().unwrap_or_default();
             if cancel.is_cancelled() || self.device_id().is_none() || token.is_empty() {
                 return;
             }
@@ -978,8 +986,9 @@ mod tests {
         let error = other.status().last_error.unwrap();
         assert!(error.contains(&production.url) && error.contains(&staging.url), "{error}");
         assert!(other.state().relay.is_none(), "it stays offline");
-        let renamed = other.rename("Elsewhere").await.unwrap();
-        assert_eq!(renamed.device_name, "Elsewhere");
+        assert!(other.rename("Elsewhere").await.is_err(), "a name the account would not show");
+        assert!(other.link_browser(None).is_err(), "a link to a device only the other Worker knows");
+        assert_eq!(other.device_name(), "Renamed");
         let status = other.unpair().await;
         assert!(!status.paired);
         assert!(staging.requests.lock().unwrap().is_empty(), "nothing, and no token, reached the other Worker");
@@ -993,11 +1002,11 @@ mod tests {
         let (service, _dir) = service_at(DEFAULT_CLOUD_URL);
         service.kv.set("remote.deviceId", Some("dev_1"));
         service.secrets.set(SecretName::DeviceToken, "token-1").unwrap();
-        assert_eq!(service.device_token(), "token-1");
+        assert_eq!(service.device_token(), Ok("token-1".to_owned()));
         let (elsewhere, _dir) = service_at("https://preview.magnetar.codefusion.cc");
         elsewhere.kv.set("remote.deviceId", Some("dev_1"));
         elsewhere.secrets.set(SecretName::DeviceToken, "token-1").unwrap();
-        assert_eq!(elsewhere.device_token(), "");
+        assert!(elsewhere.device_token().unwrap_err().contains("connected through https://magnetar.codefusion.cc"));
     }
 
     #[tokio::test]

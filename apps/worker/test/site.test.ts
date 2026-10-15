@@ -56,20 +56,18 @@ describe('the website API', () => {
     expect([response.status, await response.json()]).toEqual([500, { error: 'Something went wrong. Try again.', code: 'server_error' }])
   })
 
-  test('staging and Previews keep search engines out; production leaves robots.txt to the site', async () => {
-    const files = { '/index.html': '<!doctype html>', '/robots.txt': 'User-agent: *\nAllow: /\n' }
+  test('staging and Previews mark every page noindex; production none', async () => {
+    const files = { '/index.html': '<!doctype html>' }
     for (const APP_ENV of ['staging', 'preview', 'development']) {
-      const assets = testAssets({ files })
-      const robots = await fetchWith({ ...env, APP_ENV, ASSETS: assets }, new Request(`${ORIGIN}/robots.txt`))
-      expect([robots.status, await robots.text(), assets.paths], APP_ENV).toEqual([200, 'User-agent: *\nDisallow: /\n', []])
-      const page = await fetchWith({ ...env, APP_ENV, ASSETS: testAssets({ files }) }, new Request(`${ORIGIN}/MacBook-Pro`))
-      expect(page.headers.get('x-robots-tag'), APP_ENV).toBe('noindex')
+      for (const path of ['/', '/MacBook-Pro', '/api/nope']) {
+        const page = await fetchWith({ ...env, APP_ENV, ASSETS: testAssets({ files }) }, new Request(`${ORIGIN}${path}`))
+        expect(page.headers.get('x-robots-tag'), `${APP_ENV} ${path}`).toBe('noindex')
+      }
     }
-    const assets = testAssets({ files })
-    const robots = await fetchWith({ ...production, ASSETS: assets }, new Request('https://magnetar.codefusion.cc/robots.txt'))
-    expect([await robots.text(), assets.paths]).toEqual([files['/robots.txt'], ['/robots.txt']])
-    const page = await fetchWith({ ...production, ASSETS: testAssets({ files }) }, new Request('https://magnetar.codefusion.cc/MacBook-Pro'))
-    expect(page.headers.get('x-robots-tag')).toBeNull()
+    for (const path of ['/', '/MacBook-Pro']) {
+      const page = await fetchWith({ ...production, ASSETS: testAssets({ files }) }, new Request(`https://magnetar.codefusion.cc${path}`))
+      expect([page.status, page.headers.get('x-robots-tag')], path).toEqual([200, null])
+    }
   })
 
   test("a Preview's app-config names the deployment it signs in through", async () => {

@@ -58,14 +58,12 @@ pub fn cloud_url(released: bool, configured: Option<&str>) -> String {
 
 /// An http(s) address on this computer, with nothing else in it.
 fn is_loopback(url: &str) -> bool {
-    let Ok(parsed) = url::Url::parse(url) else { return false };
-    let loopback = match parsed.host() {
-        Some(url::Host::Domain(name)) => name == "localhost",
-        Some(url::Host::Ipv4(ip)) => ip.is_loopback(),
-        Some(url::Host::Ipv6(ip)) => ip.is_loopback(),
-        None => false,
-    };
-    loopback && matches!(parsed.scheme(), "http" | "https") && parsed.username().is_empty() && parsed.password().is_none()
+    url::Url::parse(url).is_ok_and(|parsed| {
+        matches!(parsed.scheme(), "http" | "https")
+            && parsed.username().is_empty()
+            && parsed.password().is_none()
+            && parsed.host_str().is_some_and(crate::http::agent_auth::is_loopback_hostname)
+    })
 }
 
 /// Where releases come from. Clients built before the move to codefusion-cc ask for XeonFX/Magnetar, which GitHub
