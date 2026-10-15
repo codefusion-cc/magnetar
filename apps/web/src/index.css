@@ -207,7 +207,7 @@ body {
   bottom: 3px;
   height: 2px;
   border-radius: 2px;
-  background: linear-gradient(90deg, light-dark(var(--mg-h0), #cc381c), var(--mg-h1), light-dark(#5a1d08, var(--cf-accent-2)), var(--mg-h2));
+  background: linear-gradient(90deg, var(--mg-heat-from), var(--mg-h1), var(--mg-heat-mid), var(--mg-h2));
 }
 
 /* Menus open inward from the frame edge, including when another control follows the trigger. */
@@ -800,14 +800,6 @@ body {
 
 .download-list-many .download-row {
   min-height: 100px;
-}
-.download-watchlist-link {
-  display: inline-flex;
-  align-items: center;
-  min-height: 40px;
-  padding: 0 2px;
-  text-decoration: underline;
-  text-underline-offset: 4px;
 }
 @media (max-width: 720px) {
   .download-list-many .download-row {

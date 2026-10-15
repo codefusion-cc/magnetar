@@ -62,7 +62,7 @@ export function DownloadsPage() {
         : read.failed ? <>{heading}<section className="download-empty" role="alert"><div className="download-state-picture"><Star state="far" /></div><h1>{t('downloads.readFailed')}</h1><p>{t('downloads.readFailedHint', deviceName)}</p><button className="infall-button" onClick={read.retry}>{t('downloads.tryAgain')}</button></section></>
         : <>{heading}{downloads.length === 0 ? (
           <section className="download-empty"><div className="download-state-picture"><Star /></div><h1>{t('downloads.emptyTitle')}</h1><p>{t('downloads.emptyHint')}</p>
-            <div className="infall-acts"><Link to={searchLink} className="infall-button">{t('downloads.searchButton')}</Link><Link to={`${basePath}/series`} className="download-watchlist-link">{t('nav.series')}</Link></div>
+            <div className="infall-acts"><Link to={searchLink} className="infall-button">{t('downloads.searchButton')}</Link></div>
           </section>
         ) : <div className="downloads-lanes">
           <div className="downloads-summary"><p>{transfer?.engine === 'waitingForNetwork' ? t('downloads.onlyNetwork', deviceName, transfer.networkInterface ?? '') : downloadSummary(t, language, deviceName, running.length, down)}{' '}

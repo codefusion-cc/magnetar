@@ -18,6 +18,8 @@ export const mg = defineAppTokens(
     h1: { type: 'color', description: 'Heat on the way: what is moving now.', fallback: { light: '#b8430f', dark: '#ff7e30' } },
     h2: { type: 'color', description: 'Heat at the star: white hot.', fallback: { light: '#1d1410', dark: '#fff4e0' } },
     seg: { type: 'color', description: 'A lane or an arc not travelled yet.', fallback: { light: '#d6c9ba', dark: '#3a2c26' } },
+    'heat-from': { type: 'color', description: 'Where a lane of heat starts, far from the star.', fallback: { light: '#e0b79c', dark: '#cc381c' } },
+    'heat-mid': { type: 'color', description: 'A lane of heat close to the star, before it turns white.', fallback: { light: '#5a1d08', dark: '#ffd08a' } },
     halo: {
       type: 'shadow',
       description: "The star's glow.",

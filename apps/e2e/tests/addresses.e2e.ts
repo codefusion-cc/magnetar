@@ -79,6 +79,6 @@ test('the downloads view is part of the address', async ({ page }) => {
   await view(/^Active/).click()
   await expect(page).toHaveURL(/\/$/)
 
-  await row.getByRole('button', { name: 'Delete' }).click()
+  await row.getByRole('button', { name: 'Remove' }).click()
   await page.locator('dialog[open]').getByRole('button', { name: 'Keep files' }).click()
 })
