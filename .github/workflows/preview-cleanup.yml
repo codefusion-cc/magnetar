@@ -1,9 +1,10 @@
 name: Preview cleanup
 
 # A pull request's Worker Preview (ci.yml, job "Branch Preview") is deleted with its database and its DeviceRelay
-# objects once the pull request is merged or closed.
+# objects once the pull request is merged or closed. pull_request_target: this file as main has it runs with the
+# token, never a pull request's own version of it; it checks out main and runs no code from the pull request.
 on:
-  pull_request:
+  pull_request_target:
     types: [closed]
 
 permissions:
