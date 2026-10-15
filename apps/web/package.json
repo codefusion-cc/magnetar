@@ -16,7 +16,7 @@
     "@codefusion-cc/i18n": "^0.1.0",
     "@codefusion-cc/scene": "^0.1.0",
     "@codefusion-cc/theme": "^0.1.0",
-    "@codefusion-cc/ui": "^0.2.0",
+    "@codefusion-cc/ui": "^0.2.2",
     "@codefusion-cc/web-push": "^0.1.0",
     "@codefusion-cc/workers-crypto": "^0.1.0",
     "@fontsource/golos-text": "^5.3.0",

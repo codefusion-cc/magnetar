@@ -1,0 +1,23 @@
+name: Build the dashboard
+description: >-
+  Node, the workspace's dependencies and apps/web/dist for a Worker deploy or Preview, after a checkout with tags.
+  Its version is the one the app has, or gets from the release this commit starts (scripts/release-version.ts), so the
+  website and the app show the same version for the same code; version.json names the commit CI built (GITHUB_SHA).
+inputs:
+  sha:
+    description: The commit whose version to show
+    required: true
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v6
+      with:
+        node-version: 24
+        cache: npm
+    # Before any step has a Cloudflare token, so install scripts never have it in their environment.
+    - run: npm ci
+      shell: bash
+    - run: VITE_APP_VERSION="$(node scripts/release-version.ts display --sha "$SHA")" npm run build -w @magnetar/web
+      shell: bash
+      env:
+        SHA: ${{ inputs.sha }}
