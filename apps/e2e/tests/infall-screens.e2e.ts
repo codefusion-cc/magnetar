@@ -115,7 +115,7 @@ test('Files keeps deep Unicode paths readable on a phone, bounds a 5000-item fol
   await page.getByRole('button',{name:'Refresh',exact:true}).click()
   await expect(page.getByRole('alert')).toBeVisible()
   await expect(page.getByRole('alert')).toContainText('Folder was removed')
-  await page.getByRole('button',{name:'Retry',exact:true}).click()
+  await page.getByRole('button',{name:'Try again',exact:true}).click()
   await expect(page.getByRole('list', { name: /^Contents of / }).getByRole('listitem')).toHaveCount(250)
 })
 

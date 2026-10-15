@@ -1,108 +1,81 @@
 import type { CloudDeviceDto } from '@magnetar/protocol/cloud'
-import { ArrowUpCircle, ChevronRight, Laptop, Magnet, Trash2 } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { cloud } from '../lib/cloudApi.ts'
 import { errorMessage } from '../lib/errors.ts'
-import { useFormatRelative, useT } from '../lib/i18n.tsx'
+import { useLanguage, useT } from '../lib/i18n.tsx'
 import { forgetDevicePreferences } from '../lib/browserStorage.ts'
-import { forgetDeviceKey, listDeviceKeys } from '../lib/keyStore.ts'
-import { isOutdated } from '@codefusion-cc/app-update'
+import { forgetDeviceKey } from '../lib/keyStore.ts'
 import { latestRelease } from '../lib/releases.ts'
 import { Empty } from '../ui/Empty.tsx'
 import { Loading } from '../ui/Loading.tsx'
 import { ConfirmDialog } from '../ui/Modal.tsx'
-import { PageHeader } from '../ui/controls.tsx'
 import { useToast } from '../ui/toast.tsx'
 import { canHandleMagnets, handleMagnetsHere } from './AddRedirect.tsx'
 import { CloudFrame } from './CloudFrame.tsx'
+import { ComputerRow } from './ComputerRow.tsx'
+import { computerLine, computerStar } from './computerLine.ts'
 import { devicePath } from './devicePaths.ts'
 import { DownloadApp } from './DownloadApp.tsx'
+import { useComputers } from './useComputers.ts'
 
+/** `/` signed in: the account's computers, each with how it is and the way to open or link it. */
 export function DevicesPage() {
   const t = useT()
+  const language = useLanguage()
   const toast = useToast()
-  const formatRelative = useFormatRelative()
-  const [devices, setDevices] = useState<CloudDeviceDto[] | null>(null)
-  const [linked, setLinked] = useState<Set<string>>(new Set())
+  const { devices, linked, state, reload, setDevices } = useComputers()
   const [removing, setRemoving] = useState<CloudDeviceDto | null>(null)
   const latest = latestRelease.useLatest()
 
-  const load = useCallback(async () => {
-    try {
-      const [list, keys] = await Promise.all([cloud.devices(), listDeviceKeys().catch(() => [])])
-      setDevices(list)
-      setLinked(new Set(keys.map(k => k.deviceId)))
-    } catch (e) {
-      toast(errorMessage(e), 'error')
-      setDevices([])
-    }
-  }, [toast])
-  // Online dots stay current while the page is looked at; a hidden tab doesn't poll.
+  // Online stars stay current while the page is looked at; a hidden tab doesn't ask.
   useEffect(() => {
-    void load()
-    const timer = setInterval(() => { if (!document.hidden) void load() }, 15_000)
-    const visible = () => { if (!document.hidden) void load() }
+    const timer = setInterval(() => { if (!document.hidden) reload() }, 15_000)
+    const visible = () => { if (!document.hidden) reload() }
     document.addEventListener('visibilitychange', visible)
     return () => {
       clearInterval(timer)
       document.removeEventListener('visibilitychange', visible)
     }
-  }, [load])
+  }, [reload])
 
   return (
     <CloudFrame>
-      <PageHeader title={t('devices.title')} summary={t('devices.subtitle')} />
-      {devices === null ? (
-        <Loading />
-      ) : devices.length === 0 ? (
-        <Empty title={t('devices.emptyTitle')} text={t('devices.emptyHint')}>
-          <div className="mx-auto w-full max-w-sm text-left"><DownloadApp /></div>
-        </Empty>
-      ) : (
-        <>
-          <ul className="flex flex-col gap-2">
-            {devices.map(device => {
-              const hasKey = linked.has(device.id)
-              const body = (
-                <>
-                  <span className="relative grid size-11 shrink-0 place-items-center rounded-field bg-base-200">
-                    <Laptop size={22} className={device.online ? '' : 'muted'} />
-                    <span className={`absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-base-100 ${device.online ? 'bg-success' : 'bg-base-300'}`} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-semibold">{device.name}</div>
-                    <div className="muted mt-0.5 text-xs">
-                      {device.online ? <span className="text-success">{t('devices.online')}</span>
-                        : device.lastSeenAt ? t('remote.lastSeen', formatRelative(device.lastSeenAt)) : t('devices.offline')}
-                      {' · '}{device.platform}{device.version && <> · v{device.version}</>}
-                    </div>
-                    {latest && isOutdated(device.version, latest.version) && (
-                      <div className="mt-1 flex items-center gap-1 text-xs text-info"><ArrowUpCircle size={12} aria-hidden />{t('devices.outdated', latest.version)}</div>
-                    )}
-                    {!hasKey && <div className="mt-1 text-xs text-warning">{t('devices.notLinked')}</div>}
-                  </div>
-                </>
-              )
-              return (
-                <li key={device.id} className="surface flex items-center gap-1 p-2 transition-colors hover:border-base-content/20">
-                  {/* Not linked yet: the device page explains how to link this browser. */}
-                  <Link to={devicePath(device.name)} className="flex min-w-0 flex-1 items-center gap-3 rounded-field p-2">{body}<ChevronRight size={18} className="muted" /></Link>
-                  <button type="button" className="btn btn-ghost btn-sm btn-square muted hover:text-error" aria-label={t('devices.remove')} title={t('devices.remove')} onClick={() => setRemoving(device)}><Trash2 size={16} /></button>
-                </li>
-              )
-            })}
-          </ul>
-          <p className="muted mt-6 text-sm">{t('devices.addHint')}</p>
-          {canHandleMagnets() && linked.size > 0 && (
-            <div className="surface mt-6 flex flex-wrap items-center gap-3 p-4">
-              <Magnet size={18} className="text-primary" />
-              <p className="min-w-0 flex-1 text-sm">{t('devices.magnetsHint')}</p>
-              <button type="button" className="btn btn-sm" onClick={() => { handleMagnetsHere(); toast(t('devices.magnetsAsked'), 'info') }}>{t('devices.magnetsButton')}</button>
-            </div>
-          )}
-        </>
-      )}
+      <div className="site-page">
+        <h1>{t('devices.title')}</h1>
+        {state === 'loading' ? (
+          <Loading rows={2} text={t('devices.loading')} />
+        ) : state === 'failed' || !devices ? (
+          <Empty appearance="page" state="far" role="alert" title={t('devices.failedTitle')} text={t('devices.failedText')} onRetry={() => reload(false)} />
+        ) : devices.length === 0 ? (
+          <Empty appearance="page" state="out" title={t('devices.emptyTitle')} text={t('devices.emptyHint')}>
+            <DownloadApp />
+          </Empty>
+        ) : (
+          <>
+            <ul className="computers">
+              {devices.map(device => {
+                const hasKey = linked.has(device.id)
+                const open = hasKey ? t('devices.open') : t('devices.link')
+                return (
+                  <ComputerRow key={device.id} name={device.name} star={computerStar(device, hasKey)}
+                    line={computerLine(t, language, device, hasKey, latest?.version ?? null)}>
+                    <Link to={devicePath(device.name)} className={`infall-button sm${hasKey && device.online ? '' : ' quiet'}`} aria-label={`${open}: ${device.name}`}>{open}</Link>
+                    <button type="button" className="setting-link computer-remove" aria-label={`${t('devices.remove')}: ${device.name}`} onClick={() => setRemoving(device)}>{t('devices.remove')}</button>
+                  </ComputerRow>
+                )
+              })}
+            </ul>
+            <p className="fine site-hint">{t('devices.addHint')}</p>
+            {canHandleMagnets() && linked.size > 0 && (
+              <div className="site-banner">
+                <p>{t('devices.magnetsHint')}</p>
+                <button type="button" className="infall-small sm" onClick={() => { handleMagnetsHere(); toast(t('devices.magnetsAsked'), 'info') }}>{t('devices.magnetsButton')}</button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
       <ConfirmDialog open={removing !== null} title={t('devices.removeTitle')} message={t('devices.removeConfirm', removing?.name ?? '')}
         options={[{ label: t('common.cancel'), value: false, tone: 'ghost' }, { label: t('devices.remove'), value: true, tone: 'error' }]}
         onResult={async confirmed => {
@@ -111,9 +84,11 @@ export function DevicesPage() {
           if (!confirmed || !device) return
           try {
             await cloud.removeDevice(device.id)
+            // Gone from the list at once, also when reading the list again fails.
+            setDevices(list => list?.filter(d => d.id !== device.id) ?? list)
             await forgetDeviceKey(device.id).catch(() => {})
             forgetDevicePreferences(device.name)
-            await load()
+            reload()
           } catch (e) {
             toast(errorMessage(e), 'error')
           }

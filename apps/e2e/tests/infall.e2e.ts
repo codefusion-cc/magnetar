@@ -259,7 +259,7 @@ test('the remote frame and its computer menu use text controls without icons', a
   await page.goto('/Mac-Mini-M1')
   const frame = page.getByRole('banner')
   await frame.getByRole('button', { name: /Switch device/ }).click()
-  await expect(frame.getByRole('menuitem', { name: 'All devices', exact: true })).toBeVisible()
+  await expect(frame.getByRole('menuitem', { name: 'All computers', exact: true })).toBeVisible()
   await expect(frame.locator('svg')).toHaveCount(0)
 })
 

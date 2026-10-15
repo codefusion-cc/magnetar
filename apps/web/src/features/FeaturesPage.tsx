@@ -152,7 +152,7 @@ function FeaturesView({ language, content }: { language: string; content: Featur
             <Closing content={content} />
           </div>
         </main>
-        <SiteFooter column="fp-wrap" />
+        <SiteFooter column="fp-wrap" theme={false} />
       </div>
     </ShotsProvider>
   )
@@ -180,7 +180,7 @@ function Header({ language, content }: { language: string; content: FeaturesCont
             {LANGUAGES.map(l => <option key={l.code} value={l.code} lang={l.code}>{l.name}</option>)}
           </select>
         </label>
-        <ThemeToggle />
+        <ThemeToggle className="frame-control" />
         <Link to={account.to} className="btn btn-primary btn-sm max-sm:btn-square" aria-label={account.label}>
           {account.signedIn ? <ArrowRight size={16} aria-hidden /> : <LogIn size={16} aria-hidden />}
           <span className="max-sm:hidden">{account.label}</span>

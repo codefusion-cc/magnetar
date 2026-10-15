@@ -1,19 +1,19 @@
 import type { CloudDeviceDto } from '@magnetar/protocol/cloud'
 import { linkCodeSymbols } from '@magnetar/protocol/link-code'
-import { Camera, Keyboard, LoaderCircle } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react'
-import { useNavigate } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { cloud } from '../lib/cloudApi.ts'
 import { useT } from '../lib/i18n.tsx'
 import { isInstalledApp } from '../lib/installedApp.ts'
 import { linkWithCode, linkWithKey, type LinkResult } from '../lib/linkDevice.ts'
 import { MAX_LINK_INPUT, readLinkInput, shapeCodeField, type LinkInput, type LinkInputProblem } from '../lib/linkInput.ts'
 import { startScanner, type Scanner, type ScannerProblem } from '../lib/qrScanner.ts'
+import { Empty } from '../ui/Empty.tsx'
 import { useToast } from '../ui/toast.tsx'
 import { devicePath } from './devicePaths.ts'
-import { linkWording } from './linkWording.ts'
+import { linkTitle } from './linkWording.ts'
 
-type Mode = 'choose' | 'scan' | 'type'
+type Mode = 'scan' | 'type'
 
 const RESULT_TEXT: Record<Exclude<LinkResult, 'linked'>, string> = {
   wrong: 'link.wrong',
@@ -50,21 +50,22 @@ export function NotLinked({ device, onLinked }: { device: CloudDeviceDto; onLink
   const t = useT()
   const navigate = useNavigate()
   const toast = useToast()
-  const [mode, setMode] = useState<Mode>('choose')
+  const [mode, setMode] = useState<Mode>('type')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [camera, setCamera] = useState<ScannerProblem | 'opening' | null>(null)
   const [seen, setSeen] = useState<string | null>(null)
   const [text, setText] = useState('')
   const alive = useRef(true)
-  const panel = useRef<HTMLDivElement>(null)
+  const panel = useRef<HTMLElement>(null)
+  const field = useRef<HTMLInputElement>(null)
   const video = useRef<HTMLVideoElement>(null)
   const [attempt, setAttempt] = useState(0)
-  const [wording] = useState(() => linkWording(isInstalledApp()))
+  const [title] = useState(() => linkTitle(isInstalledApp()))
   useEffect(() => () => { alive.current = false }, [])
 
-  /** `failMode` is the mode to go back to if it fails, set in the same render that ends `busy`. */
-  const complete = useCallback(async (input: LinkInput, failMode?: Mode): Promise<boolean> => {
+  /** A link that did not work goes back to the code field (from the camera too), in the render that ends `busy`. */
+  const complete = useCallback(async (input: LinkInput): Promise<boolean> => {
     setBusy(true)
     setError(null)
     let target = device
@@ -81,7 +82,7 @@ export function NotLinked({ device, onLinked }: { device: CloudDeviceDto; onLink
       if (result !== 'linked') problem = t(RESULT_TEXT[result], target.name)
     }
     if (!alive.current) return !problem
-    if (problem && failMode) setMode(failMode)
+    if (problem) setMode('type')
     setBusy(false)
     if (problem) {
       setError(problem)
@@ -106,7 +107,7 @@ export function NotLinked({ device, onLinked }: { device: CloudDeviceDto; onLink
       const read = readLinkInput(scanned, location.origin)
       if ('problem' in read) return setSeen(read.problem === 'other-site' ? 'link.otherSite' : 'link.notMagnetar')
       scanner?.stop()
-      void complete(read, 'choose')
+      void complete(read)
     }, problem => !cancelled && setCamera(problem)).then(started => {
       if (cancelled) return 'stop' in started ? started.stop() : undefined
       if ('problem' in started) return setCamera(started.problem)
@@ -119,11 +120,16 @@ export function NotLinked({ device, onLinked }: { device: CloudDeviceDto; onLink
     }
   }, [mode, busy, complete, attempt])
 
+  // Moving between the field and the camera keeps the keyboard's place: the field, or the page for the camera.
+  // On arrival the page itself (its heading is read out, and a phone's keyboard stays down).
+  const moved = useRef(false)
   useEffect(() => {
-    if (mode !== 'type') panel.current?.focus()
+    if (moved.current && mode === 'type') field.current?.focus()
+    else panel.current?.focus()
   }, [mode])
 
   const open = (next: Mode) => {
+    moved.current = true
     setError(null)
     setCamera(null)
     setMode(next)
@@ -153,82 +159,71 @@ export function NotLinked({ device, onLinked }: { device: CloudDeviceDto; onLink
   const settle = () => setText(current => shapeCodeField(current, current.length).text)
 
   // The name stays in one piece: a hyphen in it is no place to break the title.
-  const [beforeName, afterName = ''] = t(wording.title, '{0}').split('{0}')
+  const [beforeName, afterName = ''] = t(title, '{0}').split('{0}')
 
   return (
-    <div ref={panel} tabIndex={-1} className="surface mx-auto flex w-full max-w-md flex-col gap-4 p-6 outline-none">
-      <h1 className="text-xl font-bold">{beforeName}<span className="inline-block max-w-full break-words">{device.name}</span>{afterName}</h1>
-
-      {mode === 'choose' && (
+    <Empty appearance="page" heading="h1" state="far" ref={panel} tabIndex={-1} className="not-linked"
+      title={<>{beforeName}<span className="not-linked-name">{device.name}</span>{afterName}</>}
+      text={t('link.notLinkedHint')}>
+      {mode === 'type' && (
         <>
-          <p className="text-sm text-base-content/70">{t('link.notLinkedHint')}</p>
-          {error && <p role="alert" className="alert alert-error alert-soft text-sm">{error}</p>}
-          <button type="button" className="btn btn-primary btn-lg w-full" onClick={() => open('scan')}><Camera size={20} />{t('link.scan')}</button>
-          <button type="button" className="btn btn-lg w-full" onClick={() => open('type')}><Keyboard size={20} />{t('link.type')}</button>
+          <form className="link-code" onSubmit={e => { e.preventDefault(); submit() }} noValidate>
+            <label htmlFor="link-code">{t('link.codeLabel')}</label>
+            <div className="setting-inline">
+              <input
+                ref={field}
+                id="link-code"
+                className="link-code-input"
+                value={text}
+                onChange={typed}
+                onCompositionEnd={settle}
+                onBlur={settle}
+                readOnly={busy}
+                placeholder="XXXXX-XXXXX-XXXXX-XXXXX"
+                maxLength={MAX_LINK_INPUT}
+                inputMode="text"
+                autoCapitalize="characters"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+                enterKeyHint="go"
+                aria-invalid={error ? true : undefined}
+                aria-describedby={error ? 'link-code-error link-code-help' : 'link-code-help'}
+              />
+              <button type="submit" className="infall-button" disabled={busy || !text.trim()} aria-busy={busy}>{t('devices.link')}</button>
+            </div>
+            <p id="link-code-help" className="fine">{t('link.codeHelp')}</p>
+            {error && <p id="link-code-error" role="alert" className="setting-alert">{error}</p>}
+            {busy && <p role="status" className="fine">{t('link.linking')}</p>}
+          </form>
+          <p className="infall-acts">
+            <button type="button" className="setting-link" onClick={() => open('scan')} disabled={busy}>{t('link.scan')}</button>
+            <Link to="/" className="setting-link">{t('devices.back')}</Link>
+          </p>
         </>
       )}
 
       {mode === 'scan' && (
         <>
           {(camera === null || camera === 'opening') && (
-            <div className="relative aspect-square w-full overflow-hidden rounded-box bg-neutral">
-              <video ref={video} className="size-full object-cover" playsInline muted aria-label={t('link.cameraView')} />
-              {busy && (
-                <div role="status" className="absolute inset-0 grid place-items-center bg-neutral/80 text-neutral-content">
-                  <span className="flex items-center gap-2 text-sm"><LoaderCircle size={18} className="animate-spin" />{t('link.linking')}</span>
-                </div>
-              )}
+            <div className="link-camera">
+              <video ref={video} playsInline muted aria-label={t('link.cameraView')} />
+              {busy && <p role="status">{t('link.linking')}</p>}
             </div>
           )}
-          {camera && camera !== 'opening' ? (
-            <p role="alert" className="alert alert-warning alert-soft text-sm">{t(CAMERA_TEXT[camera])}</p>
-          ) : (
-            <p role="status" className="text-sm text-base-content/70">{seen ? t(seen) : camera === 'opening' ? t('link.cameraOpening') : t('link.scanHint')}</p>
-          )}
-          <div className="flex flex-wrap gap-2">
-            <button type="button" className="btn flex-none whitespace-nowrap" onClick={() => open('choose')} disabled={busy}>{t('link.back')}</button>
+          {camera && camera !== 'opening'
+            ? <p role="alert" className="setting-alert">{t(CAMERA_TEXT[camera])}</p>
+            : <p role="status">{seen ? t(seen) : camera === 'opening' ? t('link.cameraOpening') : t('link.scanHint')}</p>}
+          {error && <p role="alert" className="setting-alert">{error}</p>}
+          <p className="infall-acts">
             {(camera === 'denied' || camera === 'busy') && (
-              <button type="button" className="btn flex-1" onClick={() => { setCamera(null); setAttempt(n => n + 1) }}>{t('common.retry')}</button>
+              <button type="button" className="infall-button" onClick={() => { setCamera(null); setAttempt(n => n + 1) }}>{t('common.retry')}</button>
             )}
-            <button type="button" className="btn btn-primary flex-1 whitespace-nowrap" onClick={() => open('type')} disabled={busy}><Keyboard size={16} />{t('link.type')}</button>
-          </div>
+            <button type="button" className="setting-link" onClick={() => open('type')} disabled={busy}>{t('link.type')}</button>
+            <Link to="/" className="setting-link">{t('devices.back')}</Link>
+          </p>
         </>
       )}
-
-      {mode === 'type' && (
-        <form className="flex flex-col gap-4" onSubmit={e => { e.preventDefault(); submit() }} noValidate>
-          <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('link.codeLabel')}</span>
-            <input
-              className={`input input-lg w-full font-mono tracking-wider ${error ? 'input-error' : ''}`}
-              value={text}
-              onChange={typed}
-              onCompositionEnd={settle}
-              onBlur={settle}
-              readOnly={busy}
-              placeholder="XXXXX-XXXXX-XXXXX-XXXXX"
-              maxLength={MAX_LINK_INPUT}
-              autoFocus
-              inputMode="text"
-              autoCapitalize="characters"
-              autoComplete="off"
-              autoCorrect="off"
-              spellCheck={false}
-              enterKeyHint="go"
-              aria-invalid={error ? true : undefined}
-              aria-describedby="link-code-help"
-            />
-            <span id="link-code-help" className="muted text-xs">{t('link.codeHelp')}</span>
-          </label>
-          {error && <p role="alert" className="alert alert-error alert-soft text-sm">{error}</p>}
-          {busy && <p role="status" className="flex items-center gap-2 text-sm text-base-content/70"><LoaderCircle size={16} className="animate-spin" />{t('link.linking')}</p>}
-          <button type="submit" className="btn btn-primary btn-lg w-full" disabled={busy || !text.trim()}>{t(wording.submit)}</button>
-          <div className="flex gap-2">
-            <button type="button" className="btn flex-none whitespace-nowrap" onClick={() => open('choose')} disabled={busy}>{t('link.back')}</button>
-            <button type="button" className="btn flex-1 whitespace-nowrap" onClick={() => open('scan')} disabled={busy}><Camera size={16} />{t('link.scan')}</button>
-          </div>
-        </form>
-      )}
-    </div>
+    </Empty>
   )
 }

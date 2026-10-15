@@ -10,7 +10,7 @@ export const content: FeaturesContent = {
     title: 'Funcionalidades do Magnetar',
     description: 'Pesquise seis fontes de torrents de uma vez, transfira no seu computador e siga tudo no navegador ou telemóvel, encriptado. Grátis para macOS, Windows e Linux.',
   },
-  header: { language: 'Idioma', signIn: 'Entrar', devices: 'Seus dispositivos', home: 'Página inicial do Magnetar' },
+  header: { language: 'Idioma', signIn: 'Entrar', devices: 'Seus computadores', home: 'Página inicial do Magnetar' },
   hero: {
     title: 'As suas transferências, em qualquer lugar',
     lead: 'O Magnetar pesquisa em seis fontes de torrents ao mesmo tempo, transfere no seu próprio computador e acompanha as suas séries. Abra-o a partir de qualquer navegador ou telemóvel: tudo o que passa entre eles tem encriptação ponto a ponto. Todas as capturas de ecrã desta página são da aplicação real.',
@@ -71,7 +71,7 @@ export const content: FeaturesContent = {
           points: [
             `Ficheiros .torrent até ${torrentMb} MB`,
             'No seu computador, o Magnetar pode passar a abrir as ligações magnet e os ficheiros .torrent, por isso basta um clique no navegador ou no gestor de ficheiros para os adicionar',
-            'No site, o navegador pode enviar as ligações magnet diretamente para o seu computador («Abrir ligações magnet aqui» na página dos dispositivos)',
+            'No site, o navegador pode enviar as ligações magnet diretamente para o seu computador («Abrir ligações magnet aqui» em Seus computadores)',
             'Escolha outra pasta na janela, com um explorador de pastas',
           ],
         },
@@ -187,7 +187,7 @@ export const content: FeaturesContent = {
           gain: 'Inicie uma transferência no telemóvel, no autocarro, e ela fica à sua espera no computador, em casa.',
           text: 'Entre em magnetar.codefusion.cc e abra qualquer um dos seus computadores: a pesquisa, as transferências, a lista A seguir e as definições funcionam como em casa. O seu computador faz o trabalho; o site só o liga a ele.',
           points: [
-            'Os seus dispositivos com o estado online, atualizado a cada 15 segundos',
+            'Os seus computadores com o estado online, atualizado a cada 15 segundos',
             'Os separadores ficam em baixo no telemóvel e em cima no computador',
             'O que só faz sentido no computador (o seletor de pastas, abrir ficheiros) fica por lá',
             'Início de sessão com o Google; as sessões duram 30 dias desde a última visita, e ao terminar a sessão esse navegador desliga-se logo dos seus computadores',
@@ -337,7 +337,7 @@ export const content: FeaturesContent = {
     details: 'Os ficheiros de uma transferência, cada um com o seu progresso',
     player: 'Um filme de licença livre a ser reproduzido no navegador, com as suas legendas em inglês',
     speed: 'Limites de velocidade, limites alternativos e o seu horário',
-    devices: 'Os seus dispositivos no site, com o estado online',
+    devices: 'Os seus computadores no site, com o estado online',
     'remote-phone': 'As transferências de um computador num telemóvel, através do site',
     remote: 'O acesso remoto nas definições da aplicação, ligado a uma conta',
     pair: 'Aprovar um computador no site',

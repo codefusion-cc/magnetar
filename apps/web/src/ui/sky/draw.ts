@@ -120,18 +120,37 @@ export const drawState = (mode: StarMode = 'on'): SceneDraw => ({ ctx, width, he
   star(ctx, colors, small ? width / 2 : Math.min(width / 2, 150), height / 2, small ? 7 : mode === 'far' ? 9 : 17, t, mode)
 }
 
-export const drawHero: SceneDraw = ({ ctx: c, width: w, height: h, t, colors: p }) => {
-  let seed = 7
-  const random = () => (seed = seed * 16807 % 2147483647) / 2147483647
+/** The first page's six streams: `at(k, s)` is stream k at s, from 0 where it enters to 1 at the star. */
+export function heroGeometry(w: number, h: number) {
   const phone = w < 520, sx = w * (phone ? .5 : .56), sy = h * .5, R = phone ? 13 : 21, M = Math.max(w, h) * (phone ? .62 : .6)
-  for (let i = 0; i < 150; i++) {
-    const a = random(), b = random(), s = random() * 1.1 + .4, d = random()
-    c.fillStyle = alpha(color(p, 'core'), .16 + d * .5); c.fillRect(a * w, b * h, s, s)
-  }
   const at = (k: number, s: number) => {
     const r = R + (M - R) * (1 - s) ** 1.6, a = k * TAU / 6 + .35 + s * 2.7
     return [sx + Math.cos(a) * r, sy + Math.sin(a) * r * .56] as const
   }
+  return { sx, sy, R, at }
+}
+
+/**
+ * Where each stream's name goes (its top-left corner): beside the stream where it enters the picture, or further in
+ * where that is outside, and never past the picture's edges.
+ */
+export function heroLabels(w: number, h: number, sizes: readonly (readonly [number, number])[]): [number, number][] {
+  const { at } = heroGeometry(w, h)
+  return sizes.map(([lw, lh], k) => {
+    let s = .02, q = at(k, s)
+    while (s < .5 && (q[0] < 6 || q[0] + 8 + lw > w - 2 || q[1] - 20 < 0 || q[1] - 20 + lh > h - 2)) { s += .02; q = at(k, s) }
+    return [Math.round(Math.max(0, Math.min(w - lw, q[0] + 8))), Math.round(Math.max(0, Math.min(h - lh, q[1] - 20)))]
+  })
+}
+
+export const drawHero: SceneDraw = ({ ctx: c, width: w, height: h, t, colors: p }) => {
+  let seed = 7
+  const random = () => (seed = seed * 16807 % 2147483647) / 2147483647
+  for (let i = 0; i < 150; i++) {
+    const a = random(), b = random(), s = random() * 1.1 + .4, d = random()
+    c.fillStyle = alpha(color(p, 'core'), .16 + d * .5); c.fillRect(a * w, b * h, s, s)
+  }
+  const { sx, sy, R, at } = heroGeometry(w, h)
   c.lineWidth = 1.2
   for (let k = 0; k < 6; k++) {
     let prev = at(k, 0)

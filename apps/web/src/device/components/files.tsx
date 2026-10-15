@@ -270,7 +270,7 @@ export function FolderPanel({ path, roots, foldersOnly = false, onOpen, onHome, 
       )}
 
       {state?.status === 'loading' && <Loading text={t('files.reading')} rows={4} />}
-      {state?.status === 'error' && <Empty appearance="download" role="alert" state="out" title={t('files.unreachable', name)} text={state.message}>
+      {state?.status === 'error' && <Empty appearance="page" role="alert" state="out" title={t('files.unreachable', name)} text={state.message}>
         <div className="infall-acts">{state.code !== 'forbidden' && <button className="infall-button" onClick={reload}>{t('common.retry')}</button>}
           <button className="infall-button quiet" onClick={() => (up ? onOpen(up) : onHome())}>{up ? t('files.up') : t('files.backToFiles')}</button>
         </div>

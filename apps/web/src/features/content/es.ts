@@ -10,7 +10,7 @@ export const content: FeaturesContent = {
     title: 'Funciones de Magnetar',
     description: 'Seis fuentes de torrents en una búsqueda, descargas en tu ordenador y acceso cifrado de extremo a extremo desde cualquier navegador o móvil. Gratis para macOS, Windows y Linux.',
   },
-  header: { language: 'Idioma', signIn: 'Iniciar sesión', devices: 'Tus dispositivos', home: 'Inicio de Magnetar' },
+  header: { language: 'Idioma', signIn: 'Iniciar sesión', devices: 'Tus ordenadores', home: 'Inicio de Magnetar' },
   hero: {
     title: 'Tus descargas, desde cualquier lugar',
     lead: 'Magnetar busca en seis fuentes de torrents a la vez, descarga en tu propio ordenador y sigue tus series. Ábrelo desde cualquier navegador o móvil: todo lo que viaja entre ellos va cifrado de extremo a extremo. Todas las capturas de esta página son de la app real.',
@@ -71,7 +71,7 @@ export const content: FeaturesContent = {
           points: [
             `Archivos .torrent de hasta ${torrentMb} MB`,
             'En tu ordenador, Magnetar puede ser la app que abre los enlaces magnet y los archivos .torrent, así que un clic en el navegador o en el gestor de archivos los añade',
-            'En la web, el navegador puede enviar los enlaces magnet directamente a tu ordenador («Abrir enlaces magnet aquí» en la página de dispositivos)',
+            'En la web, el navegador puede enviar los enlaces magnet directamente a tu ordenador («Abrir enlaces magnet aquí» en Tus ordenadores)',
             'Elige otra carpeta en el diálogo, con un explorador de carpetas',
           ],
         },
@@ -187,7 +187,7 @@ export const content: FeaturesContent = {
           gain: 'Empieza una descarga desde el móvil en el autobús y te estará esperando en el ordenador de casa.',
           text: 'Inicia sesión en magnetar.codefusion.cc y abre cualquiera de tus ordenadores: la búsqueda, las descargas, el seguimiento y los ajustes funcionan igual que en casa. Tu ordenador hace el trabajo; la web solo te conecta con él.',
           points: [
-            'Tus dispositivos con su estado de conexión, actualizado cada 15 segundos',
+            'Tus ordenadores con su estado de conexión, actualizado cada 15 segundos',
             'Las pestañas están abajo en el móvil y arriba en el ordenador',
             'Lo que solo tiene sentido delante del ordenador (su selector de carpetas, abrir archivos) se queda allí',
             'Inicio de sesión con Google; las sesiones duran 30 días desde tu última visita, y al cerrar sesión ese navegador se desconecta al instante de tus ordenadores',
@@ -337,7 +337,7 @@ export const content: FeaturesContent = {
     details: 'Los archivos de una descarga, cada uno con su progreso',
     player: 'Una película de licencia libre en el navegador, con sus subtítulos en inglés',
     speed: 'Límites de velocidad, límites alternativos y su horario',
-    devices: 'Tus dispositivos en la web, con su estado de conexión',
+    devices: 'Tus ordenadores en la web, con su estado de conexión',
     'remote-phone': 'Las descargas de un ordenador en un móvil, a través de la web',
     remote: 'Acceso remoto en los ajustes de la app, conectado a una cuenta',
     pair: 'Aprobación de un ordenador en la web',

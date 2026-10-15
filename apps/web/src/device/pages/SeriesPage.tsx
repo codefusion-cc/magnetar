@@ -69,9 +69,8 @@ export function SeriesPage() {
       <div className="watch-tabs"><Segmented appearance="quiet" label={t('watch.pageTitle')} value={tab} onChange={next => navigate(href(next))}
         options={[{ value: 'series', label: t('series.title') }, { value: 'releases', label: t('watch.tab') }]} /></div>
       {tab === 'releases' ? <WatchesSection start={handed} onStarted={clearHanded} /> : seriesRead.loading ? <Loading text={t('series.reading')} rows={3} />
-        : seriesRead.failed ? <Empty appearance="download" role="alert" state="far" title={t('series.readFailed')} text={t('series.readFailedHint', deviceName)}>
-          <button className="infall-button" onClick={seriesRead.retry}>{t('downloads.tryAgain')}</button>
-        </Empty> : series.length === 0 ? <Empty appearance="download" title={t('series.emptyTitle')} text={t('series.emptyHint')}>
+        : seriesRead.failed ? <Empty appearance="page" role="alert" state="far" title={t('series.readFailed')} text={t('series.readFailedHint', deviceName)} onRetry={seriesRead.retry} />
+        : series.length === 0 ? <Empty appearance="page" title={t('series.emptyTitle')} text={t('series.emptyHint')}>
           <div className="infall-acts">{add}{waitForRelease}</div>
         </Empty> : <ul aria-label={t('series.title')} className="series-shows">
         {series.map(task => <SeriesCard key={task.id} now={now} task={task} downloads={byTask.get(task.id) ?? NONE} onEdit={setEditing} />)}

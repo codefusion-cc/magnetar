@@ -26,7 +26,7 @@ export function DownloadDetailsPage() {
   const read = useDownloadRead()
   const download = downloads.find(d => String(d.id) === id)
   const back = <p className="download-back"><Link to={basePath || '/'}>{t('details.allDownloads')}</Link></p>
-  if (read.failed) return <>{back}<div role="alert"><p>{t('downloads.readFailed')}</p><button type="button" className="infall-small" onClick={read.retry}>{t('downloads.tryAgain')}</button></div></>
+  if (read.failed) return <>{back}<div role="alert"><p>{t('downloads.readFailed')}</p><button type="button" className="infall-small" onClick={read.retry}>{t('common.retry')}</button></div></>
   if (download) return <>{back}<Details key={download.id} download={download} /></>
   return <>{back}<p role="status" className="muted">{t(read.loading ? 'details.filesLoading' : 'details.notFound')}</p></>
 }
@@ -120,7 +120,7 @@ const FileList = memo(function FileList({ id, status, hasMetadata, play, onPlaya
   }, [play, files, running, id, onPlayed])
 
   if (!hasMetadata) return <p className="muted text-sm">{t('details.filesPending')}</p>
-  if (error && !files) return <div role="alert"><p className="text-error">{error}</p><button type="button" className="infall-small" onClick={() => setRetry(n => n + 1)}>{t('downloads.tryAgain')}</button></div>
+  if (error && !files) return <div role="alert"><p className="text-error">{error}</p><button type="button" className="infall-small" onClick={() => setRetry(n => n + 1)}>{t('common.retry')}</button></div>
   if (!files) return <p role="status" className="muted">{t('details.filesLoading')}</p>
 
   const toggle = (index: number) => setChosen(current => new Map(current).set(index, !selected.has(index)))

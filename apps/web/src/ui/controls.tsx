@@ -46,53 +46,6 @@ export function Segmented<T extends string>({ label, value, options, onChange, s
   )
 }
 
-/**
- * One setting: what it is and what it does on the left, its control on the right. `wide` controls
- * (menus, choices, buttons) move under the text on phones; `stack` puts the control under the text
- * at every width (a folder field). Switches stay on the right everywhere.
- */
-export function SettingRow({ title, description, children, htmlFor, layout = 'inline' }: {
-  title: string
-  description?: ReactNode
-  children?: ReactNode
-  htmlFor?: string
-  layout?: 'inline' | 'wide' | 'stack'
-}) {
-  const row = layout === 'inline' ? 'flex-row items-center' : layout === 'wide' ? 'flex-col sm:flex-row sm:items-center' : 'flex-col'
-  return (
-    <div className={`flex gap-x-6 gap-y-3 py-4 first:pt-0 last:pb-0 ${row}`}>
-      <div className="min-w-0 flex-1">
-        {htmlFor ? <label htmlFor={htmlFor} className="font-medium">{title}</label> : <div className="font-medium">{title}</div>}
-        {description && <div className="muted mt-0.5 text-sm">{description}</div>}
-      </div>
-      {children && <div className={layout === 'stack' ? 'w-full' : 'shrink-0'}>{children}</div>}
-    </div>
-  )
-}
-
-/** A titled card holding setting rows separated by hairlines. */
-export function SettingGroup({ title, description, action, children }: {
-  title?: string
-  description?: ReactNode
-  action?: ReactNode
-  children: ReactNode
-}) {
-  return (
-    <section className="surface p-5 sm:p-6">
-      {(title || description || action) && (
-        <div className="mb-4 flex items-start gap-3">
-          <div className="min-w-0 flex-1">
-            {title && <h2 className="text-base font-semibold">{title}</h2>}
-            {description && <p className="muted mt-0.5 text-sm">{description}</p>}
-          </div>
-          {action}
-        </div>
-      )}
-      <div className="divide-y divide-base-300">{children}</div>
-    </section>
-  )
-}
-
 export function Switch({ label, checked, onChange, disabled = false, id, tone = 'primary' }: {
   label: string
   checked: boolean

@@ -169,7 +169,7 @@ export function SearchPage() {
       {search.searching && <Loading rows={2} text={t('search.searching')} skeletonOnly />}
       {search.ran && !search.searching && !results?.length && <>
         <p className="search-hint">{t(allFailed ? 'search.networkHint' : 'search.noResultsHint', deviceName)}</p>
-        {allFailed && <p className="infall-acts"><button className="infall-button" onClick={() => void start(view)}>{t('downloads.tryAgain')}</button></p>}
+        {allFailed && <p className="infall-acts"><button className="infall-button" onClick={() => void start(view)}>{t('common.retry')}</button></p>}
       </>}
       {search.ran && !search.searching && <button type="button" className="search-watch" onClick={() => navigate(`${basePath}/series/releases`, { state: { watch: { query: view.query, resolution: view.resolution || null } } })}>{t('watch.fromSearch')}</button>}
 

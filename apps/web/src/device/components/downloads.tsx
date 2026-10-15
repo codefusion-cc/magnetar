@@ -86,7 +86,7 @@ export function DownloadActions({ download, onPlay, remove = true, between, prom
   const [confirming, setConfirming] = useState(false)
   const primary = isActive(download) ? { label: t('common.pause'), method: 'downloads.pause' as const }
     : download.status === 'Paused' ? { label: t('common.resume'), method: 'downloads.resume' as const }
-    : download.status === 'Error' ? { label: t('downloads.tryAgain'), method: 'downloads.resume' as const } : null
+    : download.status === 'Error' ? { label: t('common.retry'), method: 'downloads.resume' as const } : null
   return <div className="download-actions">
     {primary && <button type="button" className={prominent ? 'infall-button' : 'infall-small'} disabled={busy} aria-busy={busy}
       onClick={() => void act(() => connection.call(primary.method, { id: download.id }))}>{primary.label}</button>}

@@ -194,10 +194,10 @@ key makes every browser subscribe again.
 
 ## Downloads on the website
 
-The sign-in page and an empty device list offer the app for the visitor's system, from the latest GitHub release of
+The first page, an account without computers and `/about` offer the app for the visitor's system, from the latest GitHub release of
 `RELEASES_REPO` (a Worker var, `codefusion-cc/magnetar` by default). Asset names must stay
 `Magnetar-<version>-<macos|windows|linux>-<arm64|x64>[.zip|.exe]`. The same list answers `/about`'s changelog and the
-"your app is outdated" notice; GitHub is asked at most every ten minutes per data centre.
+"an update is waiting" line under a computer on Your computers; GitHub is asked at most every ten minutes per data centre.
 
 GitHub allows 60 anonymous API calls an hour per address, which Cloudflare's addresses share with other Workers. A
 token raises that to 5,000: a fine-grained GitHub token with no permissions (public repositories only), stored once

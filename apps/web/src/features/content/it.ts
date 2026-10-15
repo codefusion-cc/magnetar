@@ -10,7 +10,7 @@ export const content: FeaturesContent = {
     title: 'Magnetar: tutte le funzioni',
     description: 'Cerca in sei fonti torrent insieme, scarica sul tuo computer e segui tutto da qualsiasi browser o telefono, con cifratura end-to-end. Gratis per macOS, Windows e Linux.',
   },
-  header: { language: 'Lingua', signIn: 'Accedi', devices: 'I tuoi dispositivi', home: 'Home di Magnetar' },
+  header: { language: 'Lingua', signIn: 'Accedi', devices: 'I tuoi computer', home: 'Home di Magnetar' },
   hero: {
     title: 'I tuoi download, ovunque tu sia',
     lead: 'Magnetar cerca in sei fonti torrent insieme, scarica sul tuo computer e segue le tue serie. Aprilo da qualsiasi browser o telefono: tutto ciò che passa tra i due è cifrato end-to-end. Ogni screenshot di questa pagina mostra l’app vera.',
@@ -71,7 +71,7 @@ export const content: FeaturesContent = {
           points: [
             `File .torrent fino a ${torrentMb} MB`,
             'Sul tuo computer Magnetar può diventare l’app predefinita per i link magnet e i file .torrent, così basta un clic nel browser o nel file manager per aggiungerli',
-            'Sul sito, il browser può inviare i link magnet direttamente al tuo computer («Apri i link magnet qui» nella pagina dei dispositivi)',
+            'Sul sito, il browser può inviare i link magnet direttamente al tuo computer («Apri i link magnet qui» in I tuoi computer)',
             'Scegli un’altra cartella nella finestra, con un selettore di cartelle',
           ],
         },
@@ -187,7 +187,7 @@ export const content: FeaturesContent = {
           gain: 'Avvia un download dal telefono sull’autobus e lo trovi ad aspettarti sul computer di casa.',
           text: 'Accedi su magnetar.codefusion.cc e apri uno qualsiasi dei tuoi computer: ricerca, download, la lista Da seguire e le impostazioni funzionano come a casa. Il lavoro lo fa il tuo computer; il sito ti collega soltanto a lui.',
           points: [
-            'I tuoi dispositivi con il loro stato online, aggiornato ogni 15 secondi',
+            'I tuoi computer con il loro stato online, aggiornato ogni 15 secondi',
             'Le schede sono in basso sul telefono e in alto sul computer',
             'Quello che ha senso solo al computer (il suo selettore di cartelle, l’apertura dei file) resta lì',
             'Accesso con Google; le sessioni durano 30 giorni dall’ultima visita, e uscendo quel browser si scollega subito dai tuoi computer',
@@ -337,7 +337,7 @@ export const content: FeaturesContent = {
     details: 'I file di un download, ciascuno con il suo avanzamento',
     player: 'Un film con licenza libera nel browser, con i suoi sottotitoli in inglese',
     speed: 'Limiti di velocità, modalità rallentata e il suo orario',
-    devices: 'I tuoi dispositivi sul sito, con il loro stato online',
+    devices: 'I tuoi computer sul sito, con il loro stato online',
     'remote-phone': 'I download di un computer su un telefono, tramite il sito',
     remote: 'L’accesso remoto nelle impostazioni dell’app, collegato a un account',
     pair: 'Approvazione di un computer sul sito',

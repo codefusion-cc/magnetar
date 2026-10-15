@@ -10,7 +10,7 @@ export const content: FeaturesContent = {
     title: 'Funktionen von Magnetar',
     description: 'Sechs Torrent-Quellen in einer Suche, Downloads auf dem eigenen Computer, Ende-zu-Ende-verschlüsselt von Browser und Handy aus. Kostenlos für macOS, Windows und Linux.',
   },
-  header: { language: 'Sprache', signIn: 'Anmelden', devices: 'Deine Geräte', home: 'Magnetar-Startseite' },
+  header: { language: 'Sprache', signIn: 'Anmelden', devices: 'Deine Computer', home: 'Magnetar-Startseite' },
   hero: {
     title: 'Deine Downloads, von überall',
     lead: 'Magnetar durchsucht sechs Torrent-Quellen gleichzeitig, lädt auf deinem eigenen Computer herunter und verfolgt deine Serien. Öffne es in jedem Browser oder auf dem Handy: Alles dazwischen ist Ende-zu-Ende-verschlüsselt. Jeder Screenshot auf dieser Seite zeigt die echte App.',
@@ -71,7 +71,7 @@ export const content: FeaturesContent = {
           points: [
             `.torrent-Dateien bis ${torrentMb} MB`,
             'Auf deinem Computer kann Magnetar Magnet-Links und .torrent-Dateien übernehmen, sodass ein Klick im Browser oder im Dateimanager sie hinzufügt',
-            'Auf der Website kann der Browser Magnet-Links direkt an deinen Computer schicken („Magnet-Links hier öffnen“ auf der Geräteseite)',
+            'Auf der Website kann der Browser Magnet-Links direkt an deinen Computer schicken („Magnet-Links hier öffnen“ unter Deine Computer)',
             'Im Dialog einen anderen Ordner wählen, über eine Ordnerauswahl',
           ],
         },
@@ -187,7 +187,7 @@ export const content: FeaturesContent = {
           gain: 'Starte im Bus vom Handy aus einen Download, und er wartet zu Hause auf deinem Computer.',
           text: 'Melde dich auf magnetar.codefusion.cc an und öffne einen deiner Computer: Suche, Downloads, Merkliste und Einstellungen funktionieren wie zu Hause. Die Arbeit macht dein Computer; die Website verbindet dich nur mit ihm.',
           points: [
-            'Deine Geräte mit ihrem Online-Status, alle 15 Sekunden aktualisiert',
+            'Deine Computer mit ihrem Online-Status, alle 15 Sekunden aktualisiert',
             'Auf dem Handy stehen die Tabs unten, auf dem Computer oben',
             'Was nur am Computer selbst Sinn ergibt (seine Ordnerauswahl, das Öffnen von Dateien), bleibt dort',
             'Anmeldung mit Google; Sitzungen gelten 30 Tage ab deinem letzten Besuch, und beim Abmelden trennt sich dieser Browser sofort von deinen Computern',
@@ -337,7 +337,7 @@ export const content: FeaturesContent = {
     details: 'Die Dateien eines Downloads, jede mit ihrem Fortschritt',
     player: 'Ein frei lizenzierter Film im Browser, mit seinen englischen Untertiteln',
     speed: 'Tempolimits, Drosselung und ihr Zeitplan',
-    devices: 'Deine Geräte auf der Website, mit ihrem Online-Status',
+    devices: 'Deine Computer auf der Website, mit ihrem Online-Status',
     'remote-phone': 'Die Downloads eines Computers auf dem Handy, über die Website',
     remote: 'Fernzugriff in den Einstellungen der App, mit einem Konto verbunden',
     pair: 'Einen Computer auf der Website bestätigen',

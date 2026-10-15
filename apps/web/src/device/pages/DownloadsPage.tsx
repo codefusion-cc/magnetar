@@ -72,10 +72,8 @@ export function DownloadsPage() {
     {dragging && <DropOverlay />}
   </>
   if (read.loading) return frame(<Loading text={t('downloads.connecting', deviceName)} rows={4} />)
-  if (read.failed) return frame(<>{heading}<Empty appearance="download" role="alert" state="far" title={t('downloads.readFailed')} text={t('downloads.readFailedHint', deviceName)}>
-    <button className="infall-button" onClick={read.retry}>{t('downloads.tryAgain')}</button>
-  </Empty></>)
-  if (downloads.length === 0) return frame(<>{heading}<Empty appearance="download" title={t('downloads.emptyTitle')} text={t('downloads.emptyHint')}>
+  if (read.failed) return frame(<>{heading}<Empty appearance="page" role="alert" state="far" title={t('downloads.readFailed')} text={t('downloads.readFailedHint', deviceName)} onRetry={read.retry} /></>)
+  if (downloads.length === 0) return frame(<>{heading}<Empty appearance="page" title={t('downloads.emptyTitle')} text={t('downloads.emptyHint')}>
     <div className="infall-acts"><Link to={searchLink} className="infall-button">{t('downloads.searchButton')}</Link></div>
   </Empty></>)
   return frame(<>{heading}<LanesSky><div className="downloads-lanes">

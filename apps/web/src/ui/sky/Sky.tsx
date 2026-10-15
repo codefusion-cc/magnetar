@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { SceneCanvas, useScene } from '@codefusion-cc/scene/react'
 import type { SceneDraw } from '@codefusion-cc/scene'
-import { drawFan, drawHero, drawLanes, drawState, skyColors, type Lane, type StarMode } from './draw.ts'
+import { drawFan, drawHero, drawLanes, drawState, heroLabels, skyColors, type Lane, type StarMode } from './draw.ts'
 
 const options = { colors: skyColors }
 
@@ -11,8 +11,28 @@ export function StateSky({ mode = 'on', className = '' }: { mode?: StarMode; cla
   const draw = useMemo(() => drawState(mode), [mode])
   return <SceneCanvas className={`sky state-sky ${className}`} draw={draw} options={options} aria-hidden="true" />
 }
-export function HeroSky() {
-  return <SceneCanvas className="sky hero-sky" draw={drawHero} options={options} aria-hidden="true" />
+/** The first page's picture: every source falls into the star, each named where its stream comes in. */
+export function HeroSky({ sources, label }: { sources: readonly string[]; label: string }) {
+  const figure = useRef<HTMLElement>(null)
+  useLayoutEffect(() => {
+    const element = figure.current
+    if (!element) return
+    const items = [...element.querySelectorAll<HTMLElement>('li')]
+    const place = () => heroLabels(element.clientWidth, element.clientHeight, items.map(item => [item.offsetWidth, item.offsetHeight]))
+      .forEach(([x, y], k) => { items[k]!.style.transform = `translate(${x}px, ${y}px)` })
+    place()
+    // The labels change size when the typeface arrives, the picture when the page does.
+    const observer = new ResizeObserver(place)
+    observer.observe(element)
+    for (const item of items) observer.observe(item)
+    return () => observer.disconnect()
+  }, [sources])
+  return (
+    <figure ref={figure} className="hero-sky">
+      <SceneCanvas className="sky" draw={drawHero} options={options} aria-hidden="true" />
+      <ul aria-label={label}>{sources.map(source => <li key={source}>{source}</li>)}</ul>
+    </figure>
+  )
 }
 
 /** Only the visible rows are measured, even when thousands of rows have been loaded. */

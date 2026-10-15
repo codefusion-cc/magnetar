@@ -34,7 +34,7 @@ export function WatchesSection({ start, onStarted }: { start: WatchInput | null;
   return (
     <>
       {watches.length === 0 ? (
-        <Empty appearance="download" title={t('watch.emptyTitle')} text={t('watch.emptyHint')}>{add}</Empty>
+        <Empty appearance="page" title={t('watch.emptyTitle')} text={t('watch.emptyHint')}>{add}</Empty>
       ) : (
         <>
           <div className="mb-4 flex justify-end">{add}</div>

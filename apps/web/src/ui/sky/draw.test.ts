@@ -1,6 +1,7 @@
 import type { SceneFrame } from '@codefusion-cc/scene'
+import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { drawFan, drawHero, drawLanes, drawState, skyColors, type Lane } from './draw.ts'
+import { drawFan, drawHero, drawLanes, drawState, heroGeometry, heroLabels, skyColors, type Lane } from './draw.ts'
 
 /** A 2D context that records every call and property write, so two paints can be compared exactly. */
 function recorder() {
@@ -83,5 +84,29 @@ describe('sky scenes', () => {
     drawLanes(phone.frame, [rows[0]!], { summary: 10 })
     expect(phone.log.some(line => line.startsWith('quadraticCurveTo'))).toBe(true)
     expect(phone.log.some(line => line.startsWith('bezierCurveTo'))).toBe(false)
+  })
+})
+
+describe('the first page\'s source names', () => {
+  it('every name lies inside the picture, whatever its size and the names\' widths', () => {
+    fc.assert(fc.property(fc.integer({ min: 120, max: 1600 }), fc.integer({ min: 120, max: 900 }),
+      fc.array(fc.tuple(fc.integer({ min: 1, max: 110 }), fc.integer({ min: 12, max: 28 })), { minLength: 6, maxLength: 6 }), (w, h, sizes) => {
+        heroLabels(w, h, sizes).forEach(([x, y], k) => {
+          const [lw, lh] = sizes[k]!
+          expect(x).toBeGreaterThanOrEqual(0)
+          expect(y).toBeGreaterThanOrEqual(0)
+          expect(x + lw).toBeLessThanOrEqual(w + 0.5)
+          expect(y + lh).toBeLessThanOrEqual(h + 0.5)
+        })
+      }))
+  })
+
+  it('a name that fits where its stream comes in sits right beside that point, not further in', () => {
+    const w = 560, h = 430, size = [40, 20] as const
+    const { at } = heroGeometry(w, h)
+    const entries = Array.from({ length: 6 }, (_, k) => [Math.round(at(k, .02)[0] + 8), Math.round(at(k, .02)[1] - 20)])
+    const fits = entries.map(([x, y]) => x! >= 6 && x! + size[0] <= w - 2 && y! >= 0 && y! + size[1] <= h - 2)
+    expect(fits.some(Boolean)).toBe(true)
+    heroLabels(w, h, entries.map(() => size)).forEach((spot, k) => { if (fits[k]) expect(spot).toEqual(entries[k]) })
   })
 })

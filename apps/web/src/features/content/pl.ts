@@ -10,7 +10,7 @@ export const content: FeaturesContent = {
     title: 'Funkcje Magnetara',
     description: 'Sześć źródeł torrentów naraz, pobieranie na własnym komputerze i dostęp z przeglądarki lub telefonu, szyfrowany end-to-end. Za darmo na macOS, Windows i Linux.',
   },
-  header: { language: 'Język', signIn: 'Zaloguj się', devices: 'Twoje urządzenia', home: 'Strona główna Magnetara' },
+  header: { language: 'Język', signIn: 'Zaloguj się', devices: 'Twoje komputery', home: 'Strona główna Magnetara' },
   hero: {
     title: 'Twoje pobierania z dowolnego miejsca',
     lead: 'Magnetar przeszukuje sześć źródeł torrentów naraz, pobiera na Twoim komputerze i śledzi Twoje seriale. Otwierasz go z dowolnej przeglądarki lub telefonu, a wszystko, co płynie między nimi, jest szyfrowane end-to-end. Każdy zrzut ekranu na tej stronie pokazuje prawdziwą aplikację.',
@@ -71,7 +71,7 @@ export const content: FeaturesContent = {
           points: [
             `Pliki .torrent do ${torrentMb} MB`,
             'Na komputerze Magnetar może obsługiwać linki magnet i pliki .torrent, więc dodasz je jednym kliknięciem w przeglądarce lub menedżerze plików',
-            'Na stronie przeglądarka może wysyłać linki magnet prosto na Twój komputer („Otwieraj linki magnet tutaj” na stronie urządzeń)',
+            'Na stronie przeglądarka może wysyłać linki magnet prosto na Twój komputer („Otwieraj linki magnet tutaj” na stronie „Twoje komputery”)',
             'Inny folder wybierzesz w oknie, w przeglądarce folderów',
           ],
         },
@@ -187,7 +187,7 @@ export const content: FeaturesContent = {
           gain: 'Uruchom pobieranie z telefonu w autobusie, a w domu będzie już czekać na komputerze.',
           text: 'Zaloguj się na magnetar.codefusion.cc i otwórz dowolny ze swoich komputerów: wyszukiwanie, pobieranie, Obserwowane i ustawienia działają tak jak w domu. Pracę wykonuje Twój komputer; strona tylko Cię z nim łączy.',
           points: [
-            'Twoje urządzenia ze stanem online, odświeżanym co 15 sekund',
+            'Twoje komputery ze stanem online, odświeżanym co 15 sekund',
             'Na telefonie karty są na dole, na komputerze u góry',
             'To, co ma sens tylko przy komputerze (wybór folderu, otwieranie plików), zostaje na komputerze',
             'Logowanie przez Google; sesja trwa 30 dni od ostatniej wizyty, a wylogowanie od razu odłącza tę przeglądarkę od Twoich komputerów',
@@ -337,7 +337,7 @@ export const content: FeaturesContent = {
     details: 'Pliki pobierania, każdy z własnym postępem',
     player: 'Film na wolnej licencji odtwarzany w przeglądarce, z angielskimi napisami',
     speed: 'Limity prędkości, limity alternatywne i ich harmonogram',
-    devices: 'Twoje urządzenia na stronie, ze stanem online',
+    devices: 'Twoje komputery na stronie, ze stanem online',
     'remote-phone': 'Pobierania komputera na telefonie, przez stronę',
     remote: 'Dostęp zdalny w ustawieniach aplikacji, połączony z kontem',
     pair: 'Zatwierdzanie komputera na stronie',

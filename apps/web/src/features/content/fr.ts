@@ -10,7 +10,7 @@ export const content: FeaturesContent = {
     title: 'Fonctionnalités de Magnetar',
     description: 'Six sources torrent en une recherche, téléchargement sur votre ordinateur et suivi depuis tout navigateur, chiffré de bout en bout. Gratuit sur macOS, Windows et Linux.',
   },
-  header: { language: 'Langue', signIn: 'Se connecter', devices: 'Vos appareils', home: 'Accueil Magnetar' },
+  header: { language: 'Langue', signIn: 'Se connecter', devices: 'Vos ordinateurs', home: 'Accueil Magnetar' },
   hero: {
     title: 'Vos téléchargements, où que vous soyez',
     lead: 'Magnetar cherche sur six sources torrent à la fois, télécharge sur votre propre ordinateur et suit vos séries. Ouvrez-le depuis n’importe quel navigateur ou téléphone : tout ce qui passe entre eux est chiffré de bout en bout. Chaque capture d’écran de cette page montre la vraie app.',
@@ -71,7 +71,7 @@ export const content: FeaturesContent = {
           points: [
             `Fichiers .torrent jusqu’à ${torrentMb} Mo`,
             'Sur votre ordinateur, Magnetar peut devenir l’application des liens magnet et des fichiers .torrent : un clic dans le navigateur ou le gestionnaire de fichiers les ajoute',
-            'Sur le site, le navigateur peut envoyer les liens magnet directement à votre ordinateur (« Ouvrir les liens magnet ici » sur la page des appareils)',
+            'Sur le site, le navigateur peut envoyer les liens magnet directement à votre ordinateur (« Ouvrir les liens magnet ici » dans Vos ordinateurs)',
             'Choisissez un autre dossier dans la fenêtre, avec un explorateur de dossiers',
           ],
         },
@@ -187,7 +187,7 @@ export const content: FeaturesContent = {
           gain: 'Lancez un téléchargement depuis votre téléphone dans le bus : il vous attend sur votre ordinateur à la maison.',
           text: 'Connectez-vous sur magnetar.codefusion.cc et ouvrez n’importe lequel de vos ordinateurs : la recherche, les téléchargements, la liste À suivre et les paramètres fonctionnent comme chez vous. Votre ordinateur fait le travail ; le site ne fait que vous y connecter.',
           points: [
-            'Vos appareils et leur état en ligne, actualisés toutes les 15 secondes',
+            'Vos ordinateurs et leur état en ligne, actualisés toutes les 15 secondes',
             'Les onglets sont en bas sur téléphone et en haut sur ordinateur',
             'Ce qui n’a de sens que devant l’ordinateur (son sélecteur de dossiers, l’ouverture des fichiers) y reste',
             'Connexion avec Google ; les sessions durent 30 jours après votre dernière visite, et la déconnexion coupe aussitôt ce navigateur de vos ordinateurs',
@@ -337,7 +337,7 @@ export const content: FeaturesContent = {
     details: 'Les fichiers d’un téléchargement, chacun avec sa progression',
     player: 'Un film sous licence libre dans le navigateur, avec ses sous-titres anglais',
     speed: 'Limites de vitesse, mode ralenti et son horaire',
-    devices: 'Vos appareils sur le site, avec leur état en ligne',
+    devices: 'Vos ordinateurs sur le site, avec leur état en ligne',
     'remote-phone': 'Les téléchargements d’un ordinateur sur un téléphone, via le site',
     remote: 'L’accès à distance dans les paramètres de l’app, connecté à un compte',
     pair: 'L’approbation d’un ordinateur sur le site',

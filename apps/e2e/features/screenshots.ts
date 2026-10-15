@@ -170,7 +170,7 @@ async function signIn(page: Page): Promise<void> {
   await page.goto(`${WEBSITE}/login`)
   await page.getByLabel('Email').fill(ACCOUNT)
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await page.getByRole('heading', { name: 'Your devices' }).waitFor()
+  await page.getByRole('heading', { name: 'Your computers' }).waitFor()
 }
 
 /** The browsers on the website that stay linked for the whole run: the one that paired, and a phone. */
@@ -415,7 +415,7 @@ function scenes(website: Website): Scene<BrowserContext, Page>[] {
         }
       },
     },
-    websiteShot('devices', website, 'desktop', '/', page => page.getByRole('heading', { name: 'Your devices' }).waitFor()),
+    websiteShot('devices', website, 'desktop', '/', page => page.getByRole('heading', { name: 'Your computers' }).waitFor()),
     websiteShot('remote-phone', website, 'phone', `/${DEVICES_ON_ACCOUNT.main.name}`, page => heading(page, 'Downloads')),
     websiteShot('switcher', website, 'desktop', `/${DEVICES_ON_ACCOUNT.main.name}/series`, async page => {
       await heading(page, 'Watchlist')

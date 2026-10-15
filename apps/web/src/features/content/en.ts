@@ -10,7 +10,7 @@ export const en: FeaturesContent = {
     title: 'Magnetar features',
     description: 'Search six torrent sources at once, download on your own computer and follow it from any browser or phone, end-to-end encrypted. Free for macOS, Windows and Linux.',
   },
-  header: { language: 'Language', signIn: 'Sign in', devices: 'Your devices', home: 'Magnetar home' },
+  header: { language: 'Language', signIn: 'Sign in', devices: 'Your computers', home: 'Magnetar home' },
   hero: {
     title: 'Your downloads, from anywhere',
     lead: 'Magnetar searches six torrent sources at once, downloads on your own computer and follows your series. Open it from any browser or phone: everything between them is end-to-end encrypted. Every screenshot on this page is the real app.',
@@ -71,7 +71,7 @@ export const en: FeaturesContent = {
           points: [
             `.torrent files up to ${torrentMb} MB`,
             'On your computer Magnetar can become the handler for magnet links and .torrent files, so a click in the browser or the file manager adds them',
-            'On the website, the browser can send magnet links straight to your computer ("Open magnet links here" on the devices page)',
+            'On the website, the browser can send magnet links straight to your computer ("Open magnet links here" on Your computers)',
             'Pick another folder in the dialog, with a folder browser',
           ],
         },
@@ -187,7 +187,7 @@ export const en: FeaturesContent = {
           gain: 'Start a download from your phone on the bus and it is waiting on your computer at home.',
           text: 'Sign in at magnetar.codefusion.cc and open any of your computers: search, downloads, the watchlist and settings work as they do at home. Your computer does the work; the website only connects you to it.',
           points: [
-            'Your devices with their online state, refreshed every 15 seconds',
+            'Your computers with their online state, refreshed every 15 seconds',
             'Tabs sit at the bottom on a phone and at the top on a computer',
             'What only makes sense at the computer (its folder picker, opening files) stays there',
             'Google sign-in; sessions last 30 days from your last visit, and signing out disconnects that browser from your computers at once',
@@ -337,7 +337,7 @@ export const en: FeaturesContent = {
     details: 'A download\'s files, each with its progress',
     player: 'A freely licensed film playing in the browser, with its English subtitles',
     speed: 'Speed limits, slow mode and its schedule',
-    devices: 'Your devices on the website, with their online state',
+    devices: 'Your computers on the website, with their online state',
     'remote-phone': 'A computer\'s downloads on a phone, through the website',
     remote: 'Remote access in the app\'s settings, connected to an account',
     pair: 'Approving a computer on the website',

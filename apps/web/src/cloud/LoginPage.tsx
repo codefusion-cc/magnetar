@@ -1,29 +1,26 @@
-import { ArrowRight, Download, KeyRound, MonitorSmartphone, ShieldCheck } from 'lucide-react'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Link, Navigate, useSearchParams } from 'react-router'
+import { useEffect, useRef, useState } from 'react'
+import { Navigate, useSearchParams } from 'react-router'
 import { startGoogleSignIn, takeGoogleSignInResult } from '@codefusion-cc/google-sign-in/browser'
+import { safeReturnPath } from '@codefusion-cc/sign-in/browser'
 import { cloud, CloudError } from '../lib/cloudApi.ts'
 import { errorMessage } from '../lib/errors.ts'
 import { useLanguage, useT } from '../lib/i18n.tsx'
 import { useAccount } from './CloudApp.tsx'
 import { CloudFrame } from './CloudFrame.tsx'
-import { DownloadApp } from './DownloadApp.tsx'
+import { Empty } from '../ui/Empty.tsx'
 
 /** What to say about a return from Google that brought no credential; a cancelled one says nothing. */
 const RETURN_ERRORS = { expired: 'cloud.signInExpired', failed: 'cloud.signInFailed' } as const
 /** What to say when the Worker refuses the credential: 503 when Google's keys could not be read. */
 const STATUS_ERRORS: Partial<Record<number, 'cloud.signInFailed' | 'cloud.signInUnavailable'>> = { 401: 'cloud.signInFailed', 503: 'cloud.signInUnavailable' }
 
-function safeNext(value: string | null): string {
-  return value && value.startsWith('/') && !value.startsWith('//') ? value : '/'
-}
-
 export function LoginPage() {
   const t = useT()
   const language = useLanguage()
   const { account, config, refresh } = useAccount()
   const [params] = useSearchParams()
-  const next = safeNext(params.get('next'))
+  // Only a path on this site: a browser reads `/\host` or `/<tab>/host` as another site, and React Router would throw.
+  const next = safeReturnPath(params.get('next'), '/')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [devEmail, setDevEmail] = useState('dev@localhost')
@@ -78,64 +75,34 @@ export function LoginPage() {
   }
 
   return (
-    <CloudFrame wide>
-      <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_26rem] lg:gap-16">
-        {/* Most arrive from the app to sign in, so on phones the sign-in card comes first. */}
-        <div className="order-2 lg:order-1">
-          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{t('cloud.heroTitle')}</h1>
-          <p className="muted mt-3 max-w-xl text-lg">{t('cloud.heroText')}</p>
-          <ul className="mt-8 flex flex-col gap-5">
-            <Point icon={<MonitorSmartphone size={20} />} title={t('cloud.pointAnywhere')} text={t('cloud.pointAnywhereText')} />
-            <Point icon={<ShieldCheck size={20} />} title={t('cloud.pointPrivate')} text={t('cloud.e2eNote')} />
-            <Point icon={<Download size={20} />} title={t('cloud.pointApp')} text={t('cloud.pointAppText')} />
-          </ul>
-          <Link to="/features" className="link link-primary mt-6 inline-flex items-center gap-1.5 font-medium">{t('cloud.features')}<ArrowRight size={16} aria-hidden /></Link>
-          <section className="surface mt-8 max-w-md p-5" aria-labelledby="magnetar-get-app">
-            <h2 id="magnetar-get-app" className="mb-3 font-semibold">{t('get.title')}</h2>
-            <DownloadApp />
-          </section>
-        </div>
-        <div className="surface order-1 flex flex-col gap-5 p-6 sm:p-8 lg:order-2">
-          <div>
-            <h2 className="text-xl font-semibold">{t('cloud.signInTitle')}</h2>
-            <p className="muted mt-1 text-sm">{t('cloud.signInHint')}</p>
-          </div>
-          {error && <div role="alert" className="alert alert-error alert-soft text-sm">{error}</div>}
-          {config.googleClientId && (
-            <button type="button" className="btn btn-lg w-full gap-3 border-base-300 bg-base-100 font-medium" disabled={busy} onClick={() => void signIn()}>
-              {busy ? <span className="loading loading-spinner" /> : <GoogleLogo />}{t('cloud.signInGoogle')}
+    <CloudFrame narrow>
+      <Empty appearance="page" heading="h1" title={t('cloud.signInTitle')} text={t('cloud.signInLead')}>
+        {error && <p role="alert" className="setting-alert">{error}</p>}
+        {config.googleClientId && (
+          <div className="infall-acts">
+            <button type="button" className="infall-button big" disabled={busy} aria-busy={busy} onClick={() => void signIn()}>
+              <GoogleLogo />{t('cloud.signInGoogle')}
             </button>
-          )}
-          {config.devLogin && (
-            <div className="rounded-box border border-dashed border-warning p-3">
-              <p className="mb-2 text-xs text-warning">{t('cloud.devLogin')}</p>
-              <div className="join w-full">
-                <input className="input join-item w-full" value={devEmail} onChange={e => setDevEmail(e.target.value)} aria-label="Email" />
-                <button type="button" className="btn btn-warning join-item" aria-label={t('cloud.devSignIn')} disabled={busy} onClick={() => void devSignIn()}><KeyRound size={16} /></button>
-              </div>
+          </div>
+        )}
+        <p className="fine">{t('cloud.signInFine')}</p>
+        {config.devLogin && (
+          <form className="site-dev-login" onSubmit={e => { e.preventDefault(); void devSignIn() }}>
+            <label htmlFor="dev-email">{t('cloud.devLogin')}</label>
+            <div className="setting-inline">
+              <input id="dev-email" aria-label="Email" value={devEmail} onChange={e => setDevEmail(e.target.value)} />
+              <button type="submit" className="infall-small" disabled={busy}>{t('cloud.devSignIn')}</button>
             </div>
-          )}
-        </div>
-      </div>
+          </form>
+        )}
+      </Empty>
     </CloudFrame>
-  )
-}
-
-function Point({ icon, title, text }: { icon: ReactNode; title: string; text: ReactNode }) {
-  return (
-    <li className="flex gap-4">
-      <span className="grid size-10 shrink-0 place-items-center rounded-field bg-primary/10 text-primary">{icon}</span>
-      <div>
-        <div className="font-semibold">{title}</div>
-        <div className="muted mt-0.5 text-sm">{text}</div>
-      </div>
-    </li>
   )
 }
 
 function GoogleLogo() {
   return (
-    <svg viewBox="0 0 48 48" className="size-5" aria-hidden="true">
+    <svg viewBox="0 0 48 48" className="google-logo" aria-hidden="true">
       <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
       <path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
       <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z" />

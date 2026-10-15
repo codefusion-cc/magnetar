@@ -1,6 +1,7 @@
 import type { DownloadDto, DownloadFileDto, RpcEvents, RpcResults, SettingsDto } from '@magnetar/protocol'
 import type { Page, WebSocketRoute } from '@playwright/test'
 import { acceptBrowserHandshake, decodeHandshake, encodeHandshake, FRAME_HANDSHAKE, importBrowserKey, type E2ESession } from '@magnetar/protocol/e2e'
+import { seedDeviceKeys } from './keys.ts'
 import { infallDownloads, infallFiles, infallSources, infallSearch, infallSeries, infallWatches, infallRoots, infallFolder, type InfallScreen } from './infall.ts'
 
 /** A device at the network boundary; the dashboard, transport and subscriptions stay real. */
@@ -75,21 +76,7 @@ export async function serveDevice(page: Page, { name = 'Test computer', language
   if (remote) {
     await page.route('**/api/me', route => route.fulfill({ json: { id: 'account', email: 'alex@example.com', name: 'Alex', picture: null } }))
     await page.route('**/api/devices', route => route.fulfill({ json: [{ id: 'test', name, platform: 'macos', version: '1.2.1', online: true, lastSeenAt: null, createdAt: '2026-01-01T00:00:00Z' }] }))
-    await page.addInitScript(async raw => {
-      const key = await crypto.subtle.importKey('raw', new Uint8Array(raw), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify'])
-      await new Promise<void>((resolve, reject) => {
-        const request = indexedDB.open('magnetar', 1)
-        request.onupgradeneeded = () => request.result.createObjectStore('deviceKeys', { keyPath: 'deviceId' })
-        request.onerror = () => reject(request.error)
-        request.onsuccess = () => {
-          const db = request.result
-          const tx = db.transaction('deviceKeys', 'readwrite')
-          tx.objectStore('deviceKeys').put({ deviceId: 'test', keyId: 'testkey', key, linkedAt: '2026-01-01T00:00:00Z' })
-          tx.oncomplete = () => { db.close(); resolve() }
-          tx.onerror = () => reject(tx.error)
-        }
-      })
-    }, [...rawKey])
+    await seedDeviceKeys(page, [{ deviceId: 'test', keyId: 'testkey' }], [...rawKey])
   }
   await page.routeWebSocket(remote ? '**/api/devices/test/connect' : '**/ws', socket => {
     sockets.add(socket)

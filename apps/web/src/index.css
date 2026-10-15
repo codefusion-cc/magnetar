@@ -211,17 +211,11 @@ body {
 }
 
 /* Menus open inward from the frame edge, including when another control follows the trigger. */
-.cloud-header {
-  position: relative;
-}
-
-.shell-device > div,
-.cloud-header .frame-account {
+.shell-device > div {
   position: static;
 }
 
-.shell-device [role="menu"],
-.frame-account [role="menu"] {
+.shell-device [role="menu"] {
   left: auto;
   right: 0;
   border-radius: var(--cf-radius-ctl);
@@ -361,7 +355,7 @@ body {
   gap: 12px 20px;
   margin: 28px 0 18px;
 }
-.downloads-heading h1, .download-one h1, .download-empty h1 {
+.downloads-heading h1, .download-one h1, .download-empty > :is(h1, h2) {
   font-size: 28px;
   line-height: 1.2;
 }
@@ -565,12 +559,15 @@ body {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-.download-lead, .download-empty p {
+.download-lead {
   font-size: 18px;
   line-height: 1.5;
   max-width: 58ch;
 }
-.download-empty h1 {
+.download-empty > :is(h1, h2) {
+  font-family: var(--cf-font-display);
+  font-weight: 500;
+  letter-spacing: -0.015em;
   text-wrap: balance;
 }
 .download-empty {
@@ -580,12 +577,11 @@ body {
   gap: 16px;
   justify-items: start;
 }
+/* The state's picture as drawn: 210px tall, its star a little into the left margin. */
 .download-state-picture {
   width: 100%;
   height: 210px;
-  margin-bottom: 8px;
-  display: grid;
-  place-items: center;
+  margin: 0 0 8px -20px;
 }
 
 .downloads-wait {
@@ -618,7 +614,7 @@ body {
   .downloads-heading {
     margin-top: 16px;
   }
-  .downloads-heading h1, .download-one h1, .download-empty h1 {
+  .downloads-heading h1, .download-one h1, .download-empty > :is(h1, h2) {
     font-size: 23px;
   }
   .downloads-lanes {
@@ -651,11 +647,12 @@ body {
   .download-file-size {
     display: none;
   }
-  .download-lead, .download-empty p {
+  .download-lead {
     font-size: 17px;
   }
   .download-state-picture {
     height: 170px;
+    margin-left: 0;
   }
 }
 .download-transfer-notice {
@@ -701,13 +698,10 @@ body {
 .downloads-summary p > .download-low-space {
   color: var(--cf-warn);
 }
-.download-empty .infall-button {
+.download-empty .infall-button, .search-query .infall-button, .infall-button.big {
   min-height: 46px;
   padding-inline: 22px;
   font-size: 16px;
-}
-.download-state-picture {
-  justify-content: stretch;
 }
 
 .download-files-heading {
@@ -734,8 +728,7 @@ body {
 }
 
 @media (max-width: 720px) {
-  .shell-header .font-display,
-  .cloud-header .font-display {
+  .shell-header .font-display {
     font-size: 14px;
   }
 }
@@ -744,7 +737,6 @@ body {
 .infall-button.quiet { background: transparent; color: var(--cf-ink); box-shadow: inset 0 0 0 1.5px var(--cf-muted); }
 .search-query { display: flex; gap: 8px; }
 .search-query input { flex: 1; min-width: 0; min-height: 46px; border: 1.5px solid var(--cf-line); border-radius: 10px; padding: 0 14px; background: var(--cf-surface); font-size: 18px; }
-.search-query .infall-button { min-height: 46px; padding: 0 22px; font-size: 16px; }
 .search-filters { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: center; margin: 14px 0 6px; }
 .search-select { display: flex; gap: 10px; align-items: center; color: var(--cf-muted); font-size: 15px; }
 .search-select select { min-height: 38px; min-width: 0; max-width: 100%; padding: 0 10px; border: 1px solid var(--cf-line); border-radius: 10px; background: var(--cf-surface); color: var(--cf-ink); }
@@ -865,8 +857,7 @@ body {
 .state-sky { width: 300px; max-width: 100%; height: 210px; }
 .download-state-picture .state-sky { width: 100%; height: 100%; }
 .downloads-wait .state-sky, .state-sky.wait-sky { flex: 0 0 90px; width: 90px; height: 70px; }
-.hero-sky { height: 340px; margin-bottom: 24px; }
-@media (max-width: 720px) { .state-sky { height: 170px; } .hero-sky { height: 300px; } }
+@media (max-width: 720px) { .state-sky { height: 170px; } }
 
 /* Settings: the sections in a column on a computer and a wrapped row on a phone; each setting a titled section. */
 .settings-layout { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 44px; align-items: start; }
@@ -879,16 +870,16 @@ body {
 .setting > * { max-width: 100%; }
 .setting h2 { font-size: 17px; font-weight: 600; line-height: 1.3; }
 .setting p { overflow-wrap: anywhere; }
-.setting .fine, .settings-panel > .fine { font-size: 14px; color: var(--cf-muted); }
+.fine { font-size: 14px; color: var(--cf-muted); }
 .settings-saves { padding-top: 12px; }
-.setting-alert { color: var(--cf-danger); font-size: 15px; }
+.setting-alert { color: var(--cf-danger); font-size: 15px; overflow-wrap: anywhere; }
 .setting-warn { color: var(--cf-warn); }
 .setting-value { font-weight: 500; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .setting-value a { text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
 .setting-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .infall-button.sm, .infall-small.sm { min-height: 38px; }
 .infall-small.danger, .infall-button.danger { color: var(--cf-danger); }
-.setting-link { min-height: 40px; padding: 0 2px; text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; cursor: pointer; }
+.setting-link { display: inline-flex; align-items: center; min-height: 40px; padding: 0 2px; text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; cursor: pointer; }
 .setting-check { display: flex; gap: 12px; align-items: center; min-height: 44px; cursor: pointer; }
 .setting-check input { width: 20px; height: 20px; margin: 0; flex: none; accent-color: var(--cf-accent); }
 /* A source's star, small, in a 22px place of its own as drawn. */
@@ -933,3 +924,107 @@ body {
 }
 /* A setting's choices wrap on a phone rather than run past the screen (long in Polish and German). */
 .setting .download-views { flex-wrap: wrap; }
+
+/* The website's own pages: the mark and the way in over the page, and a footer; no cards, rows parted by one rule. */
+.site { min-height: 100dvh; display: flex; flex-direction: column; background: var(--cf-page); color: var(--cf-ink); --gut: 40px; }
+.site-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 18px; padding: 12px var(--gut); }
+.site-brand { display: flex; align-items: center; gap: 6px; min-height: 44px; font: 500 15px/1 var(--cf-font-display); }
+.site-grow { flex: 1; }
+.site-who { min-width: 0; max-width: 28ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; color: var(--cf-muted); }
+.site-main { flex: 1; width: 100%; max-width: 1120px; margin-inline: auto; padding: 0 var(--gut) 56px; }
+.site[data-narrow] .site-main { max-width: 640px; }
+.site-footer > div { display: flex; flex-wrap: wrap; align-items: center; gap: 0 20px; padding-block: 12px 20px; font-size: 14px; color: var(--cf-muted); }
+.site-column { padding-inline: var(--gut); }
+.site-footer .setting-link { min-height: 36px; color: var(--cf-muted); }
+.site-head .setting-link { min-height: 44px; }
+.site-footer .setting-link:hover { color: var(--cf-ink); }
+.site-commit { font-family: var(--cf-font-mono); font-size: 13px; }
+.site-commit:hover { text-decoration: underline; }
+.site-lead { font-size: 18px; line-height: 1.5; max-width: 58ch; }
+.site-hint { max-width: 64ch; }
+.infall-button.big { gap: 10px; }
+.google-logo { width: 20px; height: 20px; flex: none; }
+/* A control waiting for its answer says so with a turning ring after its words, or a still one without motion. */
+:is(.infall-button, .infall-small, .setting-link)[aria-busy="true"]::after { content: ""; flex: none; width: 14px; height: 14px; margin-left: 10px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: busy-turn .8s linear infinite; }
+@keyframes busy-turn { to { transform: rotate(1turn); } }
+@media (prefers-reduced-motion: reduce) { :is(.infall-button, .infall-small, .setting-link)[aria-busy="true"]::after { animation: none; border-right-color: currentColor; opacity: .5; } }
+.site .infall-acts { gap: 10px; }
+
+/* First page: what it is beside the picture of every source falling in, three facts under it. */
+.home-hero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 56px; align-items: stretch; padding: 44px 0 36px; }
+.home-text { display: grid; gap: 18px; justify-items: start; align-content: center; padding-block: 20px; }
+.home-text h1 { font-size: 36px; line-height: 1.16; text-wrap: balance; }
+.hero-sky { position: relative; height: 100%; min-height: 430px; margin: 0 calc(-1 * var(--gut)) 0 0; overflow: hidden; }
+.hero-sky .sky { position: absolute; inset: 0; height: 100%; }
+/* The picture fades in from the text side: a still layer over it, so nothing is masked again on every frame. */
+.hero-sky::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, var(--cf-page), transparent 16%); pointer-events: none; }
+.hero-sky ul { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.hero-sky li { position: absolute; left: 0; top: 0; padding: 0 5px; border-radius: 4px; background: var(--cf-page); font-size: 13px; line-height: 20px; color: var(--cf-muted); white-space: nowrap; }
+.home-three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 36px; padding-top: 28px; border-top: 1px solid var(--cf-line); }
+.home-three div { display: grid; gap: 6px; align-content: start; }
+.home-three h2 { font-size: 17px; font-weight: 600; line-height: 1.3; }
+.home-three p { color: var(--cf-muted); }
+
+/* A page of the site with a list: Your computers, What's new. */
+.site-page { display: grid; gap: 20px; padding-top: 28px; }
+.site-page > h1 { font-size: 28px; line-height: 1.2; }
+.site-page .download-empty { margin-top: 8px; }
+.computers { display: grid; width: 100%; }
+.download-empty > .computer { width: 100%; }
+.computer { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px 20px; align-items: center; padding: 20px 0; border-top: 1px solid var(--cf-line); }
+.computer-star { display: inline-grid; place-items: center; width: 44px; height: 44px; }
+.computer-body { display: grid; gap: 2px; min-width: 0; }
+.computer-body h2 { font-size: 20px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+.computer-body p { color: var(--cf-muted); font-size: 15px; }
+.computer-acts { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; justify-content: flex-end; }
+.computer-remove { color: var(--cf-muted); font-size: 14px; }
+.computer-remove:hover { color: var(--cf-danger); }
+.site-banner { display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: center; justify-content: space-between; padding: 12px 16px; border-radius: 10px; background: var(--cf-surface); box-shadow: inset 0 0 0 1px var(--mg-h1); }
+.site-banner p { min-width: 0; flex: 1 1 24ch; }
+.site-picks { display: grid; gap: 2px; }
+.add-magnet { display: block; font: 13px/1.5 var(--cf-font-mono); color: var(--cf-muted); overflow-wrap: anywhere; }
+
+/* The app to get: one button for this system, the others under it. */
+.get-app { display: grid; gap: 12px; justify-items: start; }
+.get-app .infall-button { min-height: 52px; padding: 6px 20px; }
+.get-app-label { display: grid; justify-items: start; gap: 2px; }
+.get-app-label small { font-weight: 400; font-size: 13px; opacity: .8; }
+.get-app .fine { max-width: 52ch; }
+.get-app-others summary { min-height: 40px; display: inline-flex; align-items: center; cursor: pointer; color: var(--cf-muted); text-decoration: underline; text-underline-offset: 4px; }
+.get-app-others ul { display: grid; gap: 2px; padding-top: 4px; }
+.get-app-others a { display: flex; gap: 16px; justify-content: space-between; min-height: 36px; align-items: center; }
+.get-app-others a:hover span:first-child { text-decoration: underline; }
+
+/* Linking this browser: the code typed in place, the camera a link away. */
+.not-linked:focus { outline: none; }
+.not-linked-name { display: inline-block; max-width: 100%; overflow-wrap: anywhere; }
+.link-code { display: grid; gap: 8px; width: 100%; max-width: 460px; }
+.link-code label { font-weight: 500; }
+.link-code-input { flex: 1 1 12em; min-width: 0; min-height: 46px; padding: 0 14px; border: 1.5px solid var(--cf-line); border-radius: 10px; background: var(--cf-surface); color: var(--cf-ink); font-size: 17px; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
+.link-code-input:focus-visible { border-color: var(--cf-accent); }
+.link-code-input[aria-invalid="true"] { border-color: var(--cf-danger); }
+.link-camera { position: relative; width: 100%; max-width: 420px; aspect-ratio: 1; overflow: hidden; border-radius: 10px; background: #000; }
+.link-camera video { width: 100%; height: 100%; object-fit: cover; }
+.link-camera p { position: absolute; inset: 0; display: grid; place-items: center; background: rgb(0 0 0 / .7); color: #fff; }
+.site-dev-login { display: grid; gap: 6px; width: 100%; max-width: 420px; padding-top: 12px; border-top: 1px dashed var(--cf-warn); }
+.site-dev-login label { font-size: 13px; color: var(--cf-warn); }
+.site-dev-login input { flex: 1; min-width: 0; min-height: 38px; padding: 0 10px; border: 1px solid var(--cf-line); border-radius: 8px; background: var(--cf-surface); }
+
+/* Without scripts the page still says what it is. */
+.no-script { max-width: 640px; margin: 64px auto; padding: 0 16px; display: grid; gap: 14px; }
+.no-script a { text-decoration: underline; }
+
+@media (max-width: 720px) {
+  .site { --gut: 16px; }
+  .site-who { display: none; }
+  .home-hero { grid-template-columns: minmax(0, 1fr); gap: 28px; padding: 20px 0 28px; }
+  .home-text h1 { font-size: 25px; }
+  .site-lead { font-size: 17px; }
+  .hero-sky { min-height: 300px; margin-inline: calc(-1 * var(--gut)); }
+  .hero-sky::after { content: none; }
+  .home-three { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .site-page > h1 { font-size: 23px; }
+  .computer { grid-template-columns: auto minmax(0, 1fr); }
+  .computer-acts { grid-column: 2; justify-content: flex-start; }
+  .link-code-input { font-size: 16px; letter-spacing: 0; }
+}
