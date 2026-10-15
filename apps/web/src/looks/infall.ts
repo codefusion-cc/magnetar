@@ -9,6 +9,21 @@ import { defineAppTokens, defineLook } from '@codefusion-cc/ui/looks'
 export const mg = defineAppTokens(
   'mg',
   {
+    // The pictures are drawn as on a dark plate in both modes; light shows them through one photographic filter (index.css).
+    'sky-core': { type: 'color', description: 'The star and the brightest heat: almost white, warm.', fallback: { light: '#ffeccd', dark: '#ffeccd' } },
+    'sky-white': { type: 'color', description: "The hottest point: the star's centre and a lane's moving head.", fallback: { light: '#ffffff', dark: '#ffffff' } },
+    'sky-edge': { type: 'color', description: "The star's rim and its near glow.", fallback: { light: '#ffc27a', dark: '#ffc27a' } },
+    'sky-field': { type: 'color', description: "The star's field lines and the untravelled rest of a lane.", fallback: { light: '#ffd6a0', dark: '#ffd6a0' } },
+    'sky-glow': { type: 'color', description: 'The wide glow around the star.', fallback: { light: '#ff7832', dark: '#ff7832' } },
+    'sky-far': { type: 'color', description: 'A computer far away or a download that failed: a distant red light.', fallback: { light: '#d2553a', dark: '#d2553a' } },
+    'sky-far-glow': { type: 'color', description: 'The haze around a far or failed light.', fallback: { light: '#be341e', dark: '#be341e' } },
+    'sky-void': { type: 'color', description: "The inside of a star that is out, and a paused lane's ring.", fallback: { light: '#000000', dark: '#000000' } },
+    'sky-cold': { type: 'color', description: 'Heat where a lane begins, far from the star.', fallback: { light: '#6e1a0c', dark: '#6e1a0c' } },
+    'sky-red': { type: 'color', description: 'Heat a quarter of the way in.', fallback: { light: '#cc381c', dark: '#cc381c' } },
+    'sky-warm': { type: 'color', description: 'Heat halfway in.', fallback: { light: '#ff7e30', dark: '#ff7e30' } },
+    'sky-hot': { type: 'color', description: 'Heat close to the star.', fallback: { light: '#ffd08a', dark: '#ffd08a' } },
+    'sky-ice': { type: 'color', description: 'Something finished: a formed star.', fallback: { light: '#d6e8ff', dark: '#d6e8ff' } },
+    'sky-held': { type: 'color', description: 'A paused lane, waiting.', fallback: { light: '#a0968e', dark: '#a0968e' } },
     core: { type: 'color', description: 'The star: the computer, lit.', fallback: { light: '#1d1410', dark: '#fff3dc' } },
     void: { type: 'color', description: 'The inside of a star that is out.', fallback: { light: '#fbf7f1', dark: '#000000' } },
     ring: { type: 'color', description: 'The edge of a star that is out.', fallback: { light: 'rgb(60 30 15 / 0.6)', dark: 'rgb(255 200 150 / 0.5)' } },

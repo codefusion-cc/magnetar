@@ -1,3 +1,4 @@
+import { LanesSky } from '../../ui/sky/Sky.tsx'
 import type { DownloadDto, DownloadFileDto } from '@magnetar/protocol'
 import { FileAudio, FileText, FileVideo } from 'lucide-react'
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -52,7 +53,7 @@ function Details({ download: d }: { download: DownloadDto }) {
     failed && !hasMetadata ? [t('details.filesHeading'), t('details.filesPending')] : [t('details.sentBack'), t('details.sentRatio', bytes(d.uploadedBytes), formatters(language).number(ratioOf(d), { maximumFractionDigits: 2, minimumFractionDigits: 2 }))],
   ]
   return <article className="download-one">
-    <header className="download-one-heading"><h1 className="break-release">{d.name}</h1><ProgressBar download={d} /><DownloadFacts download={d} {...speeds} /></header>
+    <LanesSky one><header className="download-one-heading"><h1 className="break-release">{d.name}</h1><ProgressBar download={d} /><DownloadFacts download={d} {...speeds} /></header></LanesSky>
     {failed && noPeersError(d.error) && <p className="download-lead">{t('details.noPeersHint')}</p>}
     <div className="infall-acts">
       {!failed && d.totalBytes > 0 && <button type="button" className="infall-button" disabled={!canPlay} title={!canPlay ? t('details.filesPending') : undefined} onClick={() => setPlay(true)}>{t('details.play')}</button>}

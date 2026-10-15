@@ -1,5 +1,5 @@
 import type { DownloadDto, DownloadStatus } from '@magnetar/protocol'
-import { Component, createRef, memo, useState, type CSSProperties, type ReactNode } from 'react'
+import { Component, createRef, memo, useState, type ReactNode } from 'react'
 import { formatters, useFormatBytes, useFormatRate, useFormatEta, useFormatDate, useLanguage, useT } from '../../lib/i18n.tsx'
 import { isActive, isFinished } from '../../lib/downloadViews.ts'
 import { downloadDay, noPeersError } from '../../lib/downloadPresentation.ts'
@@ -14,10 +14,10 @@ const STATUS: Record<DownloadStatus, string> = {
 
 export const ratioOf = (d: DownloadDto) => (d.totalBytes > 0 ? d.uploadedBytes / d.totalBytes : 0)
 
-/** One element for the lane; the canvas slice can read the same progress and status. */
+/** The accessible progress and geometry used by the containing scene. */
 export function ProgressBar({ download: d }: { download: DownloadDto }) {
   const progress = Math.min(100, Math.max(0, d.progress))
-  return <div className="download-lane" data-status={d.status} style={{ '--progress': `${progress}%` } as CSSProperties}
+  return <div className="download-lane" data-status={d.status} data-progress={progress}
     role="progressbar" aria-label={d.name} aria-valuemin={0} aria-valuemax={100}
     aria-valuenow={d.status === 'FetchingMetadata' ? undefined : progress} />
 }

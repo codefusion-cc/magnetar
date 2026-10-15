@@ -87,10 +87,8 @@ test('the screen loader announces its words and honours reduced motion', async (
   const loading = page.getByRole('status').filter({ hasText: 'Loading…' })
   await expect(loading).toHaveText('Loading…')
   await expect(loading).toHaveAttribute('aria-live', 'polite')
-  const star = loading.locator('[aria-hidden="true"]')
-  await expect(star).toHaveCSS('animation-duration', '2.4s')
-  await page.emulateMedia({ reducedMotion: 'reduce' })
-  await expect(star).toHaveCSS('animation-name', 'none')
+  // The star is a canvas picture, hidden from screen readers; reduced motion is covered in sky.e2e.ts.
+  await expect(loading.locator('canvas.state-sky[aria-hidden="true"]')).toBeVisible()
   const box = (await loading.boundingBox())!
   expect(box.height).toBeGreaterThanOrEqual(page.viewportSize()!.height)
 })

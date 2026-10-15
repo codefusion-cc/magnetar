@@ -1,3 +1,4 @@
+import { FanSky } from '../../ui/sky/Sky.tsx'
 import type { SearchResultDto, SourceOutcomeDto, TorrentDetailsDto } from '@magnetar/protocol'
 import { Check, Copy, Download, ExternalLink, Sprout } from 'lucide-react'
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
@@ -130,9 +131,10 @@ export function SearchPage() {
   const results = useMemo(() => (search.results ? [...search.results].sort(SORTS[sort]) : null), [search.results, sort])
   const downloadTo = useCallback((result: SearchResultDto) => request(result, true), [request])
 
-  const enabled = sources.filter(s => s.enabled && (!view.source || s.id === view.source))
-  const outcomes = enabled.map(s => ({ ...s, outcome: search.outcomes.find(o => o.source === s.name) }))
-  const { line, allFailed } = searchSummary(t, language, { outcomes: outcomes.flatMap(s => s.outcome ? [s.outcome] : []), total: results?.length ?? 0, sourceCount: enabled.length, searching: search.searching, ran: search.ran !== null, query: view.query })
+  // Stable between keystrokes, so the streams' picture repaints only when a source answers.
+  const outcomes = useMemo(() => sources.filter(s => s.enabled && (!view.source || s.id === view.source))
+    .map(s => ({ ...s, outcome: search.outcomes.find(o => o.source === s.name) })), [sources, view.source, search.outcomes])
+  const { line, allFailed } = searchSummary(t, language, { outcomes: outcomes.flatMap(s => s.outcome ? [s.outcome] : []), total: results?.length ?? 0, sourceCount: outcomes.length, searching: search.searching, ran: search.ran !== null, query: view.query })
 
   return (
     <>
@@ -243,10 +245,8 @@ function Outcomes({ list, line, allFailed, searching }: {
   return <div className="search-sources">
     <p role={allFailed ? 'alert' : 'status'} className={allFailed ? 'text-error' : ''}>{line}</p>
     <div className="source-figure">
-      <svg className="search-fan" viewBox="0 0 1000 162" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="fan-heat"><stop stopColor="var(--mg-h0)" /><stop offset="1" stopColor="var(--mg-h2)" /></linearGradient></defs>
-        {list.map((s, i) => <path key={s.id} d={`M 240 ${i * 27 + 13} Q 620 ${i * 27 + 13} 940 155`} fill="none" stroke="url(#fan-heat)" opacity={s.outcome?.status === 'ok' && s.outcome.returned ? '.35' : '.08'} />)}
-      </svg>
-      <ul>{list.map(({ id, name, outcome }) => <li key={id} className={!outcome || outcome.status === 'failed' || outcome.returned === outcome.filtered ? 'none' : ''} title={outcomeTitle(t, outcome)}>
+      <FanSky revision={list} />
+      <ul>{list.map(({ id, name, outcome }) => <li key={id} data-count={!outcome ? searching ? -2 : 0 : outcome.status === 'failed' ? -1 : Math.max(0, outcome.returned - outcome.filtered)} className={!outcome || outcome.status === 'failed' || outcome.returned === outcome.filtered ? 'none' : ''} title={outcomeTitle(t, outcome)}>
         <span>{name}</span><b>{outcomeCount(t, outcome, searching)}</b>
       </li>)}</ul>
     </div>

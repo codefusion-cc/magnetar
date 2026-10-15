@@ -8,6 +8,7 @@ import { pickParam, withParam } from '../../lib/urlState.ts'
 import { downloadSummary, retainFinished } from '../../lib/downloadPresentation.ts'
 import { Segmented } from '../../ui/controls.tsx'
 import { Empty } from '../../ui/Empty.tsx'
+import { LanesSky } from '../../ui/sky/Sky.tsx'
 import { Loading } from '../../ui/Loading.tsx'
 import { magnetsIn } from '../../lib/magnets.ts'
 import { useSteadySpeeds } from '../../lib/steadySpeed.ts'
@@ -77,7 +78,7 @@ export function DownloadsPage() {
   if (downloads.length === 0) return frame(<>{heading}<Empty appearance="download" title={t('downloads.emptyTitle')} text={t('downloads.emptyHint')}>
     <div className="infall-acts"><Link to={searchLink} className="infall-button">{t('downloads.searchButton')}</Link></div>
   </Empty></>)
-  return frame(<>{heading}<div className="downloads-lanes">
+  return frame(<>{heading}<LanesSky><div className="downloads-lanes">
     <div className="downloads-summary"><p>{transfer?.engine === 'waitingForNetwork' ? t('downloads.onlyNetwork', deviceName, transfer.networkInterface ?? '') : downloadSummary(t, language, deviceName, running, down)}{' '}
       {transfer?.freeBytes != null && <span className={transfer.freeBytes < 5e9 ? 'download-low-space' : undefined}>{t('downloads.free', bytes(transfer.freeBytes))}</span>} {up > 0 && <span>{t('downloads.uploading', rate(up))}</span>} {settings && <AltSpeedToggle settings={settings} transfer={transfer} />}</p>
     </div>
@@ -88,7 +89,7 @@ export function DownloadsPage() {
       {DOWNLOAD_SORTS.map(o => <option key={o} value={o}>{t(`downloads.sort.${o}`)}</option>)}
     </select>}</div>
     {shown.length === 0 ? <p className="muted py-6">{t(view === 'active' ? 'downloads.noneActive' : 'downloads.noneFinished')}</p> : <DownloadList key={view} downloads={shown} />}
-  </div></>)
+  </div></LanesSky></>)
 }
 
 /** Downloads in rows, limited a page at a time; series callers reuse the same list. */

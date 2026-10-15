@@ -242,7 +242,6 @@ body {
     font-size: 13px;
   }
 
-
   .frame-control:hover {
     background: var(--cf-raised);
   }
@@ -485,55 +484,7 @@ body {
   right: 0;
   top: 9px;
 }
-.download-lane {
-  position: relative;
-  height: 18px;
-  margin: 4px 0;
-  background: linear-gradient(var(--mg-seg),var(--mg-seg)) center / 100% 1px no-repeat;
-}
-.download-lane::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  width: var(--progress);
-  top: 8px;
-  height: 3px;
-  background: linear-gradient(90deg, var(--mg-h0), var(--mg-h1), var(--mg-h2));
-}
-.download-lane::after {
-  content: '';
-  position: absolute;
-  left: var(--progress);
-  top: 6px;
-  width: 6px;
-  height: 6px;
-  margin-left: -3px;
-  border-radius: 50%;
-  background: var(--mg-core);
-  box-shadow: var(--mg-halo-small);
-}
-.download-lane[data-status=Paused]::before {
-  background: var(--cf-muted);
-  opacity: .5;
-}
-.download-lane[data-status=Paused]::after {
-  background: var(--cf-page);
-  box-shadow: 0 0 0 1.5px var(--cf-muted);
-}
-.download-lane[data-status=Error] {
-  background: repeating-linear-gradient(90deg, var(--cf-danger) 0 2px, transparent 2px 10px) center / 100% 1px no-repeat;
-}
-.download-lane[data-status=Error]::after {
-  background: var(--cf-danger);
-  box-shadow: 0 0 9px var(--cf-danger);
-}
-.download-lane:is([data-status=Seeding],[data-status=Completed])::before {
-  background: var(--cf-ok);
-}
-.download-lane:is([data-status=Seeding],[data-status=Completed])::after {
-  background: var(--cf-ok);
-  box-shadow: 0 0 9px var(--cf-ok);
-}
+.download-lane { height: 18px; margin: 4px 0; }
 .download-meta {
   display: flex;
   flex-wrap: wrap;
@@ -574,12 +525,7 @@ body {
 .download-one-heading .download-lane {
   height: 26px;
 }
-.download-one-heading .download-lane::before {
-  top: 12px;
-}
-.download-one-heading .download-lane::after {
-  top: 10px;
-}
+
 .download-facts {
   display: grid;
   grid-template-columns: repeat(2,minmax(0,1fr));
@@ -641,14 +587,7 @@ body {
   display: grid;
   place-items: center;
 }
-.download-state-picture .infall-star {
-  width: 22px;
-  height: 22px;
-}
-.download-state-picture .infall-star[data-state="far"] {
-  width: 10px;
-  height: 10px;
-}
+
 .downloads-wait {
   display: flex;
   gap: 16px;
@@ -768,12 +707,9 @@ body {
   font-size: 16px;
 }
 .download-state-picture {
-  justify-content: start;
-  padding-left: 119px;
+  justify-content: stretch;
 }
-.downloads-wait .infall-star {
-  margin: 28.5px 38.5px;
-}
+
 .download-files-heading {
   display: flex;
   align-items: center;
@@ -787,9 +723,6 @@ body {
 .download-one > .infall-acts .download-actions {
   gap: 10px;
 }
-:root[data-theme=magnetar-dark] .download-lane:is([data-status=Downloading],[data-status=FetchingMetadata],[data-status=Queued])::after {
-  background: color-mix(in srgb, var(--mg-far), var(--mg-core) var(--progress));
-}
 
 .download-list-many .download-row {
   min-height: 100px;
@@ -797,9 +730,6 @@ body {
 @media (max-width: 720px) {
   .download-list-many .download-row {
     min-height: 176px;
-  }
-  .download-state-picture {
-    padding-left: 139px;
   }
 }
 
@@ -822,7 +752,10 @@ body {
 .search-filters .download-views { margin-bottom: 6px; }
 .search-sources { display: grid; gap: 8px; padding: 14px 0; font-size: 15px; }
 .source-figure { position: relative; display: grid; margin-top: 6px; }
-.search-fan { position: absolute; inset: -6px 0; width: 100%; height: 162px; pointer-events: none; }
+/* On a computer the star sits beside the best result's Download and its field spills over the rows below, as drawn;
+   on a phone it stays beside the sources, the canvas as tall as their list. */
+.search-fan { position: absolute; inset: -6px 0 auto; width: 100%; height: 380px; }
+@media (max-width: 519px) { .search-fan { inset: -6px 0; height: auto; } }
 .source-figure ul { position: relative; display: grid; justify-self: start; min-width: 210px; color: var(--cf-muted); }
 .source-figure li { display: flex; justify-content: space-between; gap: 18px; min-height: 27px; align-items: center; }
 .source-figure b { color: var(--cf-ink); font-weight: 600; }
@@ -920,3 +853,17 @@ body {
 .folder-crumb button { min-height: 40px; padding: 0 2px; text-decoration: underline; text-underline-offset: 4px; }
 .files-screen .folder-empty { margin: 22px 0 14px; font-size: 18px; color: var(--cf-ink); }
 .file-use-folder { align-self: flex-start; }
+
+/* Infall pictures share the scene package's clock and its viewport pin. */
+.sky { display: block; min-width: 0; width: 100%; pointer-events: none; }
+:root[data-theme=magnetar-light] .sky { filter: invert(1) hue-rotate(180deg); }
+/* The picture reaches into the column's right gutter, as the design's lanes do; the content keeps its width. */
+.sky-lanes { position: relative; margin-right: -40px; padding-right: 40px; }
+@media (max-width: 720px) { .sky-lanes { margin-right: -16px; padding-right: 16px; } }
+.sky-pin { position: absolute; inset: 0; pointer-events: none; }
+.sky-content { position: relative; }
+.state-sky { width: 300px; max-width: 100%; height: 210px; }
+.download-state-picture .state-sky { width: 100%; height: 100%; }
+.downloads-wait .state-sky, .state-sky.wait-sky { flex: 0 0 90px; width: 90px; height: 70px; }
+.hero-sky { height: 340px; margin-bottom: 24px; }
+@media (max-width: 720px) { .state-sky { height: 170px; } .hero-sky { height: 300px; } }
