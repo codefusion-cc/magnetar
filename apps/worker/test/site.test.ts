@@ -56,6 +56,25 @@ describe('the website API', () => {
     expect([response.status, await response.json()]).toEqual([500, { error: 'Something went wrong. Try again.', code: 'server_error' }])
   })
 
+  test('staging and Previews mark every page noindex; production none', async () => {
+    const files = { '/index.html': '<!doctype html>' }
+    for (const APP_ENV of ['staging', 'preview', 'development']) {
+      for (const path of ['/', '/MacBook-Pro', '/api/nope']) {
+        const page = await fetchWith({ ...env, APP_ENV, ASSETS: testAssets({ files }) }, new Request(`${ORIGIN}${path}`))
+        expect(page.headers.get('x-robots-tag'), `${APP_ENV} ${path}`).toBe('noindex')
+      }
+    }
+    for (const path of ['/', '/MacBook-Pro']) {
+      const page = await fetchWith({ ...production, ASSETS: testAssets({ files }) }, new Request(`https://magnetar.codefusion.cc${path}`))
+      expect([page.status, page.headers.get('x-robots-tag')], path).toEqual([200, null])
+    }
+  })
+
+  test("a Preview's app-config names the deployment it signs in through", async () => {
+    const config = await fetchWith({ ...env, GOOGLE_CALLBACK_ORIGIN: 'https://preview.magnetar.codefusion.cc' }, new Request(`${ORIGIN}/app-config.json`))
+    expect(await config.json()).toEqual({ mode: 'cloud', googleClientId: 'test-client.apps.googleusercontent.com', googleCallbackOrigin: 'https://preview.magnetar.codefusion.cc', devLogin: true })
+  })
+
   test('app-config tells the page it is the cloud site, with dev sign-in only in development', async () => {
     expect(await (await call('/app-config.json')).json()).toEqual({ mode: 'cloud', googleClientId: 'test-client.apps.googleusercontent.com', devLogin: true })
     const live = await fetchWith(production, new Request('https://magnetar.codefusion.cc/app-config.json'))

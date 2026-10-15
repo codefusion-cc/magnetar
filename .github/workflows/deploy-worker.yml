@@ -1,0 +1,79 @@
+name: Deploy the Worker
+
+# One environment's deploy of apps/worker, called by ci.yml for staging and, once approved, production: it builds
+# the dashboard (its version.json names the full commit, GITHUB_SHA, which the console and open pages read), applies
+# the D1 migrations, deploys the Worker, its assets and the DeviceRelay Durable Object, and waits until the website
+# serves the new commit.
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: The GitHub environment, whose CLOUDFLARE_API_TOKEN deploys
+        required: true
+        type: string
+      config:
+        description: The Wrangler config in apps/worker
+        required: true
+        type: string
+      origin:
+        description: The website's address
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ inputs.origin }}
+    # One deploy per environment at a time, never cancelled once started (it may have migrated the database). Merges
+    # that land meanwhile wait; only the newest of them runs.
+    concurrency:
+      group: deploy-${{ inputs.environment }}
+      cancel-in-progress: false
+    # The Cloudflare token only on the steps that call Cloudflare: dependencies' install scripts never see it.
+    env:
+      CONFIG: ${{ inputs.config }}
+      ORIGIN: ${{ inputs.origin }}
+      ENVIRONMENT: ${{ inputs.environment }}
+    defaults:
+      run:
+        working-directory: apps/worker
+    steps:
+      # Before checkout, so apps/worker doesn't exist yet: run it from the workspace root.
+      - name: Require the deploy token
+        working-directory: .
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::The $ENVIRONMENT environment's CLOUDFLARE_API_TOKEN secret is not set; see docs/DEPLOY.md"
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          # scripts/release-version.ts reads tags, commits and trees, never file contents.
+          filter: blob:none
+      # Until the release this merge starts has published its version, the website is ahead of the downloads.
+      - uses: ./.github/actions/build-dashboard
+        with:
+          sha: ${{ github.sha }}
+      # Before the Worker, so the new code never meets the old schema. Migrations only add, so the running Worker
+      # keeps working on the new one meanwhile.
+      - name: Apply D1 migrations
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx wrangler d1 migrations apply DB --remote -c "$CONFIG"
+      - name: Deploy the Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx wrangler deploy -c "$CONFIG" --message "${GITHUB_SHA::7} ${GITHUB_EVENT_NAME} by ${GITHUB_ACTOR}"
+      # Fails the job when the site doesn't serve this commit a minute after the deploy (@codefusion-cc/console).
+      - name: The website serves this commit
+        run: npx --yes -p @codefusion-cc/console@^0.27.0 codefusion-console wait-for-deploy "$ORIGIN"

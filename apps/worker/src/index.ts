@@ -7,7 +7,7 @@ import { handleAuth } from './auth.ts'
 import { consoleResources } from './console/admin.ts'
 import { manifest } from './console/manifest.ts'
 import { handleDevices } from './devices.ts'
-import { allowedOrigins, devLoginEnabled, MAX_BODY, type Env } from './env.ts'
+import { allowedOrigins, devLoginEnabled, googleReturnOrigin, MAX_BODY, type Env } from './env.ts'
 import { handlePush } from './push.ts'
 import { handleReleases } from './releases.ts'
 
@@ -51,12 +51,17 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
   const consoleAnswer = await consoleRoutes.fetch(request, env, ctx, origin => allowedOrigins(env).includes(origin))
   if (consoleAnswer) return consoleAnswer
   if (path === '/app-config.json') {
-    return json({ mode: 'cloud', googleClientId: env.GOOGLE_CLIENT_ID || undefined, devLogin: devLoginEnabled(env) || undefined } satisfies AppConfig)
+    return json({
+      mode: 'cloud',
+      googleClientId: env.GOOGLE_CLIENT_ID || undefined,
+      googleCallbackOrigin: env.GOOGLE_CALLBACK_ORIGIN || undefined,
+      devLogin: devLoginEnabled(env) || undefined,
+    } satisfies AppConfig)
   }
   if (path === '/api/telemetry/failure' && request.method === 'POST') return reportFailure(request, env)
   // Google's redirect back: the page it lands on, in the dashboard's background so it never flashes white, and
   // the hand-off that sends the token to /login on one of our origins.
-  return (await handleGoogleSignIn(request, { allowedOrigin: origin => allowedOrigins(env).includes(origin), page: GOOGLE_CALLBACK_PAGE }))
+  return (await handleGoogleSignIn(request, { allowedOrigin: origin => googleReturnOrigin(env, origin), page: GOOGLE_CALLBACK_PAGE }))
     ?? (await handleAuth(request, env, path))
     ?? (await handleDevices(request, env, path))
     ?? (await handlePush(request, env, path))
@@ -72,6 +77,8 @@ export default {
     const headers = new Headers(response.headers)
     headers.set('x-content-type-options', 'nosniff')
     headers.set('referrer-policy', 'no-referrer')
+    // Staging and Previews hold test data and run unreleased code: no search engine lists them.
+    if (env.APP_ENV !== 'production') headers.set('x-robots-tag', 'noindex')
     return new Response(response.body, { status: response.status, statusText: response.statusText, headers })
   },
 } satisfies ExportedHandler<Env>

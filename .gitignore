@@ -10,3 +10,5 @@ dist/
 node_modules/
 target/
 .review/
+wrangler.preview.generated.jsonc
+wrangler.preview-db.generated.jsonc

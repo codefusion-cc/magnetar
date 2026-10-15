@@ -1,0 +1,44 @@
+name: Preview cleanup
+
+# A pull request's Worker Preview (ci.yml, job "Branch Preview") is deleted with its database and its DeviceRelay
+# objects once the pull request is merged or closed. pull_request_target: this file as main has it runs with the
+# token, never a pull request's own version of it; it checks out main and runs no code from the pull request.
+on:
+  pull_request_target:
+    types: [closed]
+
+permissions:
+  contents: read
+
+jobs:
+  delete:
+    name: Delete the branch Preview
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    # The preview environment's token, without recording a deployment.
+    environment:
+      name: preview
+      deployment: false
+    # The branch's upload (ci.yml, the same group) is cancelled before the delete runs, so a Preview still uploading
+    # can't outlive its pull request.
+    concurrency:
+      group: preview-${{ github.head_ref }}
+      cancel-in-progress: true
+    steps:
+      # The default branch: a merged pull request's merge ref may already be gone.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      # Only Node and @codefusion-cc/previews, at the version package-lock.json pins: the job calls Cloudflare's API
+      # and needs no other dependency. The account and Worker come from wrangler.preview.jsonc. A branch whose
+      # Preview never deployed has neither, and that is fine.
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          HEAD_REF: ${{ github.head_ref }}
+        working-directory: apps/worker
+        run: |
+          version=$(node -p "require('../../package-lock.json').packages['node_modules/@codefusion-cc/previews'].version")
+          npx --yes -p "@codefusion-cc/previews@$version" codefusion-previews down "$HEAD_REF" --config wrangler.preview.jsonc --database-prefix magnetar-previews
