@@ -1,10 +1,10 @@
-import { ExternalLink, Link2, Plus, QrCode, RefreshCw, ShieldCheck, TimerOff, Unlink } from 'lucide-react'
+import { QrCode, RefreshCw, TimerOff, Unlink } from 'lucide-react'
 import { reservedDeviceName, toDeviceName } from '@magnetar/protocol/device-name'
 import QRCode from 'qrcode'
 import { useEffect, useRef, useState } from 'react'
 import { useFormatRelative, useT } from '../../lib/i18n.tsx'
-import { SettingGroup, SettingRow } from '../../ui/controls.tsx'
-import { CopyInput, Field } from '../../ui/fields.tsx'
+import { CopyInput } from '../../ui/fields.tsx'
+import { SettingActions, SettingSection, SettingValue } from '../../ui/settings.tsx'
 import { ConfirmDialog, Modal } from '../../ui/Modal.tsx'
 import { useCopy, useToast } from '../../ui/toast.tsx'
 import { useDevice } from '../DeviceContext.tsx'
@@ -30,7 +30,7 @@ interface ShownLink extends LinkWatch {
  */
 export function RemoteAccessSection() {
   const t = useT()
-  const formatRelative = useFormatRelative()
+  const formatRelative = useFormatRelative('long')
   const copy = useCopy(t('info.copied'))
   const toast = useToast()
   const run = useRun()
@@ -74,13 +74,6 @@ export function RemoteAccessSection() {
   const address = `${remote.cloudUrl.replace(/^https?:\/\//, '')}/${spelled}`
   // A word the website keeps for its own pages: say why the address differs from the name typed.
   const reserved = reservedDeviceName(name)
-  const nameField = (
-    <Field label={t('remote.deviceName')} className="flex-1"
-      help={spelled && (reserved ? <span className="text-warning">{t('remote.reservedName', reserved, address)}</span> : t('remote.address', address))}>
-      <input className="input w-full" maxLength={60} autoComplete="off" spellCheck={false} value={name} onChange={e => setName(e.target.value)} />
-    </Field>
-  )
-
   const pair = async () => {
     // Open the tab inside the click so popup blockers allow it, then point it at the link.
     const tab = window.open('about:blank', '_blank')
@@ -109,74 +102,67 @@ export function RemoteAccessSection() {
     }
   }
 
-  const status = remote.paired && (
-    <span className={`badge badge-soft ${remote.connected ? 'badge-success' : 'badge-warning'}`}>
-      {remote.connected ? t('remote.connected') : t('remote.reconnecting')}
-    </span>
+  const linkLabelId = 'magnetar-link-label'
+  const nameForm = (submit: string, onSubmit: () => void, disabled = false) => (
+    <form className="setting-inline" onSubmit={e => { e.preventDefault(); onSubmit() }}>
+      <input id="magnetar-device-name" maxLength={60} autoComplete="off" spellCheck={false} value={name} onChange={e => setName(e.target.value)}
+        aria-describedby={spelled ? 'magnetar-device-address' : undefined} />
+      <button type="submit" className="infall-button quiet sm" disabled={disabled}>{submit}</button>
+    </form>
   )
+  const nameHint = spelled && <span id="magnetar-device-address" className={reserved ? 'setting-warn' : undefined}>{reserved ? t('remote.reservedName', reserved, address) : t('remote.address', address)}</span>
 
   return (
     <>
-      <SettingGroup title={t('remote.title')} description={t('remote.hint')} action={status}>
-        {!remote.paired ? (
-          !local ? null : remote.pendingPairing ? (
-            <div className="flex flex-col gap-3">
-              <p className="flex items-center gap-2 text-sm"><span className="loading loading-spinner loading-sm text-primary" />{t('remote.waiting')}</p>
-              <div className="flex flex-wrap gap-2">
-                <a className="btn btn-primary btn-sm" href={remote.pendingPairing.url} target="_blank" rel="noopener noreferrer"><ExternalLink size={14} />{t('remote.openAgain')}</a>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => void run(() => connection.call('remote.cancelPairing'))}>{t('common.cancel')}</button>
-              </div>
-            </div>
-          ) : (
-            <form className="flex flex-col gap-3 sm:flex-row sm:items-start" onSubmit={e => { e.preventDefault(); void pair() }}>
-              {nameField}
-              <button type="submit" className="btn btn-primary sm:mt-7"><Link2 size={16} />{t('remote.connect')}</button>
-            </form>
-          )
-        ) : (
-          <>
-            <SettingRow title={t('remote.linkedTo', remote.accountEmail ?? '')}
-              description={<a className="link link-primary" href={remote.cloudUrl} target="_blank" rel="noopener noreferrer">{t('remote.openDashboard')}</a>}>
-              <ShieldCheck size={20} className="text-success" />
-            </SettingRow>
-            <form className="flex flex-col gap-3 py-4 sm:flex-row sm:items-start" onSubmit={e => {
-              e.preventDefault()
-              if (spelled && spelled !== remote.deviceName) void run(() => connection.call('remote.rename', { deviceName: spelled }))
-            }}>
-              {nameField}
-              <button type="submit" className="btn sm:mt-7" disabled={!spelled || spelled === remote.deviceName}>{t('remote.rename')}</button>
-            </form>
-            <SettingRow layout="wide" title={t('remote.disconnect')} description={t('remote.disconnectHint')}>
-              <button type="button" className="btn btn-sm text-error" onClick={() => setConfirm('unpair')}><Unlink size={14} />{t('remote.disconnect')}</button>
-            </SettingRow>
-          </>
-        )}
-        {remote.lastError && <p className="py-3 text-sm text-warning">{remote.lastError}</p>}
-      </SettingGroup>
-
-      {remote.paired && (
-        <SettingGroup title={t('remote.browsers')} description={t('remote.browsersHint')}>
-          {remote.browsers.map(b => (
-            <SettingRow key={b.keyId}
-              title={b.label}
-              description={<>
-                {connection.keyId === b.keyId && <span className="badge badge-soft badge-primary badge-sm mr-2">{t('remote.thisBrowser')}</span>}
-                {b.lastSeenAt ? t('remote.lastUsed', formatRelative(b.lastSeenAt)) : t('remote.neverUsed')}
-              </>}>
-              <button type="button" className="btn btn-ghost btn-sm text-error" onClick={() => setConfirm({ revoke: b.keyId })}>{t('remote.revoke')}</button>
-            </SettingRow>
-          ))}
-          {remote.browsers.length === 0 && <p className="muted py-3 text-sm">{t('remote.noBrowsers')}</p>}
-          <form className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-end" onSubmit={e => { e.preventDefault(); if (!minting) void mintLink(label.trim()) }}>
-            <Field label={t('remote.browserLabel')} className="flex-1">
-              <input className="input w-full" maxLength={60} value={label} placeholder={t('remote.browserLabelPlaceholder')} onChange={e => setLabel(e.target.value)} />
-            </Field>
-            <button type="submit" className="btn" disabled={minting}>
-              {minting && !link ? <span className="loading loading-spinner loading-sm" /> : <Plus size={16} />}{t('remote.linkBrowser')}
-            </button>
+      {!remote.paired ? (
+        <SettingSection title={t('remote.title')} alert={remote.lastError ?? undefined}>
+          <p>{t('remote.hint')}</p>
+          {local && (remote.pendingPairing ? <>
+            <p className="setting-waiting" role="status">{t('remote.waiting')}</p>
+            <SettingActions>
+              <a className="infall-button sm" href={remote.pendingPairing.url} target="_blank" rel="noopener noreferrer">{t('remote.openAgain')}</a>
+              <button type="button" className="infall-button quiet sm" onClick={() => void run(() => connection.call('remote.cancelPairing'))}>{t('common.cancel')}</button>
+            </SettingActions>
+          </> : <>
+            <div className="setting-field"><label htmlFor="magnetar-device-name">{t('remote.deviceName')}</label></div>
+            {nameForm(t('remote.connect'), () => void pair())}
+            {nameHint && <p className="fine">{nameHint}</p>}
+          </>)}
+        </SettingSection>
+      ) : <>
+        <SettingSection title={t('remote.reachable')} alert={remote.lastError ?? undefined}
+          hint={remote.connected ? undefined : t('remote.reconnecting')}>
+          <p>{t('remote.reachableHint', remote.accountEmail ?? '')}</p>
+          <SettingValue><a href={`${remote.cloudUrl.replace(/\/$/, '')}/${remote.deviceName}`} target="_blank" rel="noopener noreferrer">{`${remote.cloudUrl.replace(/^https?:\/\//, '').replace(/\/$/, '')}/${remote.deviceName}`}</a></SettingValue>
+        </SettingSection>
+        <SettingSection title={t('remote.deviceName')} htmlFor="magnetar-device-name" hint={spelled !== remote.deviceName ? nameHint || undefined : undefined}>
+          {nameForm(t('remote.rename'), () => { if (spelled && spelled !== remote.deviceName) void run(() => connection.call('remote.rename', { deviceName: spelled })) },
+            !spelled || spelled === remote.deviceName)}
+        </SettingSection>
+        <SettingSection title={t('remote.browsers')}>
+          {remote.browsers.length === 0 ? <p className="fine">{t('remote.noBrowsers')}</p> : (
+            <ul className="setting-rows">
+              {remote.browsers.map(b => (
+                <li key={b.keyId}>
+                  <div>
+                    <b>{b.label}</b>
+                    <span>{connection.keyId === b.keyId ? t('remote.thisBrowserNow') : b.lastSeenAt ? t('remote.lastUsed', formatRelative(b.lastSeenAt)) : t('remote.neverUsed')}</span>
+                  </div>
+                  <button type="button" className="infall-small danger" aria-label={`${t('remote.revoke')}: ${b.label}`} onClick={() => setConfirm({ revoke: b.keyId })}>{t('remote.revoke')}</button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <form className="setting-inline" onSubmit={e => { e.preventDefault(); if (!minting) void mintLink(label.trim()) }}>
+            <input id={linkLabelId} aria-label={t('remote.browserLabel')} maxLength={60} value={label} placeholder={t('remote.browserLabelPlaceholder')} onChange={e => setLabel(e.target.value)} />
+            <button type="submit" className="infall-button sm" disabled={minting} aria-busy={minting && !link}>{t('remote.linkBrowser')}</button>
           </form>
-        </SettingGroup>
-      )}
+        </SettingSection>
+        <SettingSection title={t('remote.disconnect')}>
+          <p>{t('remote.disconnectHint')}</p>
+          <SettingActions><button type="button" className="infall-small danger" onClick={() => setConfirm('unpair')}>{t('remote.disconnectButton')}</button></SettingActions>
+        </SettingSection>
+      </>}
 
       <Modal open={link !== null} title={t('remote.linkTitle')} icon={<QrCode size={20} />} onClose={closeLink}
         actions={link?.ended ? <>
@@ -211,7 +197,7 @@ export function RemoteAccessSection() {
       <ConfirmDialog open={confirm !== null}
         title={confirm === 'unpair' ? t('remote.disconnectTitle') : t('remote.revokeTitle')}
         message={confirm === 'unpair' ? t('remote.disconnectConfirm') : t('remote.revokeConfirm')}
-        options={[{ label: t('common.cancel'), value: false, tone: 'ghost' }, { label: confirm === 'unpair' ? t('remote.disconnect') : t('remote.revoke'), value: true, tone: 'error' }]}
+        options={[{ label: t('common.cancel'), value: false, tone: 'ghost' }, { label: confirm === 'unpair' ? t('remote.disconnectButton') : t('remote.revoke'), value: true, tone: 'error' }]}
         onResult={confirmed => {
           const action = confirm
           setConfirm(null)

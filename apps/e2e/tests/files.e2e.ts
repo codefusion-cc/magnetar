@@ -67,26 +67,27 @@ test('a new folder is made, opened empty, and chosen as the download folder', as
   await expect(page.getByText(`New downloads now go to ${name}`)).toBeVisible()
   await expect(page.getByRole('button', { name: 'Use as download folder' })).toHaveCount(0)
   await page.goto('/settings/downloads')
-  await expect(page.getByRole('textbox', { name: 'Download folder' })).toHaveValue(join(path, name))
+  await expect(page.locator('section').filter({ has: page.getByRole('heading', { name: 'Download folder' }) }).locator('.setting-value')).toHaveText(join(path, name))
 
   // The old download folder stays in Files, where its files still are.
   await page.goto('/files')
   await page.locator('summary', { hasText: 'Folders you can browse' }).click()
   await expect(page.getByRole('list', { name: 'Folders you can browse' }).getByText(path, { exact: true })).toBeVisible()
 
-  // Put it back for the other tests.
+  // Put it back for the other tests, from the place it is still listed as.
+  await page.getByRole('list', { name: 'Folders you can browse' }).getByRole('button').filter({ has: page.getByText(path, { exact: true }) }).first().click()
+  await page.getByRole('button', { name: 'Use as download folder' }).click()
   await page.goto('/settings/downloads')
-  const field = page.getByRole('textbox', { name: 'Download folder' })
-  await field.fill(path)
-  await field.press('Enter')
-  await expect(field).toHaveValue(path)
+  // Chosen in Files, the folder is spelled as Files lists it, with its closing separator.
+  await expect(page.locator('section').filter({ has: page.getByRole('heading', { name: 'Download folder' }) }).locator('.setting-value'))
+    .toHaveText(new RegExp(`^${path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/?$`))
 })
 
 test('the folder chooser starts at the chosen folder and picks another inside the roots', async ({ page }) => {
   test.skip(process.platform === 'darwin', 'On macOS the dashboard on the computer shows the system\'s folder chooser.')
   const path = await downloadFolder(page)
   await page.goto('/settings/downloads')
-  await page.getByRole('button', { name: 'Browse…' }).click()
+  await page.getByRole('button', { name: 'Change: Download folder' }).click()
   const chooser = dialog(page, 'Choose folder')
   await expect(chooser.getByRole('heading', { name: 'Download folder', level: 2 })).toBeVisible()
   await expect(chooser.getByText('notes.txt')).toHaveCount(0)
@@ -94,13 +95,13 @@ test('the folder chooser starts at the chosen folder and picks another inside th
   await expect(chooser.getByText('No folders in here.')).toBeVisible()
   await chooser.getByRole('button', { name: 'Select this folder' }).click()
   await expect(chooser).toBeHidden()
-  await expect(page.getByRole('textbox', { name: 'Download folder' })).toHaveValue(join(path, 'Show S01'))
+  await expect(page.locator('section').filter({ has: page.getByRole('heading', { name: 'Download folder' }) }).locator('.setting-value')).toHaveText(join(path, 'Show S01'))
 
-  await page.getByRole('button', { name: 'Browse…' }).click()
+  await page.getByRole('button', { name: 'Change: Download folder' }).click()
   await dialog(page, 'Choose folder').getByRole('navigation', { name: 'Folder path' }).getByRole('button', { name: 'Files' }).click()
   await dialog(page, 'Choose folder').getByRole('button').filter({ has: page.getByText(path, { exact: true }) }).click()
   await dialog(page, 'Choose folder').getByRole('button', { name: 'Select this folder' }).click()
-  await expect(page.getByRole('textbox', { name: 'Download folder' })).toHaveValue(path)
+  await expect(page.locator('section').filter({ has: page.getByRole('heading', { name: 'Download folder' }) }).locator('.setting-value')).toHaveText(path)
 })
 
 test('a folder added on the computer can be browsed, and removed again', async ({ page }) => {

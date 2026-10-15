@@ -2,18 +2,20 @@ import { expect, test } from '@playwright/test'
 
 test('speed limits are checked as typed, saved on leaving the field, and kept', async ({ page }) => {
   await page.goto('/settings/downloads')
-  // The usual limits come before the alternative ones.
-  const download = () => page.getByRole('spinbutton', { name: 'Download' }).first()
-  const unit = () => page.getByRole('combobox', { name: 'Unit' }).first()
-  await download().fill('10')
-  await expect(page.getByText('At least 32 KiB/s, or blank for no limit.')).toBeVisible()
-  await download().fill('5')
-  await unit().selectOption({ label: 'MiB/s' })
+  // The usual limits come before the slower ones.
+  const download = () => page.getByRole('textbox', { name: 'Download, MB/s' }).first()
+  await download().fill('0.01')
   await download().press('Enter')
-  await expect(page.getByText('At least 32 KiB/s')).toHaveCount(0)
+  await expect(page.getByText('At least 33 KB/s, or blank for no limit.')).toBeVisible()
+  await download().fill('5')
+  await download().press('Enter')
+  await expect(page.getByText('At least 33 KB/s')).toHaveCount(0)
   await page.reload()
   await expect(download()).toHaveValue('5')
-  await expect(unit()).toHaveValue(String(1024 * 1024))
+  await download().fill('')
+  await download().press('Enter')
+  await page.reload()
+  await expect(download()).toHaveValue('')
 })
 
 test('the dashboard speaks the chosen language, and back', async ({ page }) => {

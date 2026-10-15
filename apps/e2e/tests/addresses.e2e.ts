@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 
 /** The settings page's own list of sections, apart from the main navigation. */
-const sections = (page: Page) => page.getByRole('navigation', { name: 'Settings', exact: true })
+const sections = (page: Page) => page.getByRole('navigation', { name: 'Sections', exact: true })
 
 test('settings sections have their own addresses, and older links still land', async ({ page }) => {
   await page.goto('/settings?section=agents')

@@ -867,3 +867,69 @@ body {
 .downloads-wait .state-sky, .state-sky.wait-sky { flex: 0 0 90px; width: 90px; height: 70px; }
 .hero-sky { height: 340px; margin-bottom: 24px; }
 @media (max-width: 720px) { .state-sky { height: 170px; } .hero-sky { height: 300px; } }
+
+/* Settings: the sections in a column on a computer and a wrapped row on a phone; each setting a titled section. */
+.settings-layout { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 44px; align-items: start; }
+.settings-sections { display: grid; gap: 2px; position: sticky; top: 16px; }
+.settings-sections a { display: flex; align-items: center; min-height: 40px; padding: 0 12px; border-radius: 8px; color: var(--cf-muted); }
+.settings-sections a:hover { color: var(--cf-ink); }
+.settings-sections a[aria-current] { color: var(--cf-ink); font-weight: 600; background: var(--cf-raised); }
+.settings-panel { display: grid; max-width: 620px; min-width: 0; }
+.setting { display: grid; gap: 10px; justify-items: start; padding: 22px 0; border-top: 1px solid var(--cf-line); min-width: 0; }
+.setting > * { max-width: 100%; }
+.setting h2 { font-size: 17px; font-weight: 600; line-height: 1.3; }
+.setting p { overflow-wrap: anywhere; }
+.setting .fine, .settings-panel > .fine { font-size: 14px; color: var(--cf-muted); }
+.settings-saves { padding-top: 12px; }
+.setting-alert { color: var(--cf-danger); font-size: 15px; }
+.setting-warn { color: var(--cf-warn); }
+.setting-value { font-weight: 500; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.setting-value a { text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
+.setting-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.infall-button.sm, .infall-small.sm { min-height: 38px; }
+.infall-small.danger, .infall-button.danger { color: var(--cf-danger); }
+.setting-link { min-height: 40px; padding: 0 2px; text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; cursor: pointer; }
+.setting-check { display: flex; gap: 12px; align-items: center; min-height: 44px; cursor: pointer; }
+.setting-check input { width: 20px; height: 20px; margin: 0; flex: none; accent-color: var(--cf-accent); }
+/* A source's star, small, in a 22px place of its own as drawn. */
+.setting-check > span { display: inline-flex; align-items: center; gap: 10px; }
+.setting-check > span > .infall-star { width: 8px; height: 8px; margin: 0 7px; flex: none; }
+.setting-check:has(input:disabled) { cursor: default; color: var(--cf-muted); }
+.setting-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; width: 100%; max-width: 420px; }
+.setting-field { display: grid; gap: 4px; min-width: 0; justify-items: start; }
+.setting-field label { font-size: 14px; color: var(--cf-muted); }
+.setting-field input { width: 100%; }
+.setting-short input { width: 6.5em; }
+.setting-field-error { font-size: 14px; color: var(--cf-danger); }
+.setting :is(input:not([type=checkbox]), select), .setting-inline input {
+  min-height: 46px; min-width: 0; padding: 0 14px; border: 1px solid var(--cf-line); border-radius: 10px; background: var(--cf-surface); color: var(--cf-ink); font-size: 16px;
+}
+.setting :is(input:not([type=checkbox]), select):focus-visible { outline: 2px solid var(--cf-focus); outline-offset: 2px; border-color: var(--cf-accent); }
+/* Time fields draw their own parts; the ring goes on the whole field whichever part has focus. */
+.setting input[type=time]:focus-within { outline: 2px solid var(--cf-focus); outline-offset: 2px; }
+.setting input[aria-invalid=true] { border-color: var(--cf-danger); }
+.setting-select { max-width: 100%; }
+.setting-mono { font-family: var(--cf-font-mono); font-size: 14px; }
+.setting-inline { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; max-width: 560px; }
+.setting-inline input { flex: 1 1 12em; }
+.setting-days { display: flex; flex-wrap: wrap; gap: 4px; }
+.setting-days button { min-width: 44px; min-height: 36px; padding: 0 10px; border-radius: 8px; color: var(--cf-muted); box-shadow: inset 0 0 0 1px var(--cf-line); }
+.setting-days button[aria-pressed=true] { color: var(--cf-ink); font-weight: 600; background: var(--cf-raised); box-shadow: none; }
+.setting-list, .setting-rows { width: 100%; }
+.setting-list { max-width: 420px; }
+.setting-list li { border-top: 1px solid var(--cf-line); }
+.setting-list li:first-child { border-top: 0; }
+.setting-rows li { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; padding: 10px 0; border-top: 1px solid var(--cf-line); }
+.setting-rows li > div { display: grid; min-width: 0; }
+.setting-rows li > div span { font-size: 14px; color: var(--cf-muted); }
+.setting-row-actions { display: flex; gap: 8px; align-items: center; }
+.setting-row-more { flex-basis: 100%; }
+.setting-waiting { color: var(--cf-muted); }
+@media (max-width: 720px) {
+  .settings-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .settings-sections { display: flex; flex-wrap: wrap; position: static; }
+  .settings-sections a { padding: 0 10px; }
+  .setting-two { grid-template-columns: minmax(0, 1fr); }
+}
+/* A setting's choices wrap on a phone rather than run past the screen (long in Polish and German). */
+.setting .download-views { flex-wrap: wrap; }

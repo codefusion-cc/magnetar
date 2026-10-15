@@ -53,7 +53,7 @@ const size = (value: string) => {
   return Number(n) * ({ GB: 1e9, MB: 1e6, KB: 1e3 }[unit ?? ''] ?? 1) || 0
 }
 
-export type InfallScreen = 'downloads' | 'many' | 'empty' | 'details' | 'details-fail' | 'held' | 'loading' | 'downloads-fail' | 'search' | 'long' | 'search-start' | 'search-wait' | 'search-none' | 'search-fail' | 'watchlist' | 'watch-empty' | 'watch-wait' | 'watch-fail' | 'files' | 'files-empty' | 'files-wait' | 'files-gone'
+export type InfallScreen = 'downloads' | 'many' | 'empty' | 'details' | 'details-fail' | 'held' | 'loading' | 'downloads-fail' | 'search' | 'long' | 'search-start' | 'search-wait' | 'search-none' | 'search-fail' | 'watchlist' | 'watch-empty' | 'watch-wait' | 'watch-fail' | 'files' | 'files-empty' | 'files-wait' | 'files-gone' | 'set-general' | 'set-dl' | 'set-notify' | 'set-sources' | 'settings' | 'set-agents' | 'set-about'
 
 export function infallDownloads(screen: InfallScreen): DownloadDto[] {
   if (screen === 'empty') return []

@@ -1,8 +1,8 @@
 import type { AgentClientDto, AgentClientId, AgentStatusDto } from '@magnetar/protocol'
-import { Check, ChevronDown, Copy, Plug } from 'lucide-react'
+import { Copy } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useT } from '../../lib/i18n.tsx'
-import { SettingGroup } from '../../ui/controls.tsx'
+import { SettingActions, SettingSection } from '../../ui/settings.tsx'
 import { CopyInput } from '../../ui/fields.tsx'
 import { useCopy, useToast } from '../../ui/toast.tsx'
 import { useDevice } from '../DeviceContext.tsx'
@@ -37,9 +37,7 @@ export function AgentClients({ onAgent }: { onAgent: (agent: AgentStatusDto) => 
     toast(t('settings.agentConnectedToast', client.name), 'success')
   }
 
-  if (clients === null) {
-    return <SettingGroup title={t('settings.agentsTitle')}><span className="loading loading-dots loading-sm" /></SettingGroup>
-  }
+  if (clients === null) return <SettingSection title={t('settings.agentsTitle')}><p className="fine" role="status">{t('common.loading')}</p></SettingSection>
   const found = clients.filter(c => c.installed)
   const others = clients.filter(c => !c.installed)
   const row = (client: AgentClientDto) => (
@@ -47,18 +45,16 @@ export function AgentClients({ onAgent }: { onAgent: (agent: AgentStatusDto) => 
       onConnect={() => void connect(client)} />
   )
   return (
-    <SettingGroup title={t('settings.agentsTitle')} description={t('settings.agentsHint')}>
-      {found.length === 0 && <p className="muted pb-3 text-sm">{t('settings.agentNoneFound')}</p>}
-      <ul className="divide-y divide-base-300">{found.map(row)}</ul>
-      {others.length > 0 && (
-        <div className={found.length > 0 ? 'mt-2 border-t border-base-300 pt-2' : ''}>
-          <button type="button" className="btn btn-ghost btn-sm -mx-2 gap-1.5" aria-expanded={showOthers} onClick={() => setShowOthers(s => !s)}>
-            <ChevronDown size={16} className={`transition-transform ${showOthers ? 'rotate-180' : ''}`} />{t('settings.agentOthers', others.length)}
-          </button>
-          {showOthers && <ul className="divide-y divide-base-300">{others.map(row)}</ul>}
-        </div>
-      )}
-    </SettingGroup>
+    <SettingSection title={t('settings.agentsTitle')}>
+      <p>{t('settings.agentsHint')}</p>
+      {found.length === 0 ? <p className="fine">{t('settings.agentNoneFound')}</p> : <ul className="setting-rows">{found.map(row)}</ul>}
+      {others.length > 0 && <>
+        <SettingActions>
+          <button type="button" className="setting-link" aria-expanded={showOthers} onClick={() => setShowOthers(s => !s)}>{t('settings.agentOthers')}</button>
+        </SettingActions>
+        {showOthers && <ul className="setting-rows">{others.map(row)}</ul>}
+      </>}
+    </SettingSection>
   )
 }
 
@@ -76,27 +72,18 @@ function AgentRow({ client, busy, disabled, failed, onConnect }: {
   const action = t(client.connected ? 'settings.agentReconnect' : 'settings.agentConnect')
   const panel = `agent-manual-${client.id}`
   return (
-    <li className="py-3">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <div className="min-w-0 flex-1">
-          <div className="font-medium">{client.name}</div>
-          <div className={`mt-0.5 flex items-center gap-1 text-sm ${client.connected ? 'text-success' : 'muted'}`}>
-            {client.connected && <Check size={14} aria-hidden />}
-            {t(client.connected ? 'settings.agentConnected' : client.installed ? 'settings.agentFound' : 'settings.agentNotFound')}
-          </div>
-        </div>
-        <button type="button" className="btn btn-ghost btn-sm" aria-expanded={open} aria-controls={panel} onClick={() => setManual(!open)}>
-          {t('settings.agentManual')}<ChevronDown size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
-        </button>
-        {client.installed && (
-          <button type="button" className={`btn btn-sm ${client.connected ? 'btn-ghost' : 'btn-primary'}`} disabled={disabled} onClick={onConnect}
-            aria-label={`${action}: ${client.name}`}>
-            {busy ? <span className="loading loading-spinner loading-xs" /> : <Plug size={14} />}
-            {action}
-          </button>
-        )}
+    <li className="setting-row-open">
+      <div>
+        <b>{client.name}</b>
+        <span>{t(client.connected ? 'settings.agentConnected' : client.installed ? 'settings.agentFound' : 'settings.agentNotFound')}</span>
       </div>
-      {open && <div id={panel} className="mt-3"><ManualSetup client={client} /></div>}
+      <span className="setting-row-actions">
+        <button type="button" className="setting-link" aria-expanded={open} aria-controls={panel} onClick={() => setManual(!open)}>{t('settings.agentManual')}</button>
+        {client.installed && (
+          <button type="button" className="infall-small" disabled={disabled} aria-busy={busy} onClick={onConnect} aria-label={`${action}: ${client.name}`}>{action}</button>
+        )}
+      </span>
+      {open && <div id={panel} className="setting-row-more"><ManualSetup client={client} /></div>}
     </li>
   )
 }

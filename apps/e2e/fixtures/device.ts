@@ -9,7 +9,7 @@ export async function serveDevice(page: Page, { name = 'Test computer', language
   const calls: string[] = []
   /** Every call with its parameters, for tests that care what was asked, not only that it was. */
   const log: { method: string; params: Record<string, any> }[] = []
-  const failures = new Map<string, string>()
+  const failures = new Map<string, { message: string; code: string }>()
   const holds = new Map<string, Promise<void>>()
   const heldLists = new Set<() => void>()
   let files: DownloadFileDto[] = design ? infallFiles() : []
@@ -22,6 +22,15 @@ export async function serveDevice(page: Page, { name = 'Test computer', language
     smtpUseSsl: false, smtpUsername: '', smtpPasswordSet: false, emailFrom: '', emailTo: '', desktopEnabled: false,
     telegramEnabled: false, telegramBotTokenSet: false, telegramChatId: '', errorReportsEnabled: false, askDownloadFolder: true,
   }
+  // The settings screens show the values the design was drawn with.
+  const settingsDesign = design === 'settings' || design?.startsWith('set-') === true
+  if (settingsDesign) Object.assign(settings, {
+    postDownloadAction: 'SeedToRatio', seedRatio: 1.5, uploadLimit: 2_000_000, altDownloadLimit: 1_000_000, altUploadLimit: 500_000,
+    altSpeedMode: 'scheduled', altScheduleFrom: 480, altScheduleTo: 1380, altScheduleDays: [0, 1, 2, 3, 4], networkInterface: 'utun4',
+    notifyOnComplete: true, emailEnabled: true, smtpHost: 'smtp.example.com', smtpPort: 465, smtpUseSsl: true, emailFrom: 'magnetar@example.com',
+    emailTo: 'alex@example.com', telegramEnabled: true, telegramBotTokenSet: true, telegramChatId: '48213377', errorReportsEnabled: true,
+    askDownloadFolder: false, disabledProviders: ['EZTV'],
+  } satisfies Partial<SettingsDto>)
   let downloads: DownloadDto[] = design ? infallDownloads(design) : []
   let nextId = downloads.length + 1
   const sockets = new Set<WebSocketRoute>()
@@ -43,10 +52,24 @@ export async function serveDevice(page: Page, { name = 'Test computer', language
     'updates.status': { currentVersion: '1.2.1', currentCommit: 'abcdef1', available: null, canSelfInstall: false, checking: false, installing: false, lastCheckedAt: null, lastCheckError: null, lastCheckProblem: null, retryAt: null },
     'remote.status': { paired: true, deviceName: name, deviceId: 'test', accountEmail: 'test@example.org', cloudUrl: 'https://example.org', browsers: [], connected: true, pendingPairing: null, lastError: null },
     'legacy.status': { available: false, path: null, imported: false, downloads: 0, seriesTasks: 0 },
-    'startup.status': { status: 'unavailable' },
+    'startup.status': { status: settingsDesign ? 'enabled' : 'unavailable' },
+    'startup.set': { status: 'enabled' },
     'fs.roots': design ? infallRoots(language) : { roots: [{ path: '/downloads', kind: 'downloads', available: true, freeBytes: null }], canAdd: true },
     'fs.browse': { path: '/downloads', root: '/downloads', separator: '/', entries: [], offset: 0, total: 0, truncated: false },
   }
+  if (settingsDesign) Object.assign(replies, {
+    'handlers.status': { status: 'default' },
+    'network.interfaces': { supported: true, interfaces: [{ name: 'utun4', addresses: ['10.8.0.2'], vpn: true }, { name: 'en0', addresses: ['192.168.1.20'], vpn: false }] },
+    'updates.status': { ...replies['updates.status']!, currentVersion: '1.2.2', currentCommit: '6759fe9', lastCheckedAt: '2026-10-14T20:02:00+02:00' },
+    'app.info': { ...replies['app.info']!, version: '1.2.2', commit: '6759fe9', dataDirectory: '/Users/alex/Library/Application Support/Magnetar', arch: 'arm64' },
+    'remote.status': { ...replies['remote.status']!, accountEmail: 'alex@example.com', cloudUrl: 'https://magnetar.codefusion.cc', browsers: [
+      { keyId: 'phone', label: language === 'pl' ? 'iPhone Alexa' : 'Alex’s iPhone', createdAt: '2026-09-01T10:00:00Z', lastSeenAt: '2026-10-14T20:39:00+02:00' },
+      { keyId: 'firefox', label: language === 'pl' ? 'Firefox na MacBook-Pro' : 'Firefox on MacBook-Pro', createdAt: '2026-09-02T10:00:00Z', lastSeenAt: '2026-10-13T18:00:00+02:00' },
+    ] },
+    'agent.status': { enabled: true, allowRemote: false, token: 'token', mcpUrl: 'http://127.0.0.1:47820/mcp', endpointFile: '/Users/alex/Library/Application Support/Magnetar/endpoint.json' },
+    'agent.clients': ([['claudeCode', 'Claude Code', true], ['codex', 'Codex', false], ['cursor', 'Cursor', false]] as const).map(([id, name, connected]) =>
+      ({ id, name, installed: true, connected, manual: { kind: 'command' as const, text: `${id} mcp add magnetar` } })),
+  } satisfies Partial<RpcResults>)
   await page.route('**/app-config.json', route => route.fulfill({ json: { mode: remote ? 'cloud' : 'local', googleClientId: '', devAuth: false } }))
   await page.route('**/api/releases/latest', route => route.fulfill({ status: 503, body: '' }))
   if (remote) {
@@ -97,7 +120,7 @@ export async function serveDevice(page: Page, { name = 'Test computer', language
       const failure = failures.get(method)
       if (failure) {
         failures.delete(method)
-        reply(socket, { id, error: { code: 'test_failure', message: failure } })
+        reply(socket, { id, error: failure })
         return
       }
       if ((method === 'series.list' && design === 'watch-wait') || (method === 'fs.browse' && design === 'files-wait')) return
@@ -177,7 +200,8 @@ export async function serveDevice(page: Page, { name = 'Test computer', language
     },
     setReply: <M extends keyof RpcResults>(method: M, result: RpcResults[M]) => { replies[method] = result },
     releaseList: () => { holdList = false; for (const release of heldLists) release(); heldLists.clear() },
-    failNext: (method: string, message: string) => failures.set(method, message),
+    /** The next call of `method` fails; `timeout` reads as a computer that did not answer. */
+    failNext: (method: string, message: string, code = 'test_failure') => failures.set(method, { message, code }),
     setFiles: (next: DownloadFileDto[]) => { files = next },
     downloads: () => downloads,
     settings: () => settings,
