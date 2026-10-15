@@ -3,9 +3,10 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { useFormatBytes, useFormatRate, useLanguage, useT } from '../../lib/i18n.tsx'
 import { DEFAULT_DOWNLOAD_VIEW, DOWNLOAD_VIEWS, inView, isRunning, type DownloadView } from '../../lib/downloadViews.ts'
-import { DOWNLOAD_SORTS, parseDownloadSort, readDownloadSort, sortDownloads, writeDownloadSort } from '../../lib/downloadSort.ts'
+import { DOWNLOAD_SORTS, readDownloadSort, sortDownloads, writeDownloadSort } from '../../lib/downloadSort.ts'
 import { pickParam, withParam } from '../../lib/urlState.ts'
 import { downloadSummary, retainFinished } from '../../lib/downloadPresentation.ts'
+import { Select } from '../../ui/Select.tsx'
 import { Segmented } from '../../ui/controls.tsx'
 import { Empty } from '../../ui/Empty.tsx'
 import { LanesSky } from '../../ui/sky/Sky.tsx'
@@ -82,10 +83,9 @@ export function DownloadsPage() {
     </div>
     <div className="download-views-row"><Segmented appearance="quiet" label={t('downloads.filter')} value={view} onChange={setView}
       options={DOWNLOAD_VIEWS.map(v => ({ value: v, label: t(`downloads.view.${v}`) }))} />
-    {downloads.length > 1 && <select className="download-sort" aria-label={t('downloads.sort')} value={sort}
-      onChange={e => { const next = parseDownloadSort(e.target.value); setSort(next); writeDownloadSort(deviceName, next) }}>
-      {DOWNLOAD_SORTS.map(o => <option key={o} value={o}>{t(`downloads.sort.${o}`)}</option>)}
-    </select>}</div>
+    {downloads.length > 1 && <Select look="quiet" className="ml-auto" label={t('downloads.sort')} value={sort}
+      onChange={next => { setSort(next); writeDownloadSort(deviceName, next) }}
+      options={DOWNLOAD_SORTS.map(o => ({ value: o, label: t(`downloads.sort.${o}`) }))} />}</div>
     {shown.length === 0 ? <p className="muted py-6">{t(view === 'active' ? 'downloads.noneActive' : 'downloads.noneFinished')}</p> : <DownloadList key={view} downloads={shown} />}
   </div></LanesSky></>)
 }

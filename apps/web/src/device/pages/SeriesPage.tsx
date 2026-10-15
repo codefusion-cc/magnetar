@@ -6,7 +6,7 @@ import { useFormatRelative, useLanguage, useT } from '../../lib/i18n.tsx'
 import { usePathChoice } from '../../lib/urlState.ts'
 import { parseQuality, qualityForm, type QualityForm } from '../../lib/quality.ts'
 import { Segmented, Switch } from '../../ui/controls.tsx'
-import { Field, TextField } from '../../ui/fields.tsx'
+import { SelectField, TextField } from '../../ui/fields.tsx'
 import { Empty } from '../../ui/Empty.tsx'
 import { Loading } from '../../ui/Loading.tsx'
 import { SeasonOrbit, EpisodeApproach } from '../components/episodes.tsx'
@@ -301,17 +301,12 @@ function SeriesDialog({ task, onClose }: { task: SeriesTaskDto | 'new' | null; o
 
         <FormSection title={t('series.whereTitle')}>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label={t('search.source')}>
-              <select className="select w-full" value={form.provider} onChange={e => set('provider')(e.target.value)}>
-                <option value="">{t('search.allSources')}</option>
-                {sources.filter(s => s.enabled || s.name === form.provider).map(s => <option key={s.name} value={s.name}>{s.name}</option>)}
-              </select>
-            </Field>
-            <Field label={t('series.checkEvery')}>
-              <select className="select w-full" value={form.checkIntervalMinutes} onChange={e => set('checkIntervalMinutes')(Number(e.target.value))}>
-                {intervals.map(m => <option key={m} value={m}>{intervalLabel(t, m)}</option>)}
-              </select>
-            </Field>
+            <SelectField label={t('search.source')} value={form.provider} onChange={set('provider')} options={[
+              { value: '', label: t('search.allSources') },
+              ...sources.filter(s => s.enabled || s.name === form.provider).map(s => ({ value: s.name, label: s.name })),
+            ]} />
+            <SelectField label={t('series.checkEvery')} value={form.checkIntervalMinutes} onChange={set('checkIntervalMinutes')}
+              options={intervals.map(m => ({ value: m, label: intervalLabel(t, m) }))} />
           </div>
           <FolderField label={t('series.folder')} value={form.downloadFolder} placeholder={settings?.downloadFolder}
             help={t('series.folderHelp')} onChange={set('downloadFolder')} />

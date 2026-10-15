@@ -1,5 +1,6 @@
-import { useEffect, useState, type InputHTMLAttributes, type ReactNode } from 'react'
+import { useEffect, useId, useState, type InputHTMLAttributes, type ReactNode } from 'react'
 import { Copy } from 'lucide-react'
+import { Select, type SelectProps } from './Select.tsx'
 
 /** A read-only value with a button that copies it. */
 export function CopyInput({ label, value, copyLabel, onCopy, small = false }: {
@@ -17,14 +18,34 @@ export function CopyInput({ label, value, copyLabel, onCopy, small = false }: {
   )
 }
 
-/** A field with its label above and optional help below; the label stays visible while typing. */
-export function Field({ label, help, className = '', children }: { label: string; help?: ReactNode; className?: string; children: ReactNode }) {
+/**
+ * A field with its name above and optional help below; the name stays visible while typing. A single input sits inside
+ * the label. A control with a list of its own (a Select) is named with `htmlFor`, and a group of choices that names
+ * itself (a Segmented) gets `group`: a label passes a click anywhere in it on to its first control.
+ */
+export function Field({ label, help, className = '', htmlFor, group = false, children }: {
+  label: string; help?: ReactNode; className?: string; htmlFor?: string; group?: boolean; children: ReactNode
+}) {
+  const Root = htmlFor || group ? 'div' : 'label'
+  const Name = htmlFor ? 'label' : 'span'
   return (
-    <label className={`flex flex-col gap-1.5 ${className}`}>
-      <span className="text-sm font-medium">{label}</span>
+    <Root className={`flex flex-col gap-1.5 ${className}`}>
+      <Name htmlFor={htmlFor} className="text-sm font-medium">{label}</Name>
       {children}
       {help && <span className="muted text-xs">{help}</span>}
-    </label>
+    </Root>
+  )
+}
+
+/** A labelled choice of one among a few, as wide as its form. */
+export function SelectField<T extends string | number>({ label, help, className, ...select }: {
+  label: string; help?: ReactNode; className?: string
+} & Omit<SelectProps<T>, 'id' | 'label' | 'className'>) {
+  const id = useId()
+  return (
+    <Field label={label} help={help} className={className} htmlFor={id}>
+      <Select id={id} className="w-full" {...select} />
+    </Field>
   )
 }
 

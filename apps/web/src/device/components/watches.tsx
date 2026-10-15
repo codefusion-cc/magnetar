@@ -5,7 +5,7 @@ import { Link } from 'react-router'
 import { useFormatBytes, useFormatRelative, useT } from '../../lib/i18n.tsx'
 import { parseQuality, qualityForm, resolutionLabel, type QualityForm } from '../../lib/quality.ts'
 import { Segmented, Switch } from '../../ui/controls.tsx'
-import { Field, TextField } from '../../ui/fields.tsx'
+import { Field, SelectField, TextField } from '../../ui/fields.tsx'
 import { Empty } from '../../ui/Empty.tsx'
 import { SeasonOrbit, EpisodeApproach } from './episodes.tsx'
 import { ConfirmDialog, Modal } from '../../ui/Modal.tsx'
@@ -175,12 +175,9 @@ function WatchDialog({ watch, draft, onClose }: { watch: WatchDto | 'new' | null
         <TextField label={t('watch.query')} help={t('watch.queryHelp')} value={form.query} onChange={set('query')} maxLength={200} data-autofocus />
         <QualityFields form={form} set={set} kind="watch" />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label={t('series.checkEvery')}>
-            <select className="select w-full" value={form.checkIntervalMinutes} onChange={e => set('checkIntervalMinutes')(Number(e.target.value))}>
-              {intervals.map(m => <option key={m} value={m}>{intervalLabel(t, m)}</option>)}
-            </select>
-          </Field>
-          <Field label={t('watch.whenFound')}>
+          <SelectField label={t('series.checkEvery')} value={form.checkIntervalMinutes} onChange={set('checkIntervalMinutes')}
+            options={intervals.map(m => ({ value: m, label: intervalLabel(t, m) }))} />
+          <Field label={t('watch.whenFound')} group>
             <Segmented label={t('watch.whenFound')} value={form.autoDownload ? 'download' : 'notify'} onChange={v => set('autoDownload')(v === 'download')}
               options={[{ value: 'notify', label: t('watch.tellMe') }, { value: 'download', label: t('watch.downloadIt') }]} />
           </Field>

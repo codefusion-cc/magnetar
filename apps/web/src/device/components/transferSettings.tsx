@@ -3,6 +3,7 @@ import { MIN_SPEED_LIMIT } from '@magnetar/protocol/limits'
 import { useEffect, useId, useMemo, useState } from 'react'
 import { formatters, useLanguage, useT } from '../../lib/i18n.tsx'
 import { Segmented } from '../../ui/controls.tsx'
+import { Select } from '../../ui/Select.tsx'
 import { blurOnEnter } from '../../ui/fields.tsx'
 import { SettingSection } from '../../ui/settings.tsx'
 import { useDevice } from '../DeviceContext.tsx'
@@ -183,11 +184,11 @@ export function NetworkSetting({ settings }: { settings: SettingsDto }) {
   return (
     <SettingSection title={t('settings.networkTitle')} htmlFor={id} alert={failure ?? (waiting || missing ? t('settings.networkMissing', chosen) : undefined)}
       hint={chosen ? (missing ? undefined : t('settings.networkBound', chosen)) : t('settings.networkAny')}>
-      <select id={id} className="setting-select" value={chosen} onFocus={refresh} onChange={e => choose(e.target.value)}>
-        <option value="">{t('settings.networkAnyOption')}</option>
-        {missing && <option value={chosen}>{t('settings.networkMissingOption', chosen)}</option>}
-        {list.interfaces.map(i => <option key={i.name} value={i.name}>{i.vpn ? `${i.name} (VPN)` : i.name}</option>)}
-      </select>
+      <Select id={id} value={chosen} onOpen={refresh} onChange={choose} options={[
+        { value: '', label: t('settings.networkAnyOption') },
+        ...(missing ? [{ value: chosen, label: t('settings.networkMissingOption', chosen) }] : []),
+        ...list.interfaces.map(i => ({ value: i.name, label: i.vpn ? `${i.name} (VPN)` : i.name })),
+      ]} />
     </SettingSection>
   )
 }

@@ -1,7 +1,7 @@
 import { FanSky } from '../../ui/sky/Sky.tsx'
 import type { SearchResultDto, SourceOutcomeDto, TorrentDetailsDto } from '@magnetar/protocol'
 import { Check, Copy, Download, ExternalLink, Sprout } from 'lucide-react'
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { memo, useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { askingWhere } from '../../lib/downloadFlow.ts'
 import { noticeExtra, offersOtherFolder, startedNotice } from '../../lib/recentFolders.ts'
@@ -15,6 +15,7 @@ import { releaseTags } from '../../lib/releaseTags.ts'
 import { Segmented } from '../../ui/controls.tsx'
 import { Loading } from '../../ui/Loading.tsx'
 import { Modal } from '../../ui/Modal.tsx'
+import { Select } from '../../ui/Select.tsx'
 import { PAGE_SIZE, ShowMore } from '../../ui/ShowMore.tsx'
 import { useCopy, useToast } from '../../ui/toast.tsx'
 import { useDevice, useSearch } from '../DeviceContext.tsx'
@@ -60,6 +61,7 @@ function useStartDownload(onStarted: (result: SearchResultDto) => void) {
 export function SearchPage() {
   const t = useT()
   const language = useLanguage()
+  const sortId = useId()
   const { connection, connectionState, sources, basePath, settings, deviceName } = useDevice()
   const { search, setSearch, setSearchAddress } = useSearch()
   const navigate = useNavigate()
@@ -147,17 +149,14 @@ export function SearchPage() {
       <div className="search-filters">
         <Segmented appearance="quiet" label={t('search.resolution')} value={view.resolution}
           onChange={resolution => show({ resolution }, { replace: true })} options={resolutionOptions(t)} />
-        <label className="search-select"><span className="sr-only">{t('search.source')}</span>
-          <select aria-label={t('search.source')} value={view.source} onChange={e => show({ source: e.target.value }, { replace: true })}>
-            <option value="">{t('search.allSources')}</option>
-            {sources.filter(s => s.enabled || s.id === view.source).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-        </label>
-        <label className="search-select search-sort"><span>{t('search.sort')}</span>
-          <select value={sort} onChange={e => show({ sort: e.target.value as Sort }, { replace: true })}>
-            {SORT_NAMES.map(s => <option key={s} value={s}>{t(`search.sort.${s}`)}</option>)}
-          </select>
-        </label>
+        <Select look="small" label={t('search.source')} value={view.source} onChange={source => show({ source }, { replace: true })} options={[
+          { value: '', label: t('search.allSources') },
+          ...sources.filter(s => s.enabled || s.id === view.source).map(s => ({ value: s.id, label: s.name })),
+        ]} />
+        <div className="search-sort"><label htmlFor={sortId}>{t('search.sort')}</label>
+          <Select id={sortId} look="small" value={sort} onChange={next => show({ sort: next }, { replace: true })}
+            options={SORT_NAMES.map(s => ({ value: s, label: t(`search.sort.${s}`) }))} />
+        </div>
       </div>
       <Outcomes list={outcomes} line={line} allFailed={allFailed} searching={search.searching} />
       {!!results?.length && <>

@@ -1,6 +1,7 @@
 import { formatHex, lookColors } from '@codefusion-cc/ui/looks'
 import { expect, test, type Page } from '@playwright/test'
 import infall from '../../web/src/looks/infall.ts'
+import { pick } from '../fixtures/select.ts'
 
 /** The look's page ground in `mode`, as `pageGround` reads it. */
 function groundIn(mode: 'light' | 'dark'): string {
@@ -67,14 +68,14 @@ test('headings are set in Unbounded in Polish and Russian, not in a fallback', a
 
   await page.goto('/settings')
   try {
-    await page.getByLabel('Language').selectOption('pl')
+    await pick(page, 'Language', 'Polski')
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Ustawienia')
     expect(await heading('ąćęłńóśźżĄĆĘŁŃÓŚŹŻ')).toEqual({ family: 'Unbounded', missing: [] })
 
-    await page.getByLabel('Język').selectOption('ru')
+    await pick(page, 'Język', 'Русский')
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(/[\u0400-\u04FF]/)
     expect(await heading('ЁЖЩЮЯёжщюя')).toEqual({ family: 'Unbounded', missing: [] })
   } finally {
-    await page.locator('select').filter({ has: page.locator('option[value="en"]') }).first().selectOption('en')
+    await pick(page, /^(Language|Język|Язык)$/, 'English')
   }
 })

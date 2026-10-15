@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { pick } from '../fixtures/select.ts'
 
 test('speed limits are checked as typed, saved on leaving the field, and kept', async ({ page }) => {
   await page.goto('/settings/downloads')
@@ -20,10 +21,10 @@ test('speed limits are checked as typed, saved on leaving the field, and kept', 
 
 test('the dashboard speaks the chosen language, and back', async ({ page }) => {
   await page.goto('/settings')
-  await page.getByLabel('Language').selectOption('de')
+  await pick(page, 'Language', 'Deutsch')
   await expect(page.getByRole('link', { name: 'Einstellungen' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Merkliste' })).toBeVisible()
-  await page.getByLabel('Sprache').selectOption('en')
+  await pick(page, 'Sprache', 'English')
   await expect(page.getByRole('link', { name: 'Settings' })).toBeVisible()
 })
 
