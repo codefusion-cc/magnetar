@@ -47,7 +47,7 @@ export const content: FeaturesContent = {
           points: [
             'Etiquetas da versão lidas do título: resolução (480p a 4K), HDR ou Dolby Vision, o codec (H.264, HEVC, AV1) e a origem (BluRay, WEB, HDTV, DVD)',
             'Filtre por resolução e origem; ordene por mais seeders, mais recentes, maiores ou menores',
-            'Uma fonte lenta ou em baixo nunca atrasa as outras: a que não responder em 15 segundos fica de fora, e «Mostrar fontes» diz o que cada uma encontrou',
+            'Uma fonte lenta ou indisponível não atrasa as outras. Acima dos resultados, uma frase e os números por fonte mostram quais responderam, não encontraram nada ou falharam.',
             'Os espelhos revezam-se: quando um não responde em segundo e meio, pergunta-se ao seguinte, e o mais rápido fica memorizado',
             'Só títulos com todas as palavras que escreveu, em qualquer alfabeto; os títulos com caracteres corrompidos são reparados',
             'Abra um resultado para ver os detalhes, copie a ligação magnet ou envie-o para qualquer pasta',
@@ -83,7 +83,7 @@ export const content: FeaturesContent = {
             'Regras por série: resolução, mínimo de seeders, tamanho máximo, palavras a preferir e a evitar',
             'Comece por um episódio à sua escolha, pelo mais recente ou só com os novos',
             'Verifica de 15 em 15 minutos até uma vez por dia (de hora a hora por omissão), no máximo 25 episódios de cada vez',
-            'Cada cartão mostra a próxima data de estreia e o progresso da série',
+            'A temporada é uma órbita com um arco por episódio: guardado, a descarregar ou esperado. Uma frase indica o que vem a seguir e as datas aproximam-se de hoje numa linha de duas semanas.',
           ],
         },
         watches: {
@@ -148,7 +148,7 @@ export const content: FeaturesContent = {
         browse: {
           title: 'As suas transferências, pasta a pasta',
           gain: 'Veja o que chegou onde, reproduza-o ou escolha uma nova pasta de transferência, no computador ou no telemóvel.',
-          text: 'Ficheiros mostra a pasta de transferência e qualquer pasta adicionada no computador que executa o Magnetar: primeiro as pastas, depois os ficheiros, com tamanho e data. Os ficheiros de uma transferência podem ser reproduzidos ou abertos nos seus detalhes.',
+          text: 'Ficheiros abre a pasta de downloads, com vistas por local e caminhos com ligações para voltar. Uma pasta é um aglomerado, um ficheiro completo uma estrela azul e branca e um download em curso uma brasa com a percentagem. Tamanhos, datas, reprodução e detalhes continuam acessíveis.',
           points: [
             'Ordenados como se leem os nomes: o episódio 2 antes do 10',
             'Crie uma pasta ou use a que está no ecrã como pasta de transferência',

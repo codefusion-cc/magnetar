@@ -47,7 +47,7 @@ export const content: FeaturesContent = {
           points: [
             'Tagi wydania z tytułu: rozdzielczość (od 480p do 4K), HDR lub Dolby Vision, kodek (H.264, HEVC, AV1) i źródło (BluRay, WEB, HDTV, DVD)',
             'Zawężanie według rozdzielczości i źródła; sortowanie według liczby seedów, od najnowszych, największych lub najmniejszych',
-            'Wolne lub niedziałające źródło nigdy nie wstrzymuje pozostałych: to, które nie odpowie w 15 sekund, zostaje pominięte, a „Pokaż źródła” mówi, co znalazło każde z nich',
+            'Wolne lub niedostępne źródło nie wstrzymuje pozostałych. Nad wynikami zdanie i liczby przy źródłach pokazują, które odpowiedziały, nic nie znalazły lub zawiodły.',
             'Serwery lustrzane działają na zmianę: gdy jeden nie odpowie w półtorej sekundy, pytany jest następny, a najszybszy zostaje zapamiętany',
             'Tylko tytuły zawierające każde wpisane słowo, w dowolnym alfabecie; zniekształcone tytuły są naprawiane',
             'Otwórz wynik, by zobaczyć szczegóły, skopiuj jego link magnet albo wyślij go do dowolnego folderu',
@@ -83,7 +83,7 @@ export const content: FeaturesContent = {
             'Zasady dla każdego serialu: rozdzielczość, minimalna liczba seedów, maksymalny rozmiar, słowa preferowane i wykluczone',
             'Start od wybranego odcinka, od najnowszego albo tylko z nowymi odcinkami',
             'Sprawdzanie od co 15 minut do raz dziennie (domyślnie co godzinę), najwyżej 25 odcinków naraz',
-            'Każda karta pokazuje datę emisji następnego odcinka i postęp serialu',
+            'Sezon to orbita z łukiem na każdy odcinek: pobrany, w trakcie lub oczekiwany. Zdanie mówi, co dalej, a odcinki z datą emisji zbliżają się do dziś na dwutygodniowej osi.',
           ],
         },
         watches: {
@@ -148,7 +148,7 @@ export const content: FeaturesContent = {
         browse: {
           title: 'Twoje pobrania, folder po folderze',
           gain: 'Zobacz, co gdzie trafiło, odtwórz to albo wybierz nowy folder pobierania, z komputera lub z telefonu.',
-          text: 'Pliki pokazują folder pobierania i każdy folder dodany na komputerze, na którym działa Magnetar: najpierw foldery, potem pliki, z rozmiarem i datą. Pliki z pobrania można odtworzyć albo otworzyć w jego szczegółach.',
+          text: 'Pliki otwierają folder pobierania. Miejsca mają własne widoki, a ścieżka ma linki do powrotu. Folder jest skupiskiem gwiazd, gotowy plik niebieskobiałą gwiazdą, a pobierany żarem z procentem. Przy plikach są rozmiary, daty, odtwarzanie i szczegóły pobierania.',
           points: [
             'Kolejność, w jakiej czyta się nazwy: odcinek 2 przed odcinkiem 10',
             'Utwórz folder albo ustaw widoczny jako folder pobierania',

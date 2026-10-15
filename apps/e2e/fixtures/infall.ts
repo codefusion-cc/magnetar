@@ -1,4 +1,4 @@
-import type { DownloadDto, DownloadFileDto } from '@magnetar/protocol'
+import type { DownloadDto, DownloadFileDto, SearchResultDto, SourceDto, SourceOutcomeDto, SeriesTaskDto, FolderRootsDto, FolderPageDto } from '@magnetar/protocol'
 
 interface DesignRow { title: string; st: 'down' | 'paused' | 'error' | 'seed' | 'done'; pct: number; size: string; speed?: string }
 
@@ -53,7 +53,7 @@ const size = (value: string) => {
   return Number(n) * ({ GB: 1e9, MB: 1e6, KB: 1e3 }[unit ?? ''] ?? 1) || 0
 }
 
-export type InfallScreen = 'downloads' | 'many' | 'empty' | 'details' | 'details-fail' | 'held' | 'loading' | 'downloads-fail'
+export type InfallScreen = 'downloads' | 'many' | 'empty' | 'details' | 'details-fail' | 'held' | 'loading' | 'downloads-fail' | 'search' | 'long' | 'search-start' | 'search-wait' | 'search-none' | 'search-fail' | 'watchlist' | 'watch-empty' | 'watch-wait' | 'watch-fail' | 'files' | 'files-empty' | 'files-wait' | 'files-gone'
 
 export function infallDownloads(screen: InfallScreen): DownloadDto[] {
   if (screen === 'empty') return []
@@ -77,4 +77,63 @@ export function infallFiles(): DownloadFileDto[] {
     { index: 3, path: 'Sintel.de.srt', size: 1600, done: 0, selected: false, media: null },
     { index: 4, path: 'Sample.mkv', size: 38e6, done: 0, selected: false, media: 'video' },
   ]
+}
+
+export const infallSources: SourceDto[] = ['The Pirate Bay', 'Torrents-CSV', 'RARBG', 'Nyaa', 'EZTV', '1337x'].map((name, i) => ({ id: ['tpb', 'csv', 'rarbg', 'nyaa', 'eztv', '1337x'][i]!, name, enabled: true }))
+export function infallSearch(screen: InfallScreen): { results: SearchResultDto[]; outcomes: SourceOutcomeDto[] } {
+  const data: [string, number, number, number, string][] = [
+    ['Sintel (2010) 1080p BluRay x264', 1.9e9, 124, 3, 'The Pirate Bay'],
+    ['Sintel.2010.1080p.WEB.H264', 556e6, 30, 1, 'RARBG'],
+    ['Sintel (2010) 720p BluRay', 138e6, 15, 2, 'Torrents-CSV'],
+    ['Sintel 4K UHD FLAC ITA ENG', 4.8e9, 5, 11, 'The Pirate Bay'],
+    ['Sintel.2010.720p.WEB', 383e6, 11, 1, 'RARBG'],
+    ['Sintel, original soundtrack (FLAC)', 441e6, 4, 10, 'The Pirate Bay'],
+  ]
+  if (screen === 'long') for (let i = 6; i < 43; i++) {
+    const a = i % 5, b = (i * 3) % 5
+    data.push([`Sintel.2010.${['2160p','1080p','1080p','720p','480p'][a]}.${['BluRay','WEB','BluRay','HDTV','DVDRip'][b]}.${['x265','H.264','x264','H.264','XviD'][a]}-${['NOGRP','RARBG','YTS','FGT','ION10'][(i*2)%5]}`, [4.8e9,1.9e9,1.4e9,700e6,350e6][a]!, Math.max(0,Math.round(150/(i*.5)-4)),1+i%9,infallSources[(i*7)%3]!.name])
+  }
+  const empty = screen === 'search-none' || screen === 'search-fail'
+  const results = empty ? [] : data.filter(r => screen !== 'search-wait' || r[4] === 'The Pirate Bay').map(([title, sizeBytes, seeders, age, source], i) => ({
+    resultId: `result${i}`, title, sizeBytes, seeders, leechers: 0, source,
+    publishedAt: `20${26-age}-10-14T12:00:00Z`, detailsUrl: null, infoHash: null,
+  }))
+  const outcomes = infallSources.filter(s => screen !== 'search-wait' || ['The Pirate Bay','Nyaa'].includes(s.name)).map(s => ({
+    source: s.name, status: (screen === 'search-fail' || s.name === '1337x' ? 'failed' : 'ok') as 'failed' | 'ok',
+    returned: empty ? 0 : [22,13,8,0,0,0][infallSources.findIndex(source => source.name === s.name)]!, filtered: 0, error: null,
+  }))
+  return { results, outcomes }
+}
+export function infallSeries(): SeriesTaskDto[] {
+  return ['Dragnet','Pioneer One','Caminandes'].map((name, i) => {
+    const n = [12,8,3][i]!, got = [9,6,3][i]!, season = i === 0 ? 3 : 1
+    return { id: i+1,name,query:name,provider:null,titleFilter:null,season,startEpisode:1,endEpisode:n,lastDownloadedEpisode:got,nextEpisode:got+1,checkIntervalMinutes:60,enabled:true,downloadFolder:null,lastCheckedAt:'2026-10-14T20:20:00+02:00',finished:i===2,resolution:i===0?'720p':i===1?'1080p':null,minSeeders:i===0?5:1,maxSizeMb:null,preferWords:i===1?'WEB':null,excludeWords:null,show:null,
+      episodes: { total:n,offset:0,version:'design',airDatesCheckedAt:'2026-10-14T18:00:00Z', episodes: Array.from({length:n},(_,j) => {
+        const base = {number:j+1,name:null,airstamp: i===0 && j>=9 ? `2026-10-${j===9?'14':j===10?'19':'26'}T18:00:00Z` : i===1 && j>=6 ? `2026-10-${j===6?'15':'22'}T18:00:00Z` : null}
+        return j<got ? {...base,state:'have' as const,downloadId:1} : i===0 && j===9 ? {...base,state:'downloading' as const,downloadId:1} : {...base,state:'expected' as const}
+      }) },
+    }
+  })
+}
+export function infallRoots(language: string): FolderRootsDto {
+  return { canAdd: false, roots: [
+    { path:'/Users/alex/Movies',kind:'downloads',available:true,freeBytes:137.8e9 },
+    { path:language==='pl'?'/Users/alex/Seriale':'/Users/alex/Series',kind:'added',available:true,freeBytes:null },
+    { path:language==='pl'?'/Volumes/Dysk zapasowy':'/Volumes/Backup drive',kind:'added',available:false,freeBytes:null },
+  ] }
+}
+export function infallFolder(path: string): FolderPageDto {
+  const entries: FolderPageDto['entries'] = [
+    {name:'Dragnet',kind:'folder',size:null,modified:null,media:null,download:null},
+    {name:'Pioneer One',kind:'folder',size:null,modified:null,media:null,download:null},
+    {name:'Sintel',kind:'folder',size:null,modified:null,media:null,download:{id:1}},
+    {name:'ubuntu-26.04.1-desktop-amd64.iso',kind:'file',size:5.9e9,modified:null,media:null,download:{id:2,index:0}},
+    {name:'Elephants Dream.mkv',kind:'file',size:425e6,modified:'2026-10-13T12:00:00Z',media:'video',download:{id:7,index:0}},
+    {name:'Big Buck Bunny 1080p.mkv',kind:'file',size:276e6,modified:'2026-10-14T12:02:00Z',media:'video',download:{id:6,index:0}},
+    {name:'Cosmos Laundromat.mkv',kind:'file',size:210e6,modified:null,media:'video',download:{id:4,index:0}},
+  ]
+  const root = path.startsWith('/Users/alex/') ? path.split('/').slice(0,4).join('/') : path
+  const folder = (name: string): FolderPageDto['entries'] => [{name,kind:'folder',size:null,modified:null,media:null,download:null}]
+  const listed = path === '/Users/alex/Movies' ? entries : /^\/Users\/alex\/(Series|Seriale)$/.test(path) ? folder('Dragnet') : path.endsWith('/Dragnet') ? folder(path.includes('/Seriale/') ? 'Sezon 4' : 'Season 4') : []
+  return {path,root,separator:'/',entries:listed,offset:0,total:listed.length,truncated:false}
 }

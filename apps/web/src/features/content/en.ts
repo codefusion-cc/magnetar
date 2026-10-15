@@ -47,7 +47,7 @@ export const en: FeaturesContent = {
           points: [
             'Release tags from the title: resolution (480p to 4K), HDR or Dolby Vision, the codec (H.264, HEVC, AV1) and the source (BluRay, WEB, HDTV, DVD)',
             'Narrow by resolution and source; sort by seeders, newest, largest or smallest',
-            'A source that is slow or down never holds up the others: one that hasn\'t answered in 15 seconds is left out, and "Show sources" says what each one found',
+            'A slow or unavailable source never holds up the others. Above the results, a sentence and a count for each source show what answered, found nothing or failed.',
             'Mirrors take turns: when one doesn\'t answer within a second and a half, the next is asked, and the fastest is remembered',
             'Only titles with every word you typed, in any script; garbled titles are repaired',
             'Open a result for its details, copy its magnet link, or send it to any folder',
@@ -83,7 +83,7 @@ export const en: FeaturesContent = {
             'Rules per series: resolution, minimum seeders, maximum size, words to prefer and to avoid',
             'Start from an episode you choose, from the latest one, or with new episodes only',
             'Checks every 15 minutes to once a day (every hour by default), at most 25 episodes at a time',
-            'Each card shows the next air date and how far along the series is',
+            'The season is an orbit with an arc per episode: held, downloading or waiting. A sentence says what comes next, and dated episodes approach today on a two-week line.',
           ],
         },
         watches: {
@@ -148,7 +148,7 @@ export const en: FeaturesContent = {
         browse: {
           title: 'Your downloads, folder by folder',
           gain: 'See what landed where, play it, or pick a new download folder, from the computer or from your phone.',
-          text: 'Files shows the download folder and any folder you add on the computer running Magnetar: folders first, then files, with their sizes and dates. Files that came from a download can be played or opened in its details.',
+          text: 'Files opens the download folder, with your places as views and linked paths for going back. A folder is a cluster, a finished file a blue-white star, and a download still arriving an ember with its percentage. Sizes, dates, playback and download details remain beside each file.',
           points: [
             'Sorted as people read names: episode 2 before episode 10',
             'Make a folder, or use the one on screen as the download folder',

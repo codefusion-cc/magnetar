@@ -47,7 +47,7 @@ export const content: FeaturesContent = {
           points: [
             'Étiquettes tirées du titre : résolution (480p à 4K), HDR ou Dolby Vision, codec (H.264, HEVC, AV1) et source (BluRay, WEB, HDTV, DVD)',
             'Filtrez par résolution et par source ; triez par seeders, plus récents, plus grands ou plus petits',
-            'Une source lente ou en panne ne retarde jamais les autres : celle qui n’a pas répondu en 15 secondes est écartée, et « Afficher les sources » indique ce que chacune a trouvé',
+            'Une source lente ou indisponible ne bloque pas les autres. Au-dessus des résultats, une phrase et les chiffres par source indiquent les réponses, les recherches sans résultat et les échecs.',
             'Les miroirs se relaient : si l’un ne répond pas en une seconde et demie, le suivant est interrogé, et le plus rapide est mémorisé',
             'Seuls les titres qui contiennent tous les mots saisis, quel que soit l’alphabet ; les titres aux caractères corrompus sont réparés',
             'Ouvrez un résultat pour voir ses détails, copiez son lien magnet ou envoyez-le dans n’importe quel dossier',
@@ -83,7 +83,7 @@ export const content: FeaturesContent = {
             'Des règles par série : résolution, seeders minimum, taille maximale, mots à préférer et à éviter',
             'Commencez par l’épisode de votre choix, par le dernier, ou seulement avec les nouveaux',
             'Vérification toutes les 15 minutes à une fois par jour (toutes les heures par défaut), 25 épisodes au plus à la fois',
-            'Chaque carte indique la prochaine date de diffusion et l’avancement de la série',
+            'La saison forme une orbite, avec un arc par épisode : présent, en téléchargement ou attendu. Une phrase annonce la suite, et les dates de diffusion se rapprochent d’aujourd’hui sur une ligne de deux semaines.',
           ],
         },
         watches: {
@@ -148,7 +148,7 @@ export const content: FeaturesContent = {
         browse: {
           title: 'Vos téléchargements, dossier par dossier',
           gain: 'Voyez ce qui est arrivé où, lisez-le ou choisissez un nouveau dossier de téléchargement, depuis l\'ordinateur ou votre téléphone.',
-          text: 'Fichiers affiche le dossier de téléchargement et tout dossier ajouté sur l\'ordinateur qui exécute Magnetar : d\'abord les dossiers, puis les fichiers, avec leur taille et leur date. Les fichiers d\'un téléchargement se lisent ou s\'ouvrent dans ses détails.',
+          text: 'Fichiers ouvre le dossier de téléchargement, avec des vues par emplacement et un chemin cliquable pour revenir. Un dossier est un amas, un fichier terminé une étoile bleu-blanc et un téléchargement en cours une braise avec son pourcentage. Tailles, dates, lecture et détails restent accessibles.',
           points: [
             'Triés comme on lit les noms : l\'épisode 2 avant l\'épisode 10',
             'Créez un dossier, ou utilisez celui affiché comme dossier de téléchargement',

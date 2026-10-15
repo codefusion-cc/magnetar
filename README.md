@@ -20,7 +20,7 @@ Every feature with screenshots of the app, in all eight languages: [magnetar.cod
   mirror fallback), 1337x (the real site where it answers, else a mirror; magnet and description fetched on demand),
   RARBG (TheRARBG's JSON API), Torrents-CSV, Nyaa and EZTV. A search can be linked (`/search/house+of+the+dragon?res=720p&source=tpb&sort=new`), and
   queries in any script match.
-- **Per-source outcomes** above the results, so a failing site or an over-eager relevance filter never looks like
+- **Per-source outcomes** in a sentence and a visible count for every source above the results, so a failing site or an over-eager relevance filter never looks like
   "no results". Turn any source off in Settings.
 - **Built-in BitTorrent engine** (librqbit, with DHT and trackers): live progress, speed and peers, in Active, Finished and All views you can sort, with when each was
   added and finished; pause, resume, retry and delete (optionally with the files). Restarts and pauses resume without re-reading what
@@ -38,10 +38,11 @@ Every feature with screenshots of the app, in all eight languages: [magnetar.cod
 - **Play while downloading:** video and audio play in the browser, with the torrent's subtitles, fetching the
   parts you reach first. On the computer running the app a link works in VLC too; from the website, playback goes
   through the same end-to-end encrypted connection as everything else.
-- **Files:** browse the download folder and folders you add on the computer, folders first with sizes and dates;
+- **Files:** opens the download folder, with places as views and paths as links. Browse folders added on the computer,
+  folders first with sizes and dates;
   play what came from a download, make folders, and choose the download folder, also from a phone. Only those
   folders can be seen, and only the computer itself adds one.
-- **Watchlist:** series tasks check for the next episode on a schedule and take the best release your rules allow
+- **Watchlist:** a season orbit shows each episode held, downloading or waiting, and a two-week approach line shows known air dates in your time zone. Series tasks check for the next episode on a schedule and take the best release your rules allow
   (resolution, seeders, size, words to prefer or avoid), starting from an episode, the latest one, or new ones only.
   A release with no seeders is replaced by the next best. Posters, networks and air dates come from TVmaze. Watches
   wait for a release of anything else (a film in 4K) and tell you, or download it, when one appears.

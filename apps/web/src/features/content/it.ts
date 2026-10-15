@@ -47,7 +47,7 @@ export const content: FeaturesContent = {
           points: [
             'Tag della release dal titolo: risoluzione (da 480p a 4K), HDR o Dolby Vision, il codec (H.264, HEVC, AV1) e la fonte (BluRay, WEB, HDTV, DVD)',
             'Filtra per risoluzione e fonte; ordina per seeder, più recenti, più grandi o più piccoli',
-            'Una fonte lenta o non disponibile non blocca mai le altre: quella che non risponde entro 15 secondi viene esclusa, e «Mostra fonti» dice cosa ha trovato ciascuna',
+            'Una fonte lenta o non disponibile non blocca le altre. Sopra i risultati, una frase e i conteggi per fonte mostrano chi ha risposto, non ha trovato nulla o non ha risposto.',
             'I mirror si alternano: se uno non risponde entro un secondo e mezzo si interroga il successivo, e il più veloce viene ricordato',
             'Solo titoli che contengono ogni parola digitata, in qualsiasi alfabeto; i titoli con caratteri corrotti vengono riparati',
             'Apri un risultato per vederne i dettagli, copia il suo link magnet o invialo in qualsiasi cartella',
@@ -83,7 +83,7 @@ export const content: FeaturesContent = {
             'Regole per ogni serie: risoluzione, seeder minimi, dimensione massima, parole da preferire e da evitare',
             'Parti da un episodio a tua scelta, dall’ultimo uscito o solo dai nuovi episodi',
             'Controlli da ogni 15 minuti a una volta al giorno (ogni ora come impostazione predefinita), al massimo 25 episodi alla volta',
-            'Ogni scheda mostra la prossima data di messa in onda e a che punto è la serie',
+            'La stagione è un’orbita con un arco per episodio: presente, in download o atteso. Una frase indica cosa succede dopo e le date di uscita si avvicinano a oggi lungo una linea di due settimane.',
           ],
         },
         watches: {
@@ -148,7 +148,7 @@ export const content: FeaturesContent = {
         browse: {
           title: 'I tuoi download, cartella per cartella',
           gain: 'Guarda cosa è arrivato dove, riproducilo o scegli una nuova cartella di download, dal computer o dal telefono.',
-          text: 'File mostra la cartella di download e ogni cartella aggiunta sul computer che esegue Magnetar: prima le cartelle, poi i file, con dimensioni e date. I file di un download si possono riprodurre o aprire nei suoi dettagli.',
+          text: 'File apre la cartella dei download, con viste per ogni posizione e percorsi cliccabili per tornare indietro. Una cartella è un gruppo di stelle, un file completo una stella bianco-azzurra e un download in corso una brace con la percentuale. Dimensioni, date, riproduzione e dettagli restano accessibili.',
           points: [
             'Ordinati come si leggono i nomi: l\'episodio 2 prima del 10',
             'Crea una cartella o usa quella mostrata come cartella di download',

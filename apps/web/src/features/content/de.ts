@@ -47,7 +47,7 @@ export const content: FeaturesContent = {
           points: [
             'Release-Tags aus dem Titel: Auflösung (480p bis 4K), HDR oder Dolby Vision, Codec (H.264, HEVC, AV1) und Quelle (BluRay, WEB, HDTV, DVD)',
             'Nach Auflösung und Quelle eingrenzen; nach Seedern sortieren oder die neuesten, größten oder kleinsten zuerst zeigen',
-            'Eine langsame oder ausgefallene Quelle hält die anderen nie auf: Antwortet sie nicht binnen 15 Sekunden, wird sie ausgelassen, und „Quellen anzeigen“ zeigt, was jede gefunden hat',
+            'Eine langsame oder nicht erreichbare Quelle hält die anderen nicht auf. Über den Ergebnissen zeigen ein Satz und die Zahlen je Quelle, wer geantwortet, nichts gefunden oder nicht geantwortet hat.',
             'Spiegelserver wechseln sich ab: Antwortet einer nicht innerhalb von anderthalb Sekunden, wird der nächste gefragt, und Magnetar merkt sich den schnellsten',
             'Nur Titel, die jedes eingegebene Wort enthalten, in jedem Schriftsystem; verstümmelte Titel werden repariert',
             'Ein Ergebnis für die Details öffnen, seinen Magnet-Link kopieren oder es in einen beliebigen Ordner schicken',
@@ -83,7 +83,7 @@ export const content: FeaturesContent = {
             'Regeln pro Serie: Auflösung, Mindestzahl an Seedern, maximale Größe, bevorzugte und zu meidende Wörter',
             'Beginnen mit einer Folge deiner Wahl, mit der neuesten oder nur mit neuen Folgen',
             'Prüft alle 15 Minuten bis einmal täglich (standardmäßig stündlich), höchstens 25 Folgen auf einmal',
-            'Jede Karte zeigt den nächsten Sendetermin und den Fortschritt der Serie',
+            'Die Staffel erscheint als Umlaufbahn mit einem Bogen je Folge: vorhanden, im Download oder erwartet. Ein Satz nennt den nächsten Schritt; Sendetermine nähern sich auf einer Zweiwochenlinie dem heutigen Tag.',
           ],
         },
         watches: {
@@ -148,7 +148,7 @@ export const content: FeaturesContent = {
         browse: {
           title: 'Deine Downloads, Ordner für Ordner',
           gain: 'Sieh, was wo gelandet ist, spiel es ab oder wähle einen neuen Download-Ordner, am Computer oder vom Handy.',
-          text: 'Dateien zeigt den Download-Ordner und jeden Ordner, den du auf dem Computer mit Magnetar hinzufügst: erst Ordner, dann Dateien, mit Größe und Datum. Dateien aus einem Download lassen sich abspielen oder in seinen Details öffnen.',
+          text: 'Dateien öffnet den Downloadordner. Orte haben eigene Ansichten, Pfade führen zurück. Ein Ordner ist ein Sternhaufen, eine fertige Datei ein bläulich weißer Stern, ein laufender Download eine Glut mit Prozentwert. Größen, Daten, Wiedergabe und Downloaddetails stehen daneben.',
           points: [
             'Sortiert, wie Menschen Namen lesen: Folge 2 vor Folge 10',
             'Einen Ordner anlegen oder den angezeigten als Download-Ordner verwenden',
