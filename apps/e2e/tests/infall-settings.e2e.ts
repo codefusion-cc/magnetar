@@ -164,6 +164,7 @@ for (const language of ['en', 'pl', 'de', 'fr', 'es', 'it', 'pt', 'ru']) {
     for (const section of ['', '/downloads', '/notifications', '/sources', '/remote', '/agents', '/about']) {
       await page.goto(`/settings${section}`)
       await page.locator('.settings-panel .setting').first().waitFor()
+      await page.evaluate(() => document.fonts.ready)
       // Until the page's own fonts arrive (or where a phone blocks them) a wider one stands in: Linux has DejaVu Sans.
       for (const font of ['the look\'s own', 'a wide stand-in']) {
         if (font !== 'the look\'s own') await page.addStyleTag({ content: '* { font-family: Verdana, "DejaVu Sans", sans-serif !important }' })

@@ -346,11 +346,20 @@ test('download pushes reuse folder rows and the details file list while updating
 for (const language of ['de', 'fr']) {
   test(`the main screens fit a phone in ${language}, also in a wide font`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 780 })
-    for (const [design, path] of [['downloads', '/'], ['details-fail', '/downloads/5'], ['search', '/search/sintel'], ['watchlist', '/series'], ['files', '/files']] as const) {
+    // Each screen is measured in the asked language with what it lists drawn, not while it still loads.
+    const screens = [
+      ['downloads', '/', () => page.locator('main .download-row').first()],
+      ['details-fail', '/downloads/5', () => page.getByRole('heading', { level: 1, name: 'Night of the Living Dead (1968)' })],
+      ['search', '/search/sintel', () => page.locator('main h2').filter({ hasText: /sintel/i }).first()],
+      ['watchlist', '/series', () => page.locator('main').getByText('Dragnet').first()],
+      ['files', '/files', () => page.locator('main').getByText('/Users/alex/Movies').first()],
+    ] as const
+    for (const [design, path, ready] of screens) {
       await page.unrouteAll({ behavior: 'ignoreErrors' })
       await serveDevice(page, { design, language })
       await page.goto(path)
-      await page.locator('main h1').first().waitFor()
+      await expect(page.locator('html')).toHaveAttribute('lang', language)
+      await ready().waitFor()
       // Until the page's own fonts arrive (or where a phone blocks them) a wider one stands in: Linux has DejaVu Sans.
       await page.addStyleTag({ content: '* { font-family: Verdana, "DejaVu Sans", sans-serif !important }' })
       const wide = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)
