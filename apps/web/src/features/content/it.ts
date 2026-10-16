@@ -10,7 +10,7 @@ export const content: FeaturesContent = {
     title: 'Magnetar: tutte le funzioni',
     description: 'Cerca in sei fonti torrent insieme, scarica sul tuo computer e segui tutto da qualsiasi browser o telefono, con cifratura end-to-end. Gratis per macOS, Windows e Linux.',
   },
-  header: { language: 'Lingua', signIn: 'Accedi', devices: 'I tuoi dispositivi', home: 'Home di Magnetar' },
+  header: { language: 'Lingua', signIn: 'Accedi', devices: 'I tuoi computer', home: 'Home di Magnetar' },
   hero: {
     title: 'I tuoi download, ovunque tu sia',
     lead: 'Magnetar cerca in sei fonti torrent insieme, scarica sul tuo computer e segue le tue serie. Aprilo da qualsiasi browser o telefono: tutto ciò che passa tra i due è cifrato end-to-end. Ogni screenshot di questa pagina mostra l’app vera.',
@@ -47,7 +47,7 @@ export const content: FeaturesContent = {
           points: [
             'Tag della release dal titolo: risoluzione (da 480p a 4K), HDR o Dolby Vision, il codec (H.264, HEVC, AV1) e la fonte (BluRay, WEB, HDTV, DVD)',
             'Filtra per risoluzione e fonte; ordina per seeder, più recenti, più grandi o più piccoli',
-            'Una fonte lenta o non disponibile non blocca mai le altre: quella che non risponde entro 15 secondi viene esclusa, e «Mostra fonti» dice cosa ha trovato ciascuna',
+            'Una fonte lenta o non disponibile non blocca le altre. Sopra i risultati, una frase e i conteggi per fonte mostrano chi ha risposto, non ha trovato nulla o non ha risposto.',
             'I mirror si alternano: se uno non risponde entro un secondo e mezzo si interroga il successivo, e il più veloce viene ricordato',
             'Solo titoli che contengono ogni parola digitata, in qualsiasi alfabeto; i titoli con caratteri corrotti vengono riparati',
             'Apri un risultato per vederne i dettagli, copia il suo link magnet o invialo in qualsiasi cartella',
@@ -71,7 +71,7 @@ export const content: FeaturesContent = {
           points: [
             `File .torrent fino a ${torrentMb} MB`,
             'Sul tuo computer Magnetar può diventare l’app predefinita per i link magnet e i file .torrent, così basta un clic nel browser o nel file manager per aggiungerli',
-            'Sul sito, il browser può inviare i link magnet direttamente al tuo computer («Apri i link magnet qui» nella pagina dei dispositivi)',
+            'Sul sito, il browser può inviare i link magnet direttamente al tuo computer («Apri i link magnet qui» in I tuoi computer)',
             'Scegli un’altra cartella nella finestra, con un selettore di cartelle',
           ],
         },
@@ -83,7 +83,7 @@ export const content: FeaturesContent = {
             'Regole per ogni serie: risoluzione, seeder minimi, dimensione massima, parole da preferire e da evitare',
             'Parti da un episodio a tua scelta, dall’ultimo uscito o solo dai nuovi episodi',
             'Controlli da ogni 15 minuti a una volta al giorno (ogni ora come impostazione predefinita), al massimo 25 episodi alla volta',
-            'Ogni scheda mostra la prossima data di messa in onda e a che punto è la serie',
+            'La stagione è un’orbita con un arco per episodio: presente, in download o atteso. Una frase indica cosa succede dopo e le date di uscita si avvicinano a oggi lungo una linea di due settimane.',
           ],
         },
         watches: {
@@ -105,12 +105,12 @@ export const content: FeaturesContent = {
       features: {
         engine: {
           title: 'Un motore di download integrato',
-          gain: 'Avanzamento, velocità, peer e tempo rimanente in tempo reale per ogni download, senza installare nient’altro.',
+          gain: 'Avanzamento, velocità e tempo rimanente per ogni download, senza installare altro.',
           text: 'I download girano dentro Magnetar su librqbit, con DHT e tracker, e la dashboard si aggiorna una volta al secondo. Mettere in pausa, riavviare o aggiornare non fa mai rileggere i pezzi già completati.',
           points: [
-            'Viste Attivi, Completati e Tutti con i loro conteggi e un ordine a scelta (recenti, vecchi, nome, dimensione, avanzamento), ricordato per dispositivo; ogni download mostra quando è stato aggiunto e completato; metti in pausa, riprendi, riprova o elimina ciascuno',
+            'Viste Attivi, Completati e Tutti, ordine salvato per ogni computer e pulsanti di testo per mettere in pausa, riprendere, riprovare o rimuovere. Un download completato resta visibile finché non cambi vista.',
             'Quando elimini, ti chiede se tenere i file',
-            'Velocità totale di download e upload e lo spazio libero rimasto, che diventa un avviso sotto i 5 GB',
+            'Il riepilogo mostra il computer, i download in corso, la velocità totale e lo spazio libero. Qui puoi ridurre la velocità o tornare alla massima; gli orari restano in Impostazioni → Download.',
             'La porta del router viene aperta via UPnP, e un torrent che non trova peer in tre minuti lo segnala invece di aspettare all’infinito',
             'Un torrent con più file ha una propria cartella',
           ],
@@ -122,14 +122,14 @@ export const content: FeaturesContent = {
           points: [
             'Il browser si apre nell\'ultima cartella usata: salvare due volte nello stesso posto sono due tocchi',
             'Spunta «Salva sempre qui, non chiedere più» per rendere quella cartella la cartella di download e non ricevere più la domanda; Impostazioni → Download la riporta',
-            'Senza domanda, Scarica aggiunge nella cartella di download con un clic, e i dettagli tengono un link «Salva in un\'altra cartella…»',
+            'Senza la domanda sulla cartella, Scarica aggiunge alla cartella predefinita con un clic. Impostazioni → Download permette di riattivare la domanda.',
             'Dal sito si possono scegliere solo la cartella di download e quelle aggiunte sul computer, come ovunque',
           ],
         },
         files: {
           title: 'Solo i file che vuoi',
           gain: 'Scarica un episodio di una stagione, o salta gli extra, e segui ogni file singolarmente.',
-          text: 'I dettagli di un download elencano i suoi file, ognuno con una casella di spunta e il suo avanzamento, aggiornato ogni due secondi durante il download, insieme a dimensione, ratio, date, fonte e cartella.',
+          text: 'Ogni download si apre nella propria pagina con un link per tornare indietro, la corsia, la cartella, le date, la fonte e il rapporto. I file hanno caselle, dimensioni e avanzamento aggiornato ogni due secondi. Gli aggiornamenti conservano le modifiche alla selezione.',
           points: [
             'Cambia la selezione in qualsiasi momento; un pulsante la salva',
             '«Mostra nella cartella» apre Finder o Explorer sul file, sul tuo computer',
@@ -148,7 +148,7 @@ export const content: FeaturesContent = {
         browse: {
           title: 'I tuoi download, cartella per cartella',
           gain: 'Guarda cosa è arrivato dove, riproducilo o scegli una nuova cartella di download, dal computer o dal telefono.',
-          text: 'File mostra la cartella di download e ogni cartella aggiunta sul computer che esegue Magnetar: prima le cartelle, poi i file, con dimensioni e date. I file di un download si possono riprodurre o aprire nei suoi dettagli.',
+          text: 'File apre la cartella dei download, con viste per ogni posizione e percorsi cliccabili per tornare indietro. Una cartella è un gruppo di stelle, un file completo una stella bianco-azzurra e un download in corso una brace con la percentuale. Dimensioni, date, riproduzione e dettagli restano accessibili.',
           points: [
             'Ordinati come si leggono i nomi: l\'episodio 2 prima del 10',
             'Crea una cartella o usa quella mostrata come cartella di download',
@@ -187,8 +187,8 @@ export const content: FeaturesContent = {
           gain: 'Avvia un download dal telefono sull’autobus e lo trovi ad aspettarti sul computer di casa.',
           text: 'Accedi su magnetar.codefusion.cc e apri uno qualsiasi dei tuoi computer: ricerca, download, la lista Da seguire e le impostazioni funzionano come a casa. Il lavoro lo fa il tuo computer; il sito ti collega soltanto a lui.',
           points: [
-            'I tuoi dispositivi con il loro stato online, aggiornato ogni 15 secondi',
-            'Su un telefono le schede sono in basso, su un computer c’è una barra laterale',
+            'I tuoi computer con il loro stato online, aggiornato ogni 15 secondi',
+            'Le schede sono in basso sul telefono e in alto sul computer',
             'Quello che ha senso solo al computer (il suo selettore di cartelle, l’apertura dei file) resta lì',
             'Accesso con Google; le sessioni durano 30 giorni dall’ultima visita, e uscendo quel browser si scollega subito dai tuoi computer',
           ],
@@ -215,7 +215,7 @@ export const content: FeaturesContent = {
         'device-addresses': {
           title: 'Ogni computer al suo indirizzo',
           gain: 'magnetar.codefusion.cc/MacBook-Pro/search: dal link capisci quale computer apre.',
-          text: 'Il nome di un computer è la prima parte degli indirizzi delle sue pagine. Passa da un computer all’altro dal nome nella barra laterale e resti sulla stessa pagina.',
+          text: 'Il nome di un computer è la prima parte degli indirizzi delle sue pagine. Passa da un computer all’altro dal nome in alto nella pagina e resti sulla stessa pagina.',
           points: [
             `I nomi sono lettere e cifre unite da trattini, fino a ${DEVICE_NAME_MAX_LENGTH} caratteri; qualsiasi nome digiti viene scritto così («Paweł's Mac» diventa Pawels-Mac)`,
             'Rinominare un computer sposta una pagina aperta al suo nuovo indirizzo',
@@ -327,7 +327,7 @@ export const content: FeaturesContent = {
   },
   shots: {
     search: 'Risultati di ricerca con i tag delle release, uniti da tutte le fonti',
-    'search-sources': 'Cosa ha trovato ogni fonte, e con che velocità',
+    'search-sources': 'Cosa ha trovato ogni fonte e quali non hanno risposto',
     add: 'La finestra Aggiungi con dei link magnet incollati',
     watchlist: 'La lista Da seguire: serie con il prossimo episodio',
     watches: 'Attese di release, con la frequenza dei controlli di ciascuna',
@@ -337,12 +337,12 @@ export const content: FeaturesContent = {
     details: 'I file di un download, ciascuno con il suo avanzamento',
     player: 'Un film con licenza libera nel browser, con i suoi sottotitoli in inglese',
     speed: 'Limiti di velocità, modalità rallentata e il suo orario',
-    devices: 'I tuoi dispositivi sul sito, con il loro stato online',
+    devices: 'I tuoi computer sul sito, con il loro stato online',
     'remote-phone': 'I download di un computer su un telefono, tramite il sito',
     remote: 'L’accesso remoto nelle impostazioni dell’app, collegato a un account',
     pair: 'Approvazione di un computer sul sito',
     'link-qr': 'Un codice QR che collega un telefono',
-    switcher: 'Passaggio da un computer all’altro dalla barra laterale',
+    switcher: 'Passaggio da un computer all’altro dalla barra in alto',
     notifications: 'Canali di notifica, ciascuno con un pulsante di prova',
     settings: 'Impostazioni generali: lingua, tema, avvio all’accesso',
     about: 'La versione e la ricerca di aggiornamenti',

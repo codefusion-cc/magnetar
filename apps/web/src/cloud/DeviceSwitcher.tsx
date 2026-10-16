@@ -1,5 +1,4 @@
 import type { CloudDeviceDto } from '@magnetar/protocol/cloud'
-import { Check, LayoutGrid, Laptop } from 'lucide-react'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Link, useLocation, useParams } from 'react-router'
 import { cloud } from '../lib/cloudApi.ts'
@@ -48,24 +47,19 @@ export function DeviceSwitcher({ children, placement }: { children: ReactNode; p
               <li key={device.id} role="none">
                 <Link role="menuitem" to={samePageOn(pathname, search, devicePath(deviceName), devicePath(device.name))} onClick={close}
                   aria-current={current ? 'page' : undefined} className={`flex items-center gap-3 ${current ? 'menu-active' : ''}`}>
-                  <span className="relative grid size-8 shrink-0 place-items-center rounded-field bg-base-200">
-                    <Laptop size={16} className={device.online ? '' : 'muted'} />
-                    <span className={`absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-base-100 ${device.online ? 'bg-success' : 'bg-base-300'}`} />
-                  </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium">{device.name}</span>
                     <span className="muted block truncate text-xs">
                       {device.online ? t('devices.online') : device.lastSeenAt ? t('remote.lastSeen', formatRelative(device.lastSeenAt)) : t('devices.offline')}
-                      {!linked.has(device.id) && <span className="text-warning"> · {t('devices.notLinkedShort')}</span>}
+                      {!linked.has(device.id) && <span className="block text-warning">{t('devices.notLinkedShort')}</span>}
                     </span>
                   </span>
-                  {current && <Check size={16} className="shrink-0 text-primary" aria-hidden />}
                 </Link>
               </li>
             )
           })}
           <li role="none" className="mt-1 border-t border-base-300 pt-1">
-            <Link role="menuitem" to="/" onClick={close}><LayoutGrid size={16} />{t('devices.back')}</Link>
+            <Link role="menuitem" to="/" onClick={close}>{t('devices.back')}</Link>
           </li>
         </>
       )} />

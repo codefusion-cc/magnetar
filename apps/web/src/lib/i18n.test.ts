@@ -1,5 +1,7 @@
 import { describe, expect, test, vi } from 'vitest'
-import { claimDocumentLanguage, loadCatalog } from './i18n.tsx'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { claimDocumentLanguage, loadCatalog, useFormatEta, useFormatRelative } from './i18n.tsx'
 
 /** The parts of a document `<html lang>` lives in. */
 const page = () => ({ documentElement: { lang: 'en', dir: 'ltr' } }) as unknown as Document
@@ -72,4 +74,21 @@ describe('loading a catalog', () => {
     expect((await loadCatalog('en')).language).toBe('en')
     expect((await loadCatalog('xx')).language).toBe('en')
   })
+})
+
+test('download time left and a relative expiry keep their own sentence grammar', () => {
+  function Times() {
+    const eta = useFormatEta()
+    const relative = useFormatRelative('short', 'always')
+    return createElement('p', null, relative(Date.parse('2026-10-15T12:05:00Z'), Date.parse('2026-10-15T12:00:00Z')), ' / ', eta(300))
+  }
+  expect(renderToStaticMarkup(createElement(Times))).toBe('<p>in 5 min. / 5 min left</p>')
+})
+
+test('a malformed expiry produces no relative text', () => {
+  function Expiry() {
+    const relative = useFormatRelative('short', 'always')
+    return relative(NaN, 0)
+  }
+  expect(renderToStaticMarkup(createElement(Expiry))).toBe('')
 })

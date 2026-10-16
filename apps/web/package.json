@@ -14,6 +14,8 @@
     "@codefusion-cc/features-page": "^0.2.0",
     "@codefusion-cc/google-sign-in": "^0.1.0",
     "@codefusion-cc/i18n": "^0.1.0",
+    "@codefusion-cc/scene": "^0.1.0",
+    "@codefusion-cc/sign-in": "^0.1.1",
     "@codefusion-cc/theme": "^0.1.0",
     "@codefusion-cc/ui": "^0.2.2",
     "@codefusion-cc/web-push": "^0.1.0",

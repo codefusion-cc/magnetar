@@ -1,4 +1,3 @@
-import { CircleCheck, KeyRound } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router'
 import { cloud } from '../lib/cloudApi.ts'
@@ -7,6 +6,8 @@ import { useT } from '../lib/i18n.tsx'
 import { isInstalledApp } from '../lib/installedApp.ts'
 import { adoptParkedKey, parkedKey } from '../lib/keyStore.ts'
 import { linkWithKey } from '../lib/linkDevice.ts'
+import { Empty } from '../ui/Empty.tsx'
+import { Loading } from '../ui/Loading.tsx'
 import { useAccount } from './CloudApp.tsx'
 import { CloudFrame } from './CloudFrame.tsx'
 import { captureFragmentKey } from './PairPage.tsx'
@@ -66,28 +67,21 @@ export function LinkPage() {
   if (!account) return <Navigate to="/login?next=%2Flink" replace />
   if (linked) {
     return (
-      <CloudFrame>
-        <div className="surface mx-auto flex max-w-md flex-col gap-4 p-6">
-          <h1 className="flex items-center gap-2 text-xl font-bold"><CircleCheck size={22} className="text-success" />{t('link.done')}</h1>
-          <p className="text-sm text-base-content/70">{t('link.appHint')}</p>
-          <Link to={linked} replace className="btn btn-primary w-full">{t('link.open')}</Link>
-        </div>
+      <CloudFrame narrow>
+        <Empty appearance="page" heading="h1" title={t('link.done')} text={t('link.appHint')}>
+          <div className="infall-acts"><Link to={linked} replace className="infall-button">{t('link.open')}</Link></div>
+        </Empty>
       </CloudFrame>
     )
   }
+  const failed = error ?? (deviceId ? null : t('link.invalid'))
   return (
-    <CloudFrame>
-      <div className="surface mx-auto flex max-w-md flex-col items-center gap-4 px-6 py-10 text-center">
-        <div className="grid size-14 place-items-center rounded-box bg-primary/10 text-primary"><KeyRound size={28} /></div>
-        <h1 className="text-2xl font-bold">{t('link.title')}</h1>
-        {error || !deviceId
-          ? <div role="alert" className="alert alert-error alert-soft w-full text-sm">{error ?? t('link.invalid')}</div>
-          : <span className="loading loading-spinner loading-lg text-primary" />}
-        {/* Only a key still parked can be stored on a second try; without one, a new link is needed. */}
-        {error && deviceId && parkedKey('link', deviceId) && (
-          <button type="button" className="btn btn-primary btn-sm" onClick={() => setAttempt(n => n + 1)}>{t('common.retry')}</button>
-        )}
-      </div>
+    <CloudFrame narrow>
+      {failed ? (
+        // Only a key still parked can be stored on a second try; without one, a new link is needed.
+        <Empty appearance="page" heading="h1" state="far" role="alert" title={t('link.failedTitle')} text={failed}
+          onRetry={deviceId && parkedKey('link', deviceId) ? () => setAttempt(n => n + 1) : undefined} />
+      ) : <Loading text={t('link.title')} />}
     </CloudFrame>
   )
 }

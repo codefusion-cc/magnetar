@@ -1,7 +1,6 @@
 import { Download, FolderOpen } from 'lucide-react'
-import { formatBytes } from '@magnetar/protocol/bytes'
 import { lazy, Suspense, useEffect, useId, useRef, useState } from 'react'
-import { useT } from '../../lib/i18n.tsx'
+import { useFormatBytes, useT } from '../../lib/i18n.tsx'
 import { updates } from '../../lib/updates.ts'
 import { blurOnEnter } from '../../ui/fields.tsx'
 import { Loading } from '../../ui/Loading.tsx'
@@ -29,6 +28,7 @@ export function FolderBrowser({ open, start, onClose, onSelect, save }: {
   save?: { canAlways: boolean; recent: string[]; fallback: string; busy: boolean; error: string | null; subject?: { name: string; bytes: number | null } }
 }) {
   const t = useT()
+  const formatBytes = useFormatBytes()
   // The folder on screen: null on the list of folders, undefined until the chooser has placed itself.
   const [chosen, setChosen] = useState<string | null | undefined>(undefined)
   const primary = useRef<HTMLButtonElement>(null)
@@ -82,10 +82,12 @@ export function FolderBrowser({ open, start, onClose, onSelect, save }: {
  * A folder path input with a Browse button: the macOS folder chooser on the device's own
  * dashboard, the in-page browser everywhere else.
  */
-export function FolderField({ label, value, placeholder, help, onChange, hideLabel = false }: {
+export function FolderField({ label, value, placeholder, help, onChange, hideLabel = false, asPath = false }: {
   label: string
   /** When a surrounding setting row already names it. */
   hideLabel?: boolean
+  /** The folder as text with a Change button, where a setting shows the folder in use rather than a field to type in. */
+  asPath?: boolean
   value: string
   placeholder?: string
   help?: string
@@ -111,6 +113,18 @@ export function FolderField({ label, value, placeholder, help, onChange, hideLab
     setBrowsing(true)
   }
 
+  const browser = <FolderBrowser open={browsing} start={draft || placeholder || ''} onClose={() => setBrowsing(false)}
+    onSelect={path => { setBrowsing(false); setDraft(path); onChange(path) }} />
+  if (asPath) return (
+    <>
+      <p className="setting-value">{value}</p>
+      <p className="setting-actions">
+        <button type="button" className="infall-button quiet sm" aria-label={`${t('common.change')}: ${label}`} onClick={() => void browse()}>{t('common.change')}</button>
+      </p>
+      {browser}
+    </>
+  )
+
   return (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={id} className={hideLabel ? 'sr-only' : 'text-sm font-medium'}>{label}</label>
@@ -121,8 +135,7 @@ export function FolderField({ label, value, placeholder, help, onChange, hideLab
         <button type="button" className="btn join-item" aria-label={t('common.browse')} onClick={() => void browse()}><FolderOpen size={16} /><span className="hidden sm:inline">{t('common.browse')}</span></button>
       </div>
       {help && <p className="muted text-xs">{help}</p>}
-      <FolderBrowser open={browsing} start={draft || placeholder || ''} onClose={() => setBrowsing(false)}
-        onSelect={path => { setBrowsing(false); setDraft(path); onChange(path) }} />
+      {browser}
     </div>
   )
 }

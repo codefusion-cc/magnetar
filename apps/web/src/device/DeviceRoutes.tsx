@@ -4,6 +4,7 @@ import { I18nProvider } from '../lib/i18n.tsx'
 import { updates } from '../lib/updates.ts'
 import { Loading } from '../ui/Loading.tsx'
 import { useDevice } from './DeviceContext.tsx'
+import { DownloadDetailsPage } from './components/downloadDetails.tsx'
 import { DownloadsPage } from './pages/DownloadsPage.tsx'
 import { Shell, type DeviceMenu } from './Shell.tsx'
 
@@ -18,9 +19,7 @@ function Page({ children }: { children: ReactNode }) {
 }
 
 /** A device's pages, in the language chosen in its settings. */
-export function DeviceRoutes({ headerStart, headerEnd, deviceMenu, fallbackLanguage }: {
-  headerStart?: ReactNode
-  headerEnd?: ReactNode
+export function DeviceRoutes({ deviceMenu, fallbackLanguage }: {
   deviceMenu?: DeviceMenu
   fallbackLanguage: string
 }) {
@@ -28,8 +27,9 @@ export function DeviceRoutes({ headerStart, headerEnd, deviceMenu, fallbackLangu
   return (
     <I18nProvider language={settings?.language ?? fallbackLanguage}>
       <Routes>
-        <Route element={<Shell headerStart={headerStart} headerEnd={headerEnd} deviceMenu={deviceMenu} />}>
+        <Route element={<Shell deviceMenu={deviceMenu} />}>
           <Route index element={<DownloadsPage />} />
+          <Route path="downloads/:id" element={<DownloadDetailsPage />} />
           <Route path="search/*" element={<Page><SearchPage /></Page>} />
           <Route path="series/:tab?" element={<Page><SeriesPage /></Page>} />
           <Route path="files" element={<Page><FilesPage /></Page>} />

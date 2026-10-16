@@ -1,8 +1,7 @@
-import { BellRing, Share } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useT } from '../../lib/i18n.tsx'
 import { disablePush, enablePush, pushStatus, pushSupport, type PushSupport } from '../../lib/push.ts'
-import { Switch } from '../../ui/controls.tsx'
+import { Check, SettingSection } from '../../ui/settings.tsx'
 import { useDevice } from '../DeviceContext.tsx'
 import { useRun } from '../useRun.ts'
 
@@ -38,23 +37,16 @@ export function BrowserPushChannel({ onChange }: { onChange?: (on: boolean) => v
     setBusy(false)
   }
 
-  const hint = problem === 'install' ? (
-    <span className="mt-1 flex items-center gap-1 text-warning"><Share size={14} />{t('push.installFirst')}</span>
-  ) : problem === 'denied' ? <span className="mt-1 block text-warning">{t('push.blocked')}</span>
-    : problem === 'server' ? <span className="mt-1 block text-warning">{t('push.noServer')}</span>
-    : problem === 'unsupported' ? <span className="mt-1 block text-warning">{t('push.unsupported')}</span> : null
+  const hint = problem === 'install' ? t('push.installFirst')
+    : problem === 'denied' ? t('push.blocked')
+    : problem === 'server' ? t('push.noServer')
+    : problem === 'unsupported' ? t('push.unsupported') : undefined
 
   return (
-    <section className="surface border-primary/30 p-5 sm:p-6">
-      <div className="flex items-start gap-3">
-        <span className="grid size-9 shrink-0 place-items-center rounded-field bg-primary/10 text-primary"><BellRing size={18} /></span>
-        <div className="min-w-0 flex-1">
-          <h2 className="font-semibold">{t('push.title')}</h2>
-          <p className="muted mt-0.5 text-sm">{t('push.hint')}{hint}</p>
-        </div>
-        {busy || on === null ? <span className="loading loading-spinner loading-sm mt-1 text-primary" />
-          : <Switch label={t('push.title')} checked={on} disabled={problem === 'unsupported' || problem === 'install'} onChange={v => void toggle(v)} />}
-      </div>
-    </section>
+    <SettingSection title={t('push.title')} hint={hint}>
+      <p>{t('push.hint')}</p>
+      {on === null ? <p className="fine" role="status">{t('common.loading')}</p>
+        : <Check label={t('push.use')} checked={on} disabled={busy || problem === 'unsupported' || problem === 'install'} onChange={v => void toggle(v)} />}
+    </SettingSection>
   )
 }

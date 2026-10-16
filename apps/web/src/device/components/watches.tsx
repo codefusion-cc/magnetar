@@ -1,17 +1,17 @@
 import type { WatchDto, WatchInput } from '@magnetar/protocol'
-import { formatBytes } from '@magnetar/protocol/bytes'
-import { BellRing, CircleCheck, Clapperboard, Download, Pencil, Plus, RefreshCw, RotateCcw, Sprout, Trash2 } from 'lucide-react'
+import { BellRing, RotateCcw, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
-import { useFormatRelative, useT } from '../../lib/i18n.tsx'
+import { useFormatBytes, useFormatRelative, useT } from '../../lib/i18n.tsx'
 import { parseQuality, qualityForm, resolutionLabel, type QualityForm } from '../../lib/quality.ts'
 import { Segmented, Switch } from '../../ui/controls.tsx'
-import { Field, TextField } from '../../ui/fields.tsx'
+import { Field, SelectField, TextField } from '../../ui/fields.tsx'
 import { Empty } from '../../ui/Empty.tsx'
+import { SeasonOrbit, EpisodeApproach } from './episodes.tsx'
 import { ConfirmDialog, Modal } from '../../ui/Modal.tsx'
 import { useToast } from '../../ui/toast.tsx'
 import { useDevice } from '../DeviceContext.tsx'
-import { useRun } from '../useRun.ts'
+import { useLockedRun, useRun } from '../useRun.ts'
 import { intervalLabel, QualityFields } from './qualityFields.tsx'
 
 const INTERVALS = [60, 180, 360, 720, 1440, 4320, 10080]
@@ -30,15 +30,15 @@ export function WatchesSection({ start, onStarted }: { start: WatchInput | null;
     onStarted()
   }, [start, onStarted])
 
-  const add = <button type="button" className="btn btn-primary" onClick={() => { setDraft(null); setEditing('new') }}><Plus size={16} />{t('watch.add')}</button>
+  const add = <button type="button" className="infall-button" onClick={() => { setDraft(null); setEditing('new') }}>{t('watch.add')}</button>
   return (
     <>
       {watches.length === 0 ? (
-        <Empty icon={<Clapperboard size={40} strokeWidth={1.5} className="text-primary" />} title={t('watch.emptyTitle')} text={t('watch.emptyHint')}>{add}</Empty>
+        <Empty appearance="page" title={t('watch.emptyTitle')} text={t('watch.emptyHint')}>{add}</Empty>
       ) : (
         <>
           <div className="mb-4 flex justify-end">{add}</div>
-          <ul className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+          <ul className="series-shows release-watches">
             {watches.map(watch => <WatchCard key={watch.id} watch={watch} onEdit={() => { setDraft(null); setEditing(watch) }} />)}
           </ul>
         </>
@@ -50,11 +50,12 @@ export function WatchesSection({ start, onStarted }: { start: WatchInput | null;
 
 function WatchCard({ watch, onEdit }: { watch: WatchDto; onEdit: () => void }) {
   const t = useT()
-  const formatRelative = useFormatRelative()
+  const formatBytes = useFormatBytes()
+  const formatRelative = useFormatRelative('long')
   const toast = useToast()
   const run = useRun()
   const { connection, basePath } = useDevice()
-  const [busy, setBusy] = useState<'check' | 'download' | null>(null)
+  const { busy, run: lockedRun } = useLockedRun()
   const [deleting, setDeleting] = useState(false)
   const rules = [
     resolutionLabel(watch.resolution),
@@ -62,63 +63,37 @@ function WatchCard({ watch, onEdit }: { watch: WatchDto; onEdit: () => void }) {
     watch.minSeeders > 1 && t('watch.seedersAtLeast', watch.minSeeders),
     watch.preferWords && t('watch.prefers', watch.preferWords),
     watch.autoDownload ? t('watch.autoDownload') : t('watch.notifyOnly'),
-  ].filter(Boolean).join(' · ')
+  ].filter(Boolean).join(', ')
 
   const act = async (kind: 'check' | 'download') => {
-    setBusy(kind)
-    const done = await run(() => connection.call(kind === 'check' ? 'watches.checkNow' : 'watches.download', { id: watch.id }), 'watch.failed')
-    setBusy(null)
+    const done = await lockedRun(() => connection.call(kind === 'check' ? 'watches.checkNow' : 'watches.download', { id: watch.id }), 'watch.failed')
     if (done && kind === 'check') toast(('found' in done && done.found) ? t('watch.foundToast') : t('watch.nothingYet'), 'info')
     if (done && kind === 'download') toast(t('search.started', watch.found?.title ?? ''), 'success')
   }
   const rearm = (enabled: boolean) => void run(() => connection.call('watches.update', { id: watch.id, watch: { ...toInput(watch), enabled } }), 'settings.saveFailed')
 
+  let action
+  if (watch.found && watch.downloadId !== null) action = <Link to={basePath || '/'} className="infall-small">{t('watch.downloading')}</Link>
+  else if (watch.found) action = <button type="button" className="infall-button" disabled={busy} onClick={() => void act('download')}>{t('common.download')}</button>
+  else action = <button type="button" className="infall-small" disabled={busy || !watch.enabled} onClick={() => void act('check')}>{busy ? t('search.searching') : t('series.checkNow')}</button>
+
   return (
-    <li className="surface flex flex-col p-5">
-      <div className="flex items-start gap-3">
-        <span className={`grid size-10 shrink-0 place-items-center rounded-field ${watch.found ? 'bg-success/10 text-success' : watch.enabled ? 'bg-primary/10 text-primary' : 'bg-base-200 muted'}`}>
-          {watch.found ? <CircleCheck size={20} /> : <BellRing size={20} />}
-        </span>
-        <div className="min-w-0 flex-1">
-          <h3 className="break-release font-semibold leading-snug">{watch.query}</h3>
-          <p className="muted mt-0.5 text-sm">{rules}</p>
-        </div>
-        {!watch.found && <Switch label={t('series.enabled')} checked={watch.enabled} onChange={rearm} />}
+    <li className="release-watch">
+      <SeasonOrbit episodes={[]} total={0} label={watch.query} />
+      <div className="show-body"><h2>{watch.query}</h2>
+        <p>{watch.found ? watch.found.title : !watch.enabled ? t('series.pausedHint') : t(watch.resolution ? 'watch.waitingRelease' : 'watch.waitingAny', resolutionLabel(watch.resolution) || '')}</p>
+        <p className="rule">{watch.autoDownload ? t('watch.arrivesAutomatically') : t('watch.notifyOnly')} {watch.lastCheckedAt ? t('series.checkedAgo', formatRelative(watch.lastCheckedAt)) : t('series.notCheckedYet')}</p>
+        {watch.found && <p className="file-meta"><span>{formatBytes(watch.found.sizeBytes)}</span><span>{t('search.seeders', watch.found.seeders)}</span><span>{watch.found.source}</span><span>{t('watch.foundAt', formatRelative(watch.found.foundAt))}</span></p>}
+        <details className="series-tools"><summary>{t('common.edit')}</summary><div className="infall-acts">
+          <p className="series-rule-details">{rules}, {t('series.everyN', intervalLabel(t, watch.checkIntervalMinutes))}</p>
+          {!watch.found && <Switch label={t('series.enabled')} checked={watch.enabled} onChange={rearm} />}
+          {watch.found && <button type="button" className="infall-small" onClick={() => rearm(true)} title={t('watch.againHint')}><RotateCcw size={14} />{t('watch.again')}</button>}
+          <button type="button" className="infall-small" onClick={onEdit}>{t('common.edit')}</button>
+          <button type="button" className="infall-small" aria-label={t('watch.delete')} onClick={() => setDeleting(true)}><Trash2 size={16} /></button>
+        </div></details>
       </div>
-
-      {watch.found ? (
-        <div className="mt-4 rounded-field bg-success/5 p-3 text-sm">
-          <div className="text-xs font-medium text-success">{t('watch.foundAt', formatRelative(watch.found.foundAt))}</div>
-          <div className="break-release mt-1 font-medium">{watch.found.title}</div>
-          <div className="muted mt-1 flex flex-wrap gap-x-3 text-xs">
-            <span className="tabular-nums">{formatBytes(watch.found.sizeBytes)}</span>
-            <span className="inline-flex items-center gap-1 tabular-nums"><Sprout size={12} />{watch.found.seeders}</span>
-            <span>{watch.found.source}</span>
-          </div>
-        </div>
-      ) : (
-        <p className="muted mt-4 text-xs">
-          {!watch.enabled ? t('series.pausedHint') : watch.lastCheckedAt ? t('watch.checked', formatRelative(watch.lastCheckedAt), intervalLabel(t, watch.checkIntervalMinutes)) : t('series.notCheckedYet')}
-        </p>
-      )}
-
-      <div className="mt-4 flex flex-wrap items-center gap-1 border-t border-base-300 pt-3">
-        {watch.found ? (
-          watch.downloadId !== null
-            ? <Link to={basePath || '/'} className="btn btn-ghost btn-sm text-success"><Download size={14} />{t('watch.downloading')}</Link>
-            : <button type="button" className="btn btn-primary btn-soft btn-sm" disabled={busy !== null} onClick={() => void act('download')}>
-                {busy === 'download' ? <span className="loading loading-spinner loading-xs" /> : <Download size={14} />}{t('common.download')}
-              </button>
-        ) : (
-          <button type="button" className="btn btn-ghost btn-sm" disabled={busy !== null || !watch.enabled} onClick={() => void act('check')}>
-            {busy === 'check' ? <span className="loading loading-spinner loading-xs" /> : <RefreshCw size={14} />}{t('series.checkNow')}
-          </button>
-        )}
-        {watch.found && <button type="button" className="btn btn-ghost btn-sm" onClick={() => rearm(true)} title={t('watch.againHint')}><RotateCcw size={14} />{t('watch.again')}</button>}
-        <button type="button" className="btn btn-ghost btn-sm" onClick={onEdit}><Pencil size={14} />{t('common.edit')}</button>
-        <button type="button" className="btn btn-ghost btn-sm btn-square muted ml-auto hover:text-error" aria-label={t('watch.delete')} title={t('watch.delete')}
-          onClick={() => setDeleting(true)}><Trash2 size={16} /></button>
-      </div>
+      <EpisodeApproach episodes={[]} />
+      {action}
       {deleting && <ConfirmDialog open title={t('watch.delete')} message={t('watch.deleteConfirm', watch.query)}
         options={[{ label: t('common.cancel'), value: false, tone: 'ghost' }, { label: t('common.delete'), value: true, tone: 'error' }]}
         onResult={confirmed => {
@@ -200,12 +175,9 @@ function WatchDialog({ watch, draft, onClose }: { watch: WatchDto | 'new' | null
         <TextField label={t('watch.query')} help={t('watch.queryHelp')} value={form.query} onChange={set('query')} maxLength={200} data-autofocus />
         <QualityFields form={form} set={set} kind="watch" />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label={t('series.checkEvery')}>
-            <select className="select w-full" value={form.checkIntervalMinutes} onChange={e => set('checkIntervalMinutes')(Number(e.target.value))}>
-              {intervals.map(m => <option key={m} value={m}>{intervalLabel(t, m)}</option>)}
-            </select>
-          </Field>
-          <Field label={t('watch.whenFound')}>
+          <SelectField label={t('series.checkEvery')} value={form.checkIntervalMinutes} onChange={set('checkIntervalMinutes')}
+            options={intervals.map(m => ({ value: m, label: intervalLabel(t, m) }))} />
+          <Field label={t('watch.whenFound')} group>
             <Segmented label={t('watch.whenFound')} value={form.autoDownload ? 'download' : 'notify'} onChange={v => set('autoDownload')(v === 'download')}
               options={[{ value: 'notify', label: t('watch.tellMe') }, { value: 'download', label: t('watch.downloadIt') }]} />
           </Field>

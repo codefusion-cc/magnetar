@@ -27,11 +27,11 @@ test('magnets pasted into the add dialog start as downloads that can be paused, 
   await expect(first).toContainText(/Fetching metadata|Queued/)
 
   await first.getByRole('button', { name: 'First show' }).click()
-  const details = dialog(page, 'Download details')
-  await expect(details).toContainText("The file list appears once the torrent's details have arrived from peers.")
-  await details.getByRole('button', { name: 'Close' }).first().click()
+  const details = page.locator('.download-one')
+  await expect(details).toContainText("The list arrives with the first peer.")
+  await page.getByRole('link', { name: 'All downloads', exact: true }).click()
 
-  await first.getByRole('button', { name: 'Delete' }).click()
+  await first.getByRole('button', { name: 'Remove' }).click()
   await dialog(page, 'Delete download').getByRole('button', { name: 'Keep files' }).click()
   await expect(page.locator('li').filter({ hasText: 'First show' })).toHaveCount(0)
   await expect(page.locator('li').filter({ hasText: 'Second show' })).toHaveCount(1)

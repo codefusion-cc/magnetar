@@ -9,13 +9,14 @@ import { sectionLinks } from '@codefusion-cc/features-page'
 import { applyDocumentLocale } from '@codefusion-cc/i18n/browser'
 import { FeatureList, Features, FeaturesIndex, FeaturesNav, ShotFrame, ShotsProvider, shotUrls, useScrollToHash, type FeatureClassNames } from '@codefusion-cc/features-page/react'
 import { useTheme } from '@codefusion-cc/theme/react'
-import { ArrowRight, Languages, LogIn } from 'lucide-react'
+import { ArrowRight, LogIn } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router'
 import { useAccount } from '../cloud/CloudApp.tsx'
 import { SiteFooter, ThemeToggle } from '../cloud/CloudFrame.tsx'
 import { DownloadApp } from '../cloud/DownloadApp.tsx'
 import { browserLanguage, I18nProvider, LANGUAGES } from '../lib/i18n.tsx'
+import { Select } from '../ui/Select.tsx'
 import { BrandMark } from '../ui/BrandMark.tsx'
 import { Loading } from '../ui/Loading.tsx'
 import { theme } from '../ui/theme.ts'
@@ -152,7 +153,7 @@ function FeaturesView({ language, content }: { language: string; content: Featur
             <Closing content={content} />
           </div>
         </main>
-        <SiteFooter column="fp-wrap" />
+        <SiteFooter column="fp-wrap" theme={false} />
       </div>
     </ShotsProvider>
   )
@@ -174,13 +175,9 @@ function Header({ language, content }: { language: string; content: FeaturesCont
           <BrandMark />
           <span className="font-display text-[15px]">Magnetar</span>
         </Link>
-        <label className="select select-sm w-auto">
-          <Languages size={16} aria-hidden className="opacity-70" />
-          <select value={language} aria-label={content.header.language} onChange={e => navigate(`/features/${e.target.value}`, { replace: true })}>
-            {LANGUAGES.map(l => <option key={l.code} value={l.code} lang={l.code}>{l.name}</option>)}
-          </select>
-        </label>
-        <ThemeToggle />
+        <Select look="small" label={content.header.language} value={language} onChange={next => navigate(`/features/${next}`, { replace: true })}
+          options={LANGUAGES.map(l => ({ value: l.code, label: l.name, lang: l.code }))} />
+        <ThemeToggle className="frame-control" />
         <Link to={account.to} className="btn btn-primary btn-sm max-sm:btn-square" aria-label={account.label}>
           {account.signedIn ? <ArrowRight size={16} aria-hidden /> : <LogIn size={16} aria-hidden />}
           <span className="max-sm:hidden">{account.label}</span>

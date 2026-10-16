@@ -1,6 +1,6 @@
 import { cancelGoogleSignIn } from '@codefusion-cc/google-sign-in/browser'
 import type { AccountDto } from '@magnetar/protocol/cloud'
-import { consolePage } from '@magnetar/protocol/console-pages'
+import { consolePage, PUBLIC_PAGES } from '@magnetar/protocol/console-pages'
 import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router'
 import type { AppConfig } from '../lib/cloudApi.ts'
@@ -14,6 +14,7 @@ import { Loading } from '../ui/Loading.tsx'
 import { useToast } from '../ui/toast.tsx'
 import { AddRedirect } from './AddRedirect.tsx'
 import { DevicesPage } from './DevicesPage.tsx'
+import { HomePage } from './HomePage.tsx'
 import { LinkPage } from './LinkPage.tsx'
 import { AboutPage } from './AboutPage.tsx'
 import { LoginPage } from './LoginPage.tsx'
@@ -35,8 +36,6 @@ export function useAccount(): AccountState {
   return value
 }
 
-const PUBLIC_PAGES = new Set(['login', 'pair', 'link', 'features'])
-
 /** Its own chunk, with its screenshots: none of the dashboard's pages loads it. */
 const FeaturesPage = lazy(() => updates.importOrReload(() => import('../features/FeaturesPage.tsx')))
 
@@ -48,13 +47,14 @@ function ConsolePageTracker({ signedIn }: { signedIn: boolean }) {
   useEffect(() => {
     signedInNow.current = signedIn
   }, [signedIn])
+  // `/` is two screens: signing out there turns Your computers into the first page without a new address.
+  const page = consolePage(pathname, signedIn)
   useEffect(() => {
-    const page = consolePage(pathname)
     // A signed-out visit to an account page is about to land on /login, which counts it.
     if (!signedInNow.current && !PUBLIC_PAGES.has(page)) return
     reporting.setErrorPage(page)
     reporting.recordView(page, signedInNow.current)
-  }, [pathname])
+  }, [pathname, page])
   return null
 }
 
@@ -102,7 +102,7 @@ export default function CloudApp({ config }: { config: AppConfig }) {
             <Route path="/add" element={<RequireAccount><AddRedirect /></RequireAccount>} />
             <Route path="/d/:deviceId/*" element={<RequireAccount><DeviceIdRedirect /></RequireAccount>} />
             <Route path="/:deviceName/*" element={<RequireAccount><RemoteDevice /></RequireAccount>} />
-            <Route path="/" element={<RequireAccount><DevicesPage /></RequireAccount>} />
+            <Route path="/" element={account ? <DevicesPage /> : <HomePage />} />
           </Routes>
         </BrowserRouter>
       </I18nProvider>

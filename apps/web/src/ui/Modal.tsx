@@ -41,9 +41,16 @@ export function Modal({ open, title, icon, onClose, children, actions, wide = fa
     if (closingItself.current) closingItself.current = false
     else onClose()
   }
+  // Escape says so at once, in "cancel": an answer that arrives before the later "close" task must already find the
+  // dialog closed (a link minted for a dialog closed meanwhile is revoked, not shown). The "close" that follows is ours.
+  const cancelled = (event: SyntheticEvent<HTMLDialogElement>) => {
+    if (event.target !== event.currentTarget) return
+    closingItself.current = true
+    onClose()
+  }
 
   return (
-    <dialog ref={ref} className="modal modal-bottom sm:modal-middle" aria-labelledby={titleId} onClose={closed}>
+    <dialog ref={ref} className="modal modal-bottom sm:modal-middle" aria-labelledby={titleId} onCancel={cancelled} onClose={closed}>
       {open && (
         <div className={`modal-box ${wide ? 'sm:max-w-2xl' : 'sm:max-w-lg'} p-0`}>
           <div className="flex items-center gap-2 border-b border-base-300 px-5 py-4">

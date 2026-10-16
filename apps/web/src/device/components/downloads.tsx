@@ -1,140 +1,100 @@
 import type { DownloadDto, DownloadStatus } from '@magnetar/protocol'
-import { formatBytes, formatRate } from '@magnetar/protocol/bytes'
-import { ArrowDown, ArrowUp, Clock, Files, Pause, Play, RotateCw, Trash2, Tv, Users } from 'lucide-react'
-import { memo, useState } from 'react'
-import { useFormatDate, useFormatEta, useFormatRelative, useT } from '../../lib/i18n.tsx'
+import { Component, createRef, memo, useState, type ReactNode } from 'react'
+import { formatters, useFormatBytes, useFormatRate, useFormatEta, useFormatDate, useLanguage, useT } from '../../lib/i18n.tsx'
+import { isActive, isFinished } from '../../lib/downloadViews.ts'
+import { downloadDay, noPeersError } from '../../lib/downloadPresentation.ts'
 import { ConfirmDialog } from '../../ui/Modal.tsx'
 import { useConnection } from '../DeviceContext.tsx'
-import { useRun } from '../useRun.ts'
+import { useLockedRun } from '../useRun.ts'
 
-const STATUS: Record<DownloadStatus, { key: string; text: string; bar: string }> = {
-  Queued: { key: 'status.queued', text: 'muted', bar: 'bg-base-content/30' },
-  FetchingMetadata: { key: 'status.fetchingMetadata', text: 'text-info', bar: 'bg-info' },
-  Downloading: { key: 'status.downloading', text: 'text-info', bar: 'bg-info' },
-  Seeding: { key: 'status.seeding', text: 'text-success', bar: 'bg-success' },
-  Paused: { key: 'status.paused', text: 'text-warning', bar: 'bg-warning' },
-  Completed: { key: 'status.completed', text: 'text-success', bar: 'bg-success' },
-  Error: { key: 'status.error', text: 'text-error', bar: 'bg-error' },
+const STATUS: Record<DownloadStatus, string> = {
+  Queued: 'status.queued', FetchingMetadata: 'status.fetchingMetadata', Downloading: 'status.downloading',
+  Seeding: 'status.seeding', Paused: 'status.paused', Completed: 'status.completed', Error: 'status.error',
 }
 
-/** Doing something right now (and so shown in the tray and the Active filter). */
-export function isActive(d: DownloadDto): boolean {
-  return d.status === 'Downloading' || d.status === 'FetchingMetadata' || d.status === 'Queued' || d.status === 'Seeding'
-}
-
-/** Everything it was asked for is on disk. */
-export function isFinished(d: DownloadDto): boolean {
-  return d.status === 'Completed' || d.status === 'Seeding'
-}
-
-export function ProgressBar({ download }: { download: DownloadDto }) {
-  const t = useT()
-  const value = Math.min(100, Math.max(0, download.progress))
-  const fetching = download.status === 'FetchingMetadata'
-  return (
-    <div className="h-1.5 overflow-hidden rounded-full bg-base-300" role="progressbar" aria-label={t(STATUS[download.status].key)}
-      aria-valuemin={0} aria-valuemax={100} aria-valuenow={fetching ? undefined : Math.round(value)}>
-      <div className={`h-full rounded-full transition-[width] duration-700 ${STATUS[download.status].bar} ${fetching ? 'w-1/3 animate-pulse' : ''}`}
-        style={fetching ? undefined : { width: `${value}%` }} />
-    </div>
-  )
-}
-
-/** Uploaded ÷ size, the usual measure of how much a download has given back. */
 export const ratioOf = (d: DownloadDto) => (d.totalBytes > 0 ? d.uploadedBytes / d.totalBytes : 0)
 
-/**
- * One download: name, progress, and a line of what is happening; the actions on the right. The
- * name opens its details. Memoized: once-a-second updates keep unchanged rows' objects.
- */
-export const DownloadRow = memo(function DownloadRow({ download: d, down, up, eta, seriesName, onOpen }: {
-  download: DownloadDto
-  /** The speeds and seconds left to show, steadied over the last pushes (lib/steadySpeed.ts). */
-  down: number
-  up: number
-  eta: number | null
-  seriesName?: string
-  onOpen: (id: number) => void
-}) {
+/** The accessible progress and geometry used by the containing scene. */
+export function ProgressBar({ download: d }: { download: DownloadDto }) {
+  const progress = Math.min(100, Math.max(0, d.progress))
+  return <div className="download-lane" data-status={d.status} data-progress={progress}
+    role="progressbar" aria-label={d.name} aria-valuemin={0} aria-valuemax={100}
+    aria-valuenow={d.status === 'FetchingMetadata' ? undefined : progress} />
+}
+
+export function DownloadFacts({ download: d, down, up, eta }: { download: DownloadDto; down: number; up: number; eta: number | null }) {
   const t = useT()
-  const formatEta = useFormatEta()
-  const formatRelative = useFormatRelative()
-  const formatDate = useFormatDate()
-  const status = STATUS[d.status]
-  const percent = Math.round(d.progress * 10) / 10
+  const language = useLanguage()
+  const date = useFormatDate()
+  const bytes = useFormatBytes()
+  const rate = useFormatRate()
+  const etaText = useFormatEta()
   const done = isFinished(d)
+  return <div className="download-meta">
+    <span className="download-status" data-status={d.status}>{d.status === 'Error' ? (noPeersError(d.error) ? t('downloads.noPeers') : d.error || t(STATUS.Error)) : t(STATUS[d.status])}</span>
+    {(d.status === 'Downloading' || d.status === 'Paused') && <span>{formatters(language).number(d.progress, { maximumFractionDigits: 1 })}%</span>}
+    {d.totalBytes > 0 && <span>{done ? bytes(d.totalBytes) : t('downloads.sizeOf', bytes(d.totalBytes * d.progress / 100), bytes(d.totalBytes))}</span>}
+    {down > 0 && <span>{rate(down)}</span>}
+    {up > 0 && <span>{t('details.uploaded')} {rate(up)}</span>}
+    {eta !== null && <span>{etaText(eta)}</span>}
+    {isActive(d) && d.peers > 0 && <span>{t('downloads.peers', d.peers)}</span>}
+    {done && d.completedAt && <span title={date(d.completedAt, true)}>{downloadDay(language, d.completedAt)}</span>}
+    {d.status === 'Seeding' && d.uploadedBytes > 0 && <span>{t('downloads.ratio', ratioOf(d).toFixed(2))}</span>}
+    {d.partialFiles && <span>{t('downloads.someFiles', d.partialFiles.selected, d.partialFiles.total)}</span>}
+  </div>
+}
 
-  const facts = [
-    <span key="status" className={`font-medium ${status.text}`}>{t(status.key)}{d.status === 'Downloading' || d.status === 'Paused' ? ` · ${percent}%` : ''}</span>,
-    d.totalBytes > 0 && (
-      <span key="size" className="tabular-nums">
-        {done ? formatBytes(d.totalBytes) : t('downloads.sizeOf', formatBytes(d.totalBytes * d.progress / 100), formatBytes(d.totalBytes))}
-      </span>
-    ),
-    down > 0 && <span key="down" className="inline-flex items-center gap-0.5 tabular-nums"><ArrowDown size={12} />{formatRate(down)}</span>,
-    up > 0 && <span key="up" className="inline-flex items-center gap-0.5 tabular-nums"><ArrowUp size={12} />{formatRate(up)}</span>,
-    eta !== null && <span key="eta" className="inline-flex items-center gap-1"><Clock size={12} />{formatEta(eta)}</span>,
-    isActive(d) && d.peers > 0 && <span key="peers" className="inline-flex items-center gap-1 tabular-nums"><Users size={12} />{d.peers}</span>,
-    d.status === 'Seeding' && d.uploadedBytes > 0 && <span key="ratio" className="tabular-nums">{t('downloads.ratio', ratioOf(d).toFixed(2))}</span>,
-    d.partialFiles && <span key="files" className="inline-flex items-center gap-1"><Files size={12} />{t('downloads.someFiles', d.partialFiles.selected, d.partialFiles.total)}</span>,
-    d.addedAt && <span key="added" title={formatDate(d.addedAt, true)}>{t('downloads.added', formatRelative(d.addedAt))}</span>,
-    done && d.completedAt && <span key="finished" title={formatDate(d.completedAt, true)}>{t('downloads.finishedAt', formatRelative(d.completedAt))}</span>,
-  ].filter(Boolean)
-
-  return (
-    <li className="surface p-4">
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <button type="button" className="break-release text-left font-medium leading-snug hover:underline" onClick={() => onOpen(d.id)}>{d.name}</button>
-          {seriesName && <div className="muted mt-1 inline-flex items-center gap-1 text-xs"><Tv size={12} />{seriesName}</div>}
-        </div>
-        <DownloadActions download={d} />
-      </div>
-      {d.status !== 'Completed' && d.status !== 'Error' && <div className="mt-3"><ProgressBar download={d} /></div>}
-      <div className="muted mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">{facts}</div>
-      {d.error && <p className="break-release mt-2 text-sm text-error">{d.error}</p>}
-    </li>
-  )
+/** Unchanged row objects and scalar speeds let memo skip rows untouched by a push. */
+export const DownloadRow = memo(function DownloadRow({ download, down, up, eta, seriesName, onOpen }: {
+  download: DownloadDto; down: number; up: number; eta: number | null; seriesName?: string; onOpen: (id: number) => void
+}) {
+  return <DownloadItem download={download}>
+    <h2><button type="button" className="break-release" onClick={() => onOpen(download.id)}>{download.name}</button></h2>
+    {seriesName && <p className="muted text-xs">{seriesName}</p>}
+    <ProgressBar download={download} />
+    <DownloadFacts download={download} down={down} up={up} eta={eta} />
+    <DownloadActions download={download} onPlay={onOpen} />
+  </DownloadItem>
 })
 
-/**
- * Pause while doing anything, resume while paused, retry after an error; delete always —
- * asking whether to also delete the files.
- */
-export function DownloadActions({ download }: { download: DownloadDto }) {
+/** Capture the old height before the facts shorten, including after a viewport resize. */
+class DownloadItem extends Component<{ download: DownloadDto; children: ReactNode }> {
+  private element = createRef<HTMLLIElement>()
+
+  override getSnapshotBeforeUpdate(previous: Readonly<{ download: DownloadDto }>): number | null {
+    return !isFinished(previous.download) && isFinished(this.props.download)
+      ? this.element.current?.getBoundingClientRect().height ?? null : null
+  }
+
+  override componentDidUpdate(_previous: unknown, _state: unknown, height: number | null) {
+    const element = this.element.current
+    if (!element) return
+    if (height !== null) element.style.minHeight = `${height}px`
+    else if (!isFinished(this.props.download)) element.style.removeProperty('min-height')
+  }
+
+  override render() {
+    return <li ref={this.element} className="download-row" data-download-id={this.props.download.id}>{this.props.children}</li>
+  }
+}
+
+/** Pending calls lock synchronously, including clicks before React paints the disabled state. */
+export function DownloadActions({ download, onPlay, remove = true, between, prominent = false }: { download: DownloadDto; onPlay?: (id: number) => void; remove?: boolean; between?: ReactNode; prominent?: boolean }) {
   const t = useT()
   const connection = useConnection()
-  const run = useRun()
+  const { busy, run: act } = useLockedRun()
   const [confirming, setConfirming] = useState(false)
-  const button = 'btn btn-ghost btn-square size-10 sm:size-9'
-  const primary = isActive(download)
-    ? { label: t('common.pause'), icon: <Pause size={18} />, method: 'downloads.pause' as const }
-    : download.status === 'Paused' ? { label: t('common.resume'), icon: <Play size={18} />, method: 'downloads.resume' as const }
-    : download.status === 'Error' ? { label: t('common.retry'), icon: <RotateCw size={18} />, method: 'downloads.resume' as const }
-    : null
-
-  return (
-    <div className="-mr-2 -mt-2 flex shrink-0">
-      {primary && (
-        <button type="button" className={button} title={primary.label} aria-label={primary.label}
-          onClick={() => void run(() => connection.call(primary.method, { id: download.id }))}>{primary.icon}</button>
-      )}
-      <button type="button" className={`${button} muted hover:text-error`} title={t('common.delete')} aria-label={t('common.delete')}
-        onClick={() => setConfirming(true)}><Trash2 size={18} /></button>
-      {confirming && <ConfirmDialog
-        open
-        title={t('downloads.deleteTitle')}
-        message={t('downloads.deleteMessage', download.name)}
-        options={[
-          { label: t('common.cancel'), value: null, tone: 'ghost' },
-          { label: t('downloads.keepFiles'), value: false, tone: 'primary' },
-          { label: t('downloads.deleteFiles'), value: true, tone: 'error' },
-        ]}
-        onResult={deleteFiles => {
-          setConfirming(false)
-          if (deleteFiles !== null) void run(() => connection.call('downloads.delete', { id: download.id, deleteFiles }))
-        }}
-      />}
-    </div>
-  )
+  const primary = isActive(download) ? { label: t('common.pause'), method: 'downloads.pause' as const }
+    : download.status === 'Paused' ? { label: t('common.resume'), method: 'downloads.resume' as const }
+    : download.status === 'Error' ? { label: t('common.retry'), method: 'downloads.resume' as const } : null
+  return <div className="download-actions">
+    {primary && <button type="button" className={prominent ? 'infall-button' : 'infall-small'} disabled={busy} aria-busy={busy}
+      onClick={() => void act(() => connection.call(primary.method, { id: download.id }))}>{primary.label}</button>}
+    {!primary && onPlay && <button type="button" className="infall-small" onClick={() => onPlay(download.id)}>{t('details.play')}</button>}
+    {between}
+    {remove && <button type="button" className="infall-small" disabled={busy} onClick={() => setConfirming(true)}>{t('downloads.remove')}</button>}
+    {confirming && <ConfirmDialog open title={t('downloads.deleteTitle')} message={t('downloads.deleteMessage', download.name)}
+      options={[{ label: t('common.cancel'), value: null, tone: 'ghost' }, { label: t('downloads.keepFiles'), value: false, tone: 'primary' }, { label: t('downloads.deleteFiles'), value: true, tone: 'error' }]}
+      onResult={deleteFiles => { setConfirming(false); if (deleteFiles !== null) void act(() => connection.call('downloads.delete', { id: download.id, deleteFiles })) }} />}
+  </div>
 }

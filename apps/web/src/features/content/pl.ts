@@ -10,7 +10,7 @@ export const content: FeaturesContent = {
     title: 'Funkcje Magnetara',
     description: 'Sześć źródeł torrentów naraz, pobieranie na własnym komputerze i dostęp z przeglądarki lub telefonu, szyfrowany end-to-end. Za darmo na macOS, Windows i Linux.',
   },
-  header: { language: 'Język', signIn: 'Zaloguj się', devices: 'Twoje urządzenia', home: 'Strona główna Magnetara' },
+  header: { language: 'Język', signIn: 'Zaloguj się', devices: 'Twoje komputery', home: 'Strona główna Magnetara' },
   hero: {
     title: 'Twoje pobierania z dowolnego miejsca',
     lead: 'Magnetar przeszukuje sześć źródeł torrentów naraz, pobiera na Twoim komputerze i śledzi Twoje seriale. Otwierasz go z dowolnej przeglądarki lub telefonu, a wszystko, co płynie między nimi, jest szyfrowane end-to-end. Każdy zrzut ekranu na tej stronie pokazuje prawdziwą aplikację.',
@@ -47,7 +47,7 @@ export const content: FeaturesContent = {
           points: [
             'Tagi wydania z tytułu: rozdzielczość (od 480p do 4K), HDR lub Dolby Vision, kodek (H.264, HEVC, AV1) i źródło (BluRay, WEB, HDTV, DVD)',
             'Zawężanie według rozdzielczości i źródła; sortowanie według liczby seedów, od najnowszych, największych lub najmniejszych',
-            'Wolne lub niedziałające źródło nigdy nie wstrzymuje pozostałych: to, które nie odpowie w 15 sekund, zostaje pominięte, a „Pokaż źródła” mówi, co znalazło każde z nich',
+            'Wolne lub niedostępne źródło nie wstrzymuje pozostałych. Nad wynikami zdanie i liczby przy źródłach pokazują, które odpowiedziały, nic nie znalazły lub zawiodły.',
             'Serwery lustrzane działają na zmianę: gdy jeden nie odpowie w półtorej sekundy, pytany jest następny, a najszybszy zostaje zapamiętany',
             'Tylko tytuły zawierające każde wpisane słowo, w dowolnym alfabecie; zniekształcone tytuły są naprawiane',
             'Otwórz wynik, by zobaczyć szczegóły, skopiuj jego link magnet albo wyślij go do dowolnego folderu',
@@ -71,7 +71,7 @@ export const content: FeaturesContent = {
           points: [
             `Pliki .torrent do ${torrentMb} MB`,
             'Na komputerze Magnetar może obsługiwać linki magnet i pliki .torrent, więc dodasz je jednym kliknięciem w przeglądarce lub menedżerze plików',
-            'Na stronie przeglądarka może wysyłać linki magnet prosto na Twój komputer („Otwieraj linki magnet tutaj” na stronie urządzeń)',
+            'Na stronie przeglądarka może wysyłać linki magnet prosto na Twój komputer („Otwieraj linki magnet tutaj” na stronie „Twoje komputery”)',
             'Inny folder wybierzesz w oknie, w przeglądarce folderów',
           ],
         },
@@ -83,7 +83,7 @@ export const content: FeaturesContent = {
             'Zasady dla każdego serialu: rozdzielczość, minimalna liczba seedów, maksymalny rozmiar, słowa preferowane i wykluczone',
             'Start od wybranego odcinka, od najnowszego albo tylko z nowymi odcinkami',
             'Sprawdzanie od co 15 minut do raz dziennie (domyślnie co godzinę), najwyżej 25 odcinków naraz',
-            'Każda karta pokazuje datę emisji następnego odcinka i postęp serialu',
+            'Sezon to orbita z łukiem na każdy odcinek: pobrany, w trakcie lub oczekiwany. Zdanie mówi, co dalej, a odcinki z datą emisji zbliżają się do dziś na dwutygodniowej osi.',
           ],
         },
         watches: {
@@ -105,12 +105,12 @@ export const content: FeaturesContent = {
       features: {
         engine: {
           title: 'Wbudowany silnik pobierania',
-          gain: 'Postęp, prędkość, peery i pozostały czas każdego pobierania na żywo, bez instalowania czegokolwiek więcej.',
+          gain: 'Postęp, prędkość i pozostały czas każdego pobierania, bez instalowania niczego więcej.',
           text: 'Pobieranie działa wewnątrz Magnetara na librqbit, z DHT i trackerami, a panel odświeża się co sekundę. Wstrzymanie, ponowne uruchomienie ani aktualizacja nigdy nie każą ponownie odczytywać ukończonych fragmentów.',
           points: [
-            'Widoki Aktywne, Ukończone i Wszystkie z licznikami oraz wybrana kolejność (najnowsze, najstarsze, nazwa, rozmiar, postęp), zapamiętana na urządzeniu; każde pobranie pokazuje, kiedy je dodano i ukończono; każde pobieranie możesz wstrzymać, wznowić, ponowić albo usunąć',
+            'Widoki Aktywne, Ukończone i Wszystkie, kolejność zapamiętana dla każdego komputera oraz przyciski Wstrzymaj, Wznów, Spróbuj ponownie i Usuń. Ukończony wiersz zostaje na miejscu, dopóki nie zmienisz widoku.',
             'Przy usuwaniu pojawia się pytanie, czy zachować pliki',
-            'Łączna prędkość pobierania i wysyłania oraz wolne miejsce, które poniżej 5 GB zmienia się w ostrzeżenie',
+            'Podsumowanie pokazuje komputer, liczbę pobierań, łączną prędkość i wolne miejsce. Tu zwolnisz lub wrócisz do pełnej prędkości; harmonogram zostaje w Ustawieniach → Pobieranie.',
             'Port na routerze otwiera UPnP, a torrent, który przez trzy minuty nie znajdzie peerów, mówi o tym, zamiast czekać w nieskończoność',
             'Torrent z kilkoma plikami dostaje własny folder',
           ],
@@ -122,14 +122,14 @@ export const content: FeaturesContent = {
           points: [
             'Przeglądarka otwiera się w ostatnio używanym folderze, więc zapis w to samo miejsce to dwa stuknięcia',
             'Zaznacz „Zawsze zapisuj tutaj, nie pytaj więcej”, by ten folder stał się folderem pobierania i pytanie zniknęło; Ustawienia → Pobieranie je przywracają',
-            'Gdy pytanie jest wyłączone, Pobierz dodaje do folderu pobierania jednym kliknięciem, a szczegóły mają link „Zapisz w innym folderze…”',
+            'Gdy pytanie jest wyłączone, Pobierz dodaje do folderu pobierania jednym kliknięciem. Ustawienia → Pobieranie pozwalają ponownie włączyć pytanie o folder.',
             'Przez stronę można wybrać tylko folder pobierania i foldery dodane na komputerze, jak wszędzie',
           ],
         },
         files: {
           title: 'Tylko te pliki, których chcesz',
           gain: 'Pobierz jeden odcinek z całego sezonu albo pomiń dodatki i śledź każdy plik osobno.',
-          text: 'Szczegóły pobierania pokazują jego pliki, każdy z polem wyboru i postępem odświeżanym co dwie sekundy w trakcie pobierania, a także rozmiar, współczynnik, daty, źródło i folder.',
+          text: 'Pobieranie otwiera się na osobnej stronie z linkiem do wszystkich pobierań, torem, folderem, datami, źródłem i współczynnikiem. Pliki mają pola wyboru, rozmiary i postęp odświeżany co dwie sekundy. Zmiana wyboru nie ginie przy odświeżeniu listy.',
           points: [
             'Wybór możesz zmienić w każdej chwili; zapisuje go jeden przycisk',
             '„Pokaż w folderze” otwiera Finder lub Explorer przy danym pliku, na Twoim komputerze',
@@ -148,7 +148,7 @@ export const content: FeaturesContent = {
         browse: {
           title: 'Twoje pobrania, folder po folderze',
           gain: 'Zobacz, co gdzie trafiło, odtwórz to albo wybierz nowy folder pobierania, z komputera lub z telefonu.',
-          text: 'Pliki pokazują folder pobierania i każdy folder dodany na komputerze, na którym działa Magnetar: najpierw foldery, potem pliki, z rozmiarem i datą. Pliki z pobrania można odtworzyć albo otworzyć w jego szczegółach.',
+          text: 'Pliki otwierają folder pobierania. Miejsca mają własne widoki, a ścieżka ma linki do powrotu. Folder jest skupiskiem gwiazd, gotowy plik niebieskobiałą gwiazdą, a pobierany żarem z procentem. Przy plikach są rozmiary, daty, odtwarzanie i szczegóły pobierania.',
           points: [
             'Kolejność, w jakiej czyta się nazwy: odcinek 2 przed odcinkiem 10',
             'Utwórz folder albo ustaw widoczny jako folder pobierania',
@@ -187,8 +187,8 @@ export const content: FeaturesContent = {
           gain: 'Uruchom pobieranie z telefonu w autobusie, a w domu będzie już czekać na komputerze.',
           text: 'Zaloguj się na magnetar.codefusion.cc i otwórz dowolny ze swoich komputerów: wyszukiwanie, pobieranie, Obserwowane i ustawienia działają tak jak w domu. Pracę wykonuje Twój komputer; strona tylko Cię z nim łączy.',
           points: [
-            'Twoje urządzenia ze stanem online, odświeżanym co 15 sekund',
-            'Telefon ma pasek kart na dole, komputer pasek boczny',
+            'Twoje komputery ze stanem online, odświeżanym co 15 sekund',
+            'Na telefonie karty są na dole, na komputerze u góry',
             'To, co ma sens tylko przy komputerze (wybór folderu, otwieranie plików), zostaje na komputerze',
             'Logowanie przez Google; sesja trwa 30 dni od ostatniej wizyty, a wylogowanie od razu odłącza tę przeglądarkę od Twoich komputerów',
           ],
@@ -215,7 +215,7 @@ export const content: FeaturesContent = {
         'device-addresses': {
           title: 'Każdy komputer pod własnym adresem',
           gain: 'magnetar.codefusion.cc/MacBook-Pro/search: już z linku widać, który komputer otwiera.',
-          text: 'Nazwa komputera to pierwsza część adresów jego stron. Przełączaj się między komputerami, klikając nazwę na pasku bocznym, i zostań na tej samej stronie.',
+          text: 'Nazwa komputera to pierwsza część adresów jego stron. Przełączaj się między komputerami, klikając nazwę u góry strony, i zostań na tej samej stronie.',
           points: [
             `Nazwy to litery i cyfry połączone łącznikami, do ${DEVICE_NAME_MAX_LENGTH} znaków; każda wpisana nazwa jest zapisywana w tej postaci („Mac Pawła” staje się Mac-Pawla)`,
             'Zmiana nazwy komputera przenosi otwartą stronę pod nowy adres',
@@ -328,7 +328,7 @@ export const content: FeaturesContent = {
   shots: {
     search: 'Wyniki wyszukiwania z tagami wydań, połączone ze wszystkich źródeł',
     'search-phone': 'Wyszukiwanie na telefonie, z filtrami rozdzielczości',
-    'search-sources': 'Co znalazło każde źródło i jak szybko',
+    'search-sources': 'Co znalazły źródła i które nie odpowiedziały',
     add: 'Okno „Dodaj” z wklejonymi linkami magnet',
     watchlist: 'Obserwowane: seriale z następnym odcinkiem',
     watches: 'Obserwacje wydań i to, jak często każda sprawdza',
@@ -337,12 +337,12 @@ export const content: FeaturesContent = {
     details: 'Pliki pobierania, każdy z własnym postępem',
     player: 'Film na wolnej licencji odtwarzany w przeglądarce, z angielskimi napisami',
     speed: 'Limity prędkości, limity alternatywne i ich harmonogram',
-    devices: 'Twoje urządzenia na stronie, ze stanem online',
+    devices: 'Twoje komputery na stronie, ze stanem online',
     'remote-phone': 'Pobierania komputera na telefonie, przez stronę',
     remote: 'Dostęp zdalny w ustawieniach aplikacji, połączony z kontem',
     pair: 'Zatwierdzanie komputera na stronie',
     'link-qr': 'Kod QR, który łączy telefon',
-    switcher: 'Przełączanie między komputerami z paska bocznego',
+    switcher: 'Przełączanie między komputerami z górnego paska',
     notifications: 'Kanały powiadomień, każdy z przyciskiem testu',
     settings: 'Ustawienia ogólne: język, motyw, uruchamianie po zalogowaniu',
     about: 'Wersja i sprawdzanie aktualizacji',

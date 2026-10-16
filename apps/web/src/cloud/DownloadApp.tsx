@@ -1,13 +1,12 @@
 import type { ReleaseArch, ReleaseAssetDto, ReleasePlatform } from '@magnetar/protocol/cloud'
 import { formatBytes } from '@magnetar/protocol/bytes'
-import { Download, ExternalLink, Laptop, Monitor, Terminal } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { useT } from '../lib/i18n.tsx'
+import { useEffect, useState, type ReactNode } from 'react'
+import { formatters, useLanguage, useT } from '../lib/i18n.tsx'
+import { Loading } from '../ui/Loading.tsx'
 import { latestRelease } from '../lib/releases.ts'
 import { RELEASES_PAGE } from '../lib/updates.ts'
+import { PLATFORM_NAMES } from './computerLine.ts'
 
-const ICONS = { macos: Laptop, windows: Monitor, linux: Terminal }
-const NAMES: Record<ReleasePlatform, string> = { macos: 'macOS', windows: 'Windows', linux: 'Linux' }
 
 interface Visitor {
   platform: ReleasePlatform | null
@@ -45,56 +44,69 @@ function pick(assets: ReleaseAssetDto[], platform: ReleasePlatform, arch: Releas
   return matching.find(a => a.name.endsWith('.zip')) ?? matching[0]
 }
 
+/** The visitor's system and the newest release's file for it. */
+function useAppDownload() {
+  const release = latestRelease.useLatest()
+  const [visitor, setVisitor] = useState<Visitor>({ platform: null, arch: null })
+  useEffect(() => void detectVisitor().then(setVisitor), [])
+  const main = release && visitor.platform && visitor.arch ? pick(release.assets, visitor.platform, visitor.arch) : undefined
+  return { release, platform: visitor.platform, main }
+}
+
+/**
+ * The first page's one button: the app for the visitor's system, or the releases page where the system is not one
+ * the app runs on (a phone) or GitHub can't be asked. The line under it names the other systems.
+ */
+export function useGetApp(className: string): { button: ReactNode; note: string } {
+  const t = useT()
+  const language = useLanguage()
+  const { release, platform, main } = useAppDownload()
+  const others = (['macos', 'windows', 'linux'] as const).filter(p => p !== platform).map(p => PLATFORM_NAMES[p])
+  return {
+    button: main && platform
+      ? <a className={className} href={main.url}>{t('get.for', PLATFORM_NAMES[platform])}</a>
+      : <a className={className} href={release?.pageUrl ?? RELEASES_PAGE} target="_blank" rel="noreferrer noopener">{t('devices.download')}</a>,
+    note: platform ? t('home.free', formatters(language).list(others)) : t('get.onComputer'),
+  }
+}
+
 /**
  * Gets the app onto the visitor's computer: one button for their system, the others under it, and
  * what to do on first launch. Falls back to the releases page if GitHub can't be asked.
  */
 export function DownloadApp() {
   const t = useT()
-  const release = latestRelease.useLatest()
-  const [visitor, setVisitor] = useState<Visitor>({ platform: null, arch: null })
-  useEffect(() => void detectVisitor().then(setVisitor), [])
-
-  if (release === undefined) return <div className="flex justify-center py-6"><span className="loading loading-spinner text-primary" /></div>
-  const main = release && visitor.platform && visitor.arch ? pick(release.assets, visitor.platform, visitor.arch) : undefined
+  const { release, platform, main } = useAppDownload()
   const others = release ? (['macos', 'windows', 'linux'] as const).flatMap(platform => (['arm64', 'x64'] as const).map(arch => ({ platform, arch, asset: pick(release.assets, platform, arch) })))
     .filter(o => o.asset && o.asset !== main) : []
-  const Icon = visitor.platform ? ICONS[visitor.platform] : Download
 
+  if (release === undefined) return <Loading />
   return (
-    <div className="flex flex-col gap-4">
-      {main && visitor.platform ? (
-        <a className="btn btn-primary btn-lg justify-start gap-3" href={main.url}>
-          <Icon size={20} />
-          <span className="flex flex-col items-start leading-tight">
-            <span>{t('get.for', NAMES[visitor.platform])}</span>
-            <span className="text-xs font-normal opacity-80">{ARCH_NAMES[visitor.platform][main.arch]}, v{release!.version}, {formatBytes(main.size)}</span>
+    <div className="get-app">
+      {main && platform ? (
+        <a className="infall-button" href={main.url}>
+          <span className="get-app-label">
+            <span>{t('get.for', PLATFORM_NAMES[platform])}</span>
+            <small>{ARCH_NAMES[platform][main.arch]}, v{release!.version}, {formatBytes(main.size)}</small>
           </span>
         </a>
       ) : (
-        <a className="btn btn-primary btn-lg" href={release?.pageUrl ?? RELEASES_PAGE} target="_blank" rel="noreferrer noopener">
-          <Download size={20} />{release ? t('get.version', release.version) : t('devices.download')}
+        <a className="infall-button" href={release?.pageUrl ?? RELEASES_PAGE} target="_blank" rel="noreferrer noopener">
+          {release ? t('get.version', release.version) : t('devices.download')}
         </a>
       )}
-      {visitor.platform && main && <p className="muted text-sm">{t(`get.first.${visitor.platform}`)}</p>}
-      {!visitor.platform && release && <p className="muted text-sm">{t('get.onComputer')}</p>}
+      {platform && main && <p className="fine">{t(`get.first.${platform}`)}</p>}
+      {!platform && release && <p className="fine">{t('get.onComputer')}</p>}
       {others.length > 0 && (
-        <details className="text-sm">
-          <summary className="link link-hover muted cursor-pointer">{t('get.others')}</summary>
-          <ul className="mt-2 flex flex-col gap-1">
-            {others.map(({ platform, arch, asset }) => {
-              const OtherIcon = ICONS[platform]
-              return (
-                <li key={asset!.name}>
-                  <a className="flex items-center gap-2 rounded-field px-2 py-1.5 hover:bg-base-200" href={asset!.url}>
-                    <OtherIcon size={16} className="muted" />
-                    <span className="flex-1">{NAMES[platform]}, {ARCH_NAMES[platform][arch]}</span>
-                    <span className="muted tabular-nums">{formatBytes(asset!.size)}</span>
-                  </a>
-                </li>
-              )
-            })}
-            <li><a className="flex items-center gap-2 px-2 py-1.5 link link-hover" href={release?.pageUrl ?? RELEASES_PAGE} target="_blank" rel="noreferrer noopener"><ExternalLink size={14} />{t('get.releaseNotes')}</a></li>
+        <details className="get-app-others">
+          <summary>{t('get.others')}</summary>
+          <ul>
+            {others.map(({ platform, arch, asset }) => (
+              <li key={asset!.name}>
+                <a href={asset!.url}><span>{PLATFORM_NAMES[platform]}, {ARCH_NAMES[platform][arch]}</span><span className="fine">{formatBytes(asset!.size)}</span></a>
+              </li>
+            ))}
+            <li><a href={release?.pageUrl ?? RELEASES_PAGE} target="_blank" rel="noreferrer noopener">{t('get.releaseNotes')}</a></li>
           </ul>
         </details>
       )}

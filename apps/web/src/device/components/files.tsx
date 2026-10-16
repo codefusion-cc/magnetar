@@ -1,20 +1,21 @@
 import type { FolderEntryDto, FolderPageDto, FolderRootDto, FolderRootsDto } from '@magnetar/protocol'
-import { formatBytes } from '@magnetar/protocol/bytes'
 import {
-  CircleAlert, Download, Folder, FolderDown, FolderPlus, HardDrive, House, Info, Play, Plus,
+  Download, FolderPlus, HardDrive, House, Info, Plus,
   RefreshCw, X,
 } from 'lucide-react'
-import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { memo, useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { errorMessage } from '../../lib/errors.ts'
 import { appendPage, baseName, crumbs, isWithin, joinPath, separatorOf, type Crumb, type Separator } from '../../lib/folderPaths.ts'
-import { useFormatDate, useT } from '../../lib/i18n.tsx'
+import { useFormatBytes, useFormatDate, useLanguage, useT } from '../../lib/i18n.tsx'
 import { RpcError } from '../../lib/rpcClient.ts'
 import { Field } from '../../ui/fields.tsx'
 import { ConfirmDialog } from '../../ui/Modal.tsx'
 import { ShowMore } from '../../ui/ShowMore.tsx'
-import { useDevice } from '../DeviceContext.tsx'
+import { Empty } from '../../ui/Empty.tsx'
+import { Loading } from '../../ui/Loading.tsx'
+import { downloadDay } from '../../lib/downloadPresentation.ts'
+import { useDevice, useDownload } from '../DeviceContext.tsx'
 import { useRun } from '../useRun.ts'
-import { MediaIcon } from './downloadDetails.tsx'
 
 /** The folders the dashboard may browse, read again when the download folder moves (the old one may stay as added). */
 export function useRoots() {
@@ -81,7 +82,8 @@ function useFolder(path: string | null, foldersOnly: boolean) {
     const shown = current.current
     if (shown?.status !== 'ready' || shown.more === 'loading' || shown.next >= shown.page.total) return
     const id = latest.current
-    setState({ ...shown, more: 'loading' })
+    current.current = { ...shown, more: 'loading' }
+    setState(current.current)
     void run(() => connection.call('fs.browse', { path: shown.page.path, offset: shown.next, foldersOnly }), 'files.moreFailed')
       .then(page => {
         if (id !== latest.current) return
@@ -96,25 +98,20 @@ function useFolder(path: string | null, foldersOnly: boolean) {
   return { state, reload, loadMore }
 }
 
-function entryIcon(entry: FolderEntryDto) {
-  if (entry.kind === 'file') return <MediaIcon media={entry.media} size={18} />
-  const Icon = entry.download ? FolderDown : Folder
-  return <Icon size={18} className="shrink-0 text-primary" aria-hidden />
-}
-
 /** The way back from a folder to the folders that can be browsed, each step a link. */
-function Breadcrumbs({ trail, onOpen, onHome }: { trail: Crumb[]; onOpen: (path: string) => void; onHome: () => void }) {
+function Breadcrumbs({ trail, onOpen, onHome, plain = false }: { trail: Crumb[]; onOpen: (path: string) => void; onHome: () => void; plain?: boolean }) {
   const t = useT()
   return (
-    <nav aria-label={t('files.breadcrumb')} className="breadcrumbs scroll-strip strip-bleed py-0 text-sm">
+    <nav aria-label={t('files.breadcrumb')} className={plain ? 'folder-crumb' : 'breadcrumbs scroll-strip strip-bleed py-0 text-sm'}>
       <ul>
-        <li>
+        {!plain && <li>
           <button type="button" className="link link-hover inline-flex items-center gap-1.5" onClick={onHome}>
             <House size={14} aria-hidden />{t('files.title')}
           </button>
-        </li>
+        </li>}
         {trail.map((crumb, i) => (
           <li key={crumb.path}>
+            {plain && i > 0 && <span aria-hidden="true">/</span>}
             {i === trail.length - 1
               ? <span aria-current="page" className="max-w-[16rem] truncate font-medium" title={crumb.path}>{crumb.name}</span>
               : <button type="button" className="link link-hover max-w-[12rem] truncate" title={crumb.path} onClick={() => onOpen(crumb.path)}>{crumb.name}</button>}
@@ -172,7 +169,8 @@ function TextForm({ label, submitLabel, help, placeholder, mono = false, onSubmi
  * One folder: its breadcrumb, a few actions, and its entries, folders first. `onOpen` goes into a folder; files of a
  * download offer what the dashboard already does with them (`fileActions`).
  */
-export function FolderPanel({ path, roots, foldersOnly = false, onOpen, onHome, toolbar, fileActions, compact = false, status, onReady }: {
+export function FolderPanel({ path, roots, foldersOnly = false, onOpen, onHome, toolbar, fileActions, compact = false, status, onReady, header }: {
+  header?: (actions: ReactNode) => ReactNode
   path: string
   roots: FolderRootDto[]
   foldersOnly?: boolean
@@ -190,6 +188,8 @@ export function FolderPanel({ path, roots, foldersOnly = false, onOpen, onHome, 
 }) {
   const t = useT()
   const formatDate = useFormatDate()
+  const formatBytes = useFormatBytes()
+  const language = useLanguage()
   const { connection } = useDevice()
   const { state, reload, loadMore } = useFolder(path, foldersOnly)
   const [making, setMaking] = useState(false)
@@ -210,6 +210,13 @@ export function FolderPanel({ path, roots, foldersOnly = false, onOpen, onHome, 
 
   const page = state?.status === 'ready' ? state.page : null
   const separator = page?.separator ?? separatorOf(path)
+  const entries = state?.status === 'ready' ? state.entries : null
+  const rows = useMemo(() => entries?.map(entry => {
+    const modifiedToday = entry.modified !== null && new Date(entry.modified).toDateString() === new Date().toDateString()
+    const facts = [entry.size !== null ? formatBytes(entry.size) : null, entry.modified && downloadDay(language, entry.modified, modifiedToday, new Date(), 'file')].filter(Boolean) as string[]
+    return { entry, facts, title: entry.modified ? formatDate(entry.modified, true) : undefined }
+  }) ?? [], [entries, formatBytes, formatDate, language])
+  const openEntry = useCallback((name: string) => onOpen(joinPath(page?.path ?? path, name, separator)), [onOpen, page?.path, path, separator])
   // Before the page says, the outermost root holding the folder, as the device picks it.
   const root = page?.root ?? roots.filter(r => isWithin(path, r.path, separator)).sort((a, b) => a.path.length - b.path.length)[0]?.path ?? path
   const rootFound = roots.find(r => r.path === root)
@@ -233,9 +240,10 @@ export function FolderPanel({ path, roots, foldersOnly = false, onOpen, onHome, 
     : t(page.total === 1 ? 'files.itemCountOne' : 'files.itemCount', page.total))
 
   return (
-    <section aria-labelledby={headingId} onKeyDown={onKeyDown} className="flex min-w-0 flex-col gap-3">
-      <Breadcrumbs trail={trail} onOpen={onOpen} onHome={onHome} />
-      <div className="flex flex-wrap items-center gap-2">
+    <section aria-labelledby={headingId} onKeyDown={onKeyDown} className={`folder-panel flex min-w-0 flex-col gap-3 ${compact ? 'folder-compact' : 'folder-full'}`}>
+      {header?.(<button type="button" className="infall-button quiet" aria-expanded={making} disabled={state?.status !== 'ready'} onClick={() => setMaking(m => !m)}>{t('files.newFolder')}</button>)}
+      {(!header || trail.length > 1) && <Breadcrumbs plain={Boolean(header)} trail={trail} onOpen={onOpen} onHome={onHome} />}
+      <div className="folder-heading flex flex-wrap items-center gap-2">
         <h2 id={headingId} ref={heading} tabIndex={-1}
           className={`break-release min-w-0 flex-1 font-semibold outline-none ${compact ? 'text-base' : 'text-xl'}`}>
           {name}
@@ -243,14 +251,14 @@ export function FolderPanel({ path, roots, foldersOnly = false, onOpen, onHome, 
         {count && <span className="muted text-sm tabular-nums">{count}</span>}
         {status?.(rootFound)}
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className={`folder-toolbar flex flex-wrap items-center gap-2 ${header ? 'folder-secondary' : ''}`}>
         <button type="button" className="btn btn-ghost btn-sm" onClick={reload} disabled={state?.status === 'loading'}>
           <RefreshCw size={14} className={state?.status === 'loading' ? 'animate-spin' : ''} aria-hidden />{t('files.refresh')}
         </button>
-        <button type="button" className="btn btn-ghost btn-sm" aria-expanded={making} disabled={state?.status !== 'ready'} onClick={() => setMaking(m => !m)}>
+        {!header && <button type="button" className="btn btn-ghost btn-sm" aria-expanded={making} disabled={state?.status !== 'ready'} onClick={() => setMaking(m => !m)}>
           <FolderPlus size={14} aria-hidden />{t('files.newFolder')}
-        </button>
-        {page && toolbar?.(page)}
+        </button>}
+        {!header && page && toolbar?.(page)}
       </div>
       {making && page && (
         <TextForm label={t('files.newFolderName')} submitLabel={t('files.create')} onCancel={() => setMaking(false)}
@@ -261,36 +269,26 @@ export function FolderPanel({ path, roots, foldersOnly = false, onOpen, onHome, 
           }} />
       )}
 
-      {state?.status === 'loading' && (
-        <div className="flex justify-center py-12" role="status" aria-live="polite">
-          <span className="loading loading-spinner loading-md text-primary" aria-hidden /><span className="sr-only">{t('files.loading')}</span>
+      {state?.status === 'loading' && <Loading text={t('files.reading')} rows={4} />}
+      {state?.status === 'error' && <Empty appearance="page" role="alert" state="out" title={t('files.unreachable', name)} text={state.message}>
+        <div className="infall-acts">{state.code !== 'forbidden' && <button className="infall-button" onClick={reload}>{t('common.retry')}</button>}
+          <button className="infall-button quiet" onClick={() => (up ? onOpen(up) : onHome())}>{up ? t('files.up') : t('files.backToFiles')}</button>
         </div>
-      )}
-      {state?.status === 'error' && (
-        <div role="alert" className="alert alert-soft alert-warning flex-wrap">
-          <CircleAlert size={18} aria-hidden />
-          <span className="break-release min-w-0 flex-1">{state.message}</span>
-          <div className="flex gap-2">
-            {state.code !== 'forbidden' && <button type="button" className="btn btn-sm" onClick={reload}>{t('common.retry')}</button>}
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => (up ? onOpen(up) : onHome())}>{up ? t('files.up') : t('files.backToFiles')}</button>
-          </div>
-        </div>
-      )}
+      </Empty>}
       {state?.status === 'ready' && (
         <>
+          {header && trail.length === 1 && <p className="folder-where"><span role="note" aria-label={t('files.folderPath')}>{state.page.path}</span> {toolbar?.(state.page)}</p>}
           {state.page.truncated && <p className="muted text-xs">{t('files.truncated', state.page.total)}</p>}
           {state.entries.length === 0
-            ? <p className="muted rounded-box border border-dashed border-base-300 px-4 py-10 text-center text-sm">{t(foldersOnly ? 'files.noFolders' : 'files.empty')}</p>
+            ? <p className="folder-empty">{t(foldersOnly ? 'files.noFolders' : 'files.empty')}</p>
             : (
               <ul aria-label={t('files.contents', name)} aria-busy={state.more === 'loading'}
-                className={`divide-y divide-base-300 rounded-box border border-base-300 bg-base-100 ${compact ? 'max-h-80 overflow-y-auto' : ''}`}>
-                {state.entries.map(entry => (
-                  <EntryRow key={entry.name} entry={entry} formatDate={formatDate}
-                    onOpen={entry.kind === 'folder' ? () => onOpen(joinPath(state.page.path, entry.name, separator)) : undefined}
-                    actions={entry.kind === 'file' ? fileActions?.(entry) : undefined} />
-                ))}
+                className={`folder-entries ${compact ? 'max-h-80 overflow-y-auto' : ''}`}>
+                {rows.map(row => <EntryRow key={row.entry.name} {...row} onOpen={openEntry} fileActions={fileActions} />)}
               </ul>
             )}
+          {state.entries.length === 0 && header && trail.length > 1 && toolbar?.(state.page)}
+          {header && state.entries.length > 0 && <p className="folder-count">{count}</p>}
           {state.next < state.page.total && (
             state.more === 'loading'
               ? <div className="flex justify-center py-3"><span className="loading loading-spinner loading-sm text-primary" /></div>
@@ -302,38 +300,28 @@ export function FolderPanel({ path, roots, foldersOnly = false, onOpen, onHome, 
   )
 }
 
-function EntryRow({ entry, formatDate, onOpen, actions }: {
-  entry: FolderEntryDto
-  formatDate: ReturnType<typeof useFormatDate>
-  onOpen?: () => void
-  actions?: ReactNode
+/** Only entries owned by a download subscribe to its once-a-second progress. */
+function DownloadEntry({ entry, children }: { entry: FolderEntryDto; children: (percent: number | null) => ReactNode }) {
+  const download = useDownload(entry.download!.id)
+  return children(download && download.progress < 100 ? download.progress : null)
+}
+
+const EntryRow = memo(function EntryRow({ entry, facts, title, onOpen, fileActions }: {
+  entry: FolderEntryDto; facts: string[]; title?: string
+  onOpen: (name: string) => void; fileActions?: (entry: FolderEntryDto) => ReactNode
 }) {
   const t = useT()
-  const { modified } = entry
-  const facts = [entry.size !== null ? formatBytes(entry.size) : null, modified && formatDate(modified)].filter(Boolean).join(' · ')
-  const body = (
-    <>
-      {entryIcon(entry)}
-      <span className="min-w-0 flex-1">
-        <span className="break-release block text-sm leading-snug">{entry.name}</span>
-        {(facts || entry.download) && (
-          <span className="muted mt-0.5 flex flex-wrap items-center gap-x-2 text-xs tabular-nums" title={modified ? formatDate(modified, true) : undefined}>
-            {facts && <span>{facts}</span>}
-            {entry.download && <span className="badge badge-soft badge-primary badge-xs">{t('files.fromDownload')}</span>}
-          </span>
-        )}
-      </span>
-    </>
-  )
-  return (
-    <li className="flex min-h-12 items-center gap-1 pr-2">
-      {onOpen
-        ? <button type="button" className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-left hover:bg-base-200 focus-visible:bg-base-200" onClick={onOpen}>{body}</button>
-        : <div className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5">{body}</div>}
-      {actions}
-    </li>
-  )
-}
+  const render = (percent: number | null) => <li className={`file-entry ${entry.kind === 'folder' ? 'dir' : ''} ${percent !== null ? 'part' : ''}`} style={{ '--z': Math.max(.15, Math.min(1, Math.log10(Math.max((entry.size ?? 1e8) / 1e6, 1)) / 4)) } as React.CSSProperties}>
+    <span className="file-star" aria-hidden="true"><i /></span>
+    <div className="file-body"><h2>{entry.kind === 'folder' ? <button type="button" onClick={() => onOpen(entry.name)}>{entry.name}</button> : entry.name}</h2>
+      <p className="file-meta" title={title}>{facts.map(f => <span key={f}>{f}</span>)}
+        {percent !== null && <span className="still-arriving">{t('files.arriving', Math.round(percent))}</span>}
+      </p>
+    </div>
+    {entry.download && <div className="file-actions">{fileActions?.(entry)}</div>}
+  </li>
+  return entry.download ? <DownloadEntry entry={entry}>{render}</DownloadEntry> : render(null)
+})
 
 /** The folders that can be browsed, as cards; on the device itself, a way to add more. */
 export function RootList({ roots, canAdd, onOpen, onChanged, compact = false }: {
@@ -344,6 +332,7 @@ export function RootList({ roots, canAdd, onOpen, onChanged, compact = false }: 
   compact?: boolean
 }) {
   const t = useT()
+  const formatBytes = useFormatBytes()
   const run = useRun()
   const { connection, info, deviceName } = useDevice()
   const [adding, setAdding] = useState(false)
@@ -432,14 +421,14 @@ export function DownloadFileActions({ entry, onPlay, onDetails, playing }: {
   return (
     <>
       {entry.media && entry.download.index !== undefined && (
-        <button type="button" className="btn btn-ghost btn-sm btn-square text-primary" disabled={playing}
+        <button type="button" className="infall-small" disabled={playing}
           aria-label={t('player.play', entry.name)} title={t('player.play', entry.name)} onClick={() => onPlay(entry)}>
-          {playing ? <span className="loading loading-spinner loading-xs" /> : <Play size={16} aria-hidden />}
+          {playing ? <span className="loading loading-spinner loading-xs" /> : t('details.play')}
         </button>
       )}
-      <button type="button" className="btn btn-ghost btn-sm btn-square" aria-label={t('files.details', entry.name)} title={t('files.details', entry.name)}
+      <button type="button" className="infall-small" aria-label={t('files.details', entry.name)} title={t('files.details', entry.name)}
         onClick={() => onDetails(entry.download!.id)}>
-        <Info size={16} aria-hidden />
+        {t('files.detailsLabel')}
       </button>
     </>
   )

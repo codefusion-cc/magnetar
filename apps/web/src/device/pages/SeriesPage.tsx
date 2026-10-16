@@ -1,37 +1,40 @@
-import type { AiringDto, DownloadDto, SeriesTaskDto, ShowInfoDto, WatchInput } from '@magnetar/protocol'
-import { ChevronDown, CircleCheck, Clapperboard, ExternalLink, Pencil, Plus, RefreshCw, Trash2, Tv } from 'lucide-react'
+import type { DownloadDto, SeriesTaskDto, ShowInfoDto, WatchInput } from '@magnetar/protocol'
+import { ChevronDown, ExternalLink, Pencil, Plus, Trash2 } from 'lucide-react'
 import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router'
-import { useFormatRelative, useT } from '../../lib/i18n.tsx'
+import { useFormatRelative, useLanguage, useT } from '../../lib/i18n.tsx'
 import { usePathChoice } from '../../lib/urlState.ts'
-import { parseQuality, qualityForm, resolutionLabel, type QualityForm } from '../../lib/quality.ts'
-import { PageHeader, Segmented, Switch } from '../../ui/controls.tsx'
-import { Field, TextField } from '../../ui/fields.tsx'
+import { parseQuality, qualityForm, type QualityForm } from '../../lib/quality.ts'
+import { Segmented, Switch } from '../../ui/controls.tsx'
+import { SelectField, TextField } from '../../ui/fields.tsx'
 import { Empty } from '../../ui/Empty.tsx'
+import { Loading } from '../../ui/Loading.tsx'
+import { SeasonOrbit, EpisodeApproach } from '../components/episodes.tsx'
+import { calendarDistance, episodeAirDate, upcomingEpisodes, seriesLine, seriesRule } from '../../lib/seriesPresentation.ts'
 import { ConfirmDialog, Modal } from '../../ui/Modal.tsx'
 import { useToast } from '../../ui/toast.tsx'
 import { useConnection, useDevice, useDownloads } from '../DeviceContext.tsx'
 import { FolderField } from '../components/folders.tsx'
 import { intervalLabel, QualityFields } from '../components/qualityFields.tsx'
 import { WatchesSection } from '../components/watches.tsx'
-import { useRun } from '../useRun.ts'
+import { useLockedRun, useRun } from '../useRun.ts'
 import { DownloadList } from './DownloadsPage.tsx'
 
 const INTERVALS = [15, 30, 60, 120, 360, 720, 1440]
-
-/** "S03E11", or "E11" when the task isn't tied to a season. */
-function episodeLabel(season: number | null, episode: number): string {
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return season === null ? `E${pad(episode)}` : `S${pad(season)}E${pad(episode)}`
-}
-
 const TABS = ['series', 'releases'] as const
 type Tab = (typeof TABS)[number]
 
 export function SeriesPage() {
   const t = useT()
-  const { series, watches, basePath } = useDevice()
+  const { series, basePath, seriesRead, deviceName } = useDevice()
   const downloads = useDownloads()
+  const [now, setNow] = useState(Date.now)
+  useEffect(() => {
+    const tick = () => setNow(Date.now())
+    const timer = window.setInterval(tick, 60_000)
+    window.addEventListener('focus', tick)
+    return () => { window.clearInterval(timer); window.removeEventListener('focus', tick) }
+  }, [])
   const [editing, setEditing] = useState<SeriesTaskDto | 'new' | null>(null)
   // One pass per update; each card keeps its list until one of its own downloads changes.
   const byTask = useMemo(() => {
@@ -44,7 +47,8 @@ export function SeriesPage() {
     }
     return groups
   }, [downloads])
-  const add = <button type="button" className="btn btn-primary" onClick={() => setEditing('new')}><Plus size={16} />{t('series.add')}</button>
+  const add = <button type="button" className="infall-button" onClick={() => setEditing('new')}>{t('series.add')}</button>
+  const waitForRelease = <button className="infall-button quiet" onClick={() => navigate(href('releases'), { state: { watch: {} } })}>{t('watch.add')}</button>
   // The tab is part of the path: /series and /series/releases.
   const { value: tab, redirect } = usePathChoice(useParams().tab, TABS, 'tab')
   const href = (to: Tab) => `${basePath}/series${to === 'releases' ? '/releases' : ''}`
@@ -52,29 +56,25 @@ export function SeriesPage() {
   const location = useLocation()
   // Search hands over "watch for this" with its query.
   const [handed, setHanded] = useState<WatchInput | null>((location.state as { watch?: WatchInput } | null)?.watch ?? null)
+  useEffect(() => { setHanded((location.state as { watch?: WatchInput } | null)?.watch ?? null) }, [location.key])
   const clearHanded = useCallback(() => setHanded(null), [])
 
   if (redirect) return <Navigate to={href(redirect)} replace state={location.state} />
 
   return (
     <>
-      <PageHeader title={t('watch.pageTitle')} summary={t(tab === 'series' ? 'series.subtitle' : 'watch.subtitle')} action={tab === 'series' && series.length > 0 && add} />
-      <div className="mb-4">
-        <Segmented label={t('watch.pageTitle')} value={tab} onChange={next => navigate(href(next))}
-          options={[
-            { value: 'series', label: t('series.title'), icon: <Tv size={14} />, count: series.length },
-            { value: 'releases', label: t('watch.tab'), icon: <Clapperboard size={14} />, count: watches.length },
-          ]} />
-      </div>
-      {tab === 'releases' ? <WatchesSection start={handed} onStarted={clearHanded} /> : series.length === 0 ? (
-        <Empty icon={<Tv size={40} strokeWidth={1.5} className="text-primary" />} title={t('series.emptyTitle')} text={t('series.emptyHint')}>
-          {add}
-        </Empty>
-      ) : (
-        <ul className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-          {series.map(task => <SeriesCard key={task.id} task={task} downloads={byTask.get(task.id) ?? NONE} onEdit={setEditing} />)}
-        </ul>
-      )}
+      <header className="downloads-heading watch-heading"><h1>{t('watch.pageTitle')}</h1>
+        {(tab === 'series' && !seriesRead.loading && (series.length > 0 || seriesRead.failed)) && <div className="infall-acts">{add}{waitForRelease}</div>}
+      </header>
+      <div className="watch-tabs"><Segmented appearance="quiet" label={t('watch.pageTitle')} value={tab} onChange={next => navigate(href(next))}
+        options={[{ value: 'series', label: t('series.title') }, { value: 'releases', label: t('watch.tab') }]} /></div>
+      {tab === 'releases' ? <WatchesSection start={handed} onStarted={clearHanded} /> : seriesRead.loading ? <Loading text={t('series.reading')} rows={3} />
+        : seriesRead.failed ? <Empty appearance="page" role="alert" state="far" title={t('series.readFailed')} text={t('series.readFailedHint', deviceName)} onRetry={seriesRead.retry} />
+        : series.length === 0 ? <Empty appearance="page" title={t('series.emptyTitle')} text={t('series.emptyHint')}>
+          <div className="infall-acts">{add}{waitForRelease}</div>
+        </Empty> : <ul aria-label={t('series.title')} className="series-shows">
+        {series.map(task => <SeriesCard key={task.id} now={now} task={task} downloads={byTask.get(task.id) ?? NONE} onEdit={setEditing} />)}
+      </ul>}
       <SeriesDialog task={editing} onClose={() => setEditing(null)} />
     </>
   )
@@ -105,107 +105,67 @@ function usePoster(taskId: number, show: ShowInfoDto | null): string | null {
   return poster
 }
 
-const SeriesCard = memo(function SeriesCard({ task, downloads, onEdit }: {
+function ShowMetadata({ task }: { task: SeriesTaskDto }) {
+  const t = useT()
+  const poster = usePoster(task.id, task.show)
+  return <div className="series-metadata">{poster && <img src={poster} alt="" width="64" height="96" />}{task.show?.network && <p>{task.show.network}</p>}{task.show?.status === 'Ended' && <p>{t('series.ended')}</p>}</div>
+}
+
+const SeriesCard = memo(function SeriesCard({ task, downloads, onEdit, now }: {
   task: SeriesTaskDto
+  now: number
   downloads: DownloadDto[]
   onEdit: (task: SeriesTaskDto) => void
 }) {
   const t = useT()
-  const formatRelative = useFormatRelative()
+  const formatRelative = useFormatRelative('long')
   const toast = useToast()
   const run = useRun()
   const connection = useConnection()
-  const poster = usePoster(task.id, task.show)
-  const [checking, setChecking] = useState(false)
+  const { busy: checking, run: lockedRun } = useLockedRun()
   const [deleting, setDeleting] = useState(false)
+  const [showMetadata, setShowMetadata] = useState(false)
   const [showDownloads, setShowDownloads] = useState(false)
 
   const checkNow = async () => {
-    setChecking(true)
-    const done = await run(() => connection.call('series.checkNow', { id: task.id }), 'series.checkFailed')
-    setChecking(false)
+    const done = await lockedRun(() => connection.call('series.checkNow', { id: task.id }), 'series.checkFailed')
     if (done) toast(t('series.checkDone'), 'info')
   }
 
-  const details = [
-    task.season !== null && t('series.seasonN', task.season),
-    resolutionLabel(task.resolution),
-    task.titleFilter,
-    task.provider,
-    t('series.everyN', intervalLabel(t, task.checkIntervalMinutes)),
-  ].filter(Boolean).join(' · ')
-  const total = task.endEpisode === null ? null : task.endEpisode - task.startEpisode + 1
-  const got = Math.max(0, task.lastDownloadedEpisode - task.startEpisode + 1)
-  const failed = downloads.filter(d => d.status === 'Error').length
+  const language = useLanguage()
+  const episodes = task.episodes?.episodes ?? []
+  const got = episodes.filter(e => e.state === 'have').length
+  const total = task.episodes?.total ?? (task.endEpisode === null ? 0 : task.endEpisode - task.startEpisode + 1)
+  const active = episodes.find(e => e.state === 'downloading')
+  const activeDownload = active ? downloads.find(d => d.id === active.downloadId) : undefined
+  const { future, next, expected, date } = useMemo(() => {
+    const future = upcomingEpisodes(episodes, now)
+    const expected = episodes.find(e => e.state === 'expected' && e.number >= task.nextEpisode)
+    const next = active ? upcomingEpisodes(episodes, now, Infinity).find(e => e.state === 'expected') : expected
+    const date = next?.airstamp && calendarDistance(next.airstamp, now) >= 0 ? episodeAirDate(next.airstamp, language, t, Boolean(active)) : null
+    return { future, next, expected, date }
+  }, [task.episodes, task.nextEpisode, now, language, t])
+  const checked = task.lastCheckedAt ? t('series.checkedAgo', formatRelative(task.lastCheckedAt)) : t('series.notCheckedYet')
+  const line = seriesLine(t, { task, got, total, active, activeStatus: activeDownload?.status, next, expected, date, checked })
+  const rule = seriesRule(t, task, got, total)
   const show = task.show
-  const next = show?.nextEpisode?.airstamp && new Date(show.nextEpisode.airstamp).getTime() > Date.now() ? show.nextEpisode : null
-  const showLine = show && [show.network, next ? t('series.airs', airingLabel(next), formatRelative(next.airstamp)) : show.status === 'Ended' ? t('series.ended') : null]
-    .filter(Boolean).join(' · ')
-
   return (
-    <li className={`surface flex flex-col p-5 ${task.enabled || task.finished ? '' : 'opacity-80'}`}>
-      <div className="flex items-start gap-4">
-        {poster
-          ? <img src={poster} alt="" className="h-24 w-16 shrink-0 rounded-field object-cover shadow-sm" />
-          : <span className={`grid size-12 shrink-0 place-items-center rounded-field ${task.enabled && !task.finished ? 'bg-primary/10 text-primary' : 'bg-base-200 muted'}`}><Tv size={22} /></span>}
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start gap-3">
-            <h2 className="break-release min-w-0 flex-1 font-semibold leading-snug">{task.name || t('series.unnamed')}</h2>
-            {!task.finished && (
-              <Switch label={t('series.enabled')} checked={task.enabled}
-                onChange={enabled => void run(() => connection.call('series.update', { id: task.id, patch: { enabled } }), 'settings.saveFailed')} />
-            )}
-          </div>
-          <p className="muted mt-0.5 text-sm">{details}</p>
-          {showLine && <p className="mt-0.5 text-xs text-info">{showLine}</p>}
-        </div>
+    <li className={task.enabled || task.finished ? '' : 'series-paused'}>
+      <SeasonOrbit progress={activeDownload?.progress ?? 0} episodes={episodes} total={total} label={t(total === 1 ? 'series.progressOne' : 'series.progress', got, total)} />
+      <div className="show-body"><h2>{task.name || t('series.unnamed')}</h2><p>{line}</p><p className="rule">{rule}</p>
+        <details className="series-tools" onToggle={e => setShowMetadata(e.currentTarget.open)}><summary>{t('common.edit')}</summary><div className="infall-acts">
+          <p className="series-rule-details">{[task.titleFilter, task.provider, t('series.everyN', intervalLabel(t, task.checkIntervalMinutes)), task.lastCheckedAt ? t('series.checkedAgo', formatRelative(task.lastCheckedAt)) : t('series.notCheckedYet')].filter(Boolean).join(', ')}</p>
+          {downloads.some(d => d.status === 'Error') && <p className="text-warning">{t('series.failedHint', downloads.filter(d => d.status === 'Error').length)}</p>}
+          {showMetadata && <ShowMetadata task={task} />}
+          {!task.finished && <Switch label={t('series.enabled')} checked={task.enabled} onChange={enabled => void run(() => connection.call('series.update', { id: task.id, patch: { enabled } }), 'settings.saveFailed')} />}
+          <button className="infall-small" onClick={() => onEdit(task)}><Pencil size={14} />{t('common.edit')}</button>
+          {downloads.length > 0 && <button className="infall-small" aria-expanded={showDownloads} onClick={() => setShowDownloads(s => !s)}>{t('series.downloads', downloads.length)}<ChevronDown size={14} /></button>}
+          {show?.url && <a className="infall-small" href={show.url} target="_blank" rel="noreferrer noopener" aria-label={t('series.onTvmaze')}><ExternalLink size={14} /></a>}
+          <button className="infall-small" aria-label={t('series.deleteTask')} onClick={() => setDeleting(true)}><Trash2 size={16} /></button>
+        </div></details>
       </div>
-
-      <div className="mt-4">
-        {task.finished ? (
-          <p className="flex items-center gap-2 text-sm font-medium text-success"><CircleCheck size={16} />{t('series.finishedAll', got)}</p>
-        ) : (
-          <>
-            <div className="flex items-baseline justify-between gap-3 text-sm">
-              <span>
-                <span className="muted">{t('series.nextLabel')} </span>
-                <span className="font-semibold tabular-nums">{episodeLabel(task.season, task.nextEpisode)}</span>
-              </span>
-              {total !== null && <span className="muted tabular-nums">{t('series.progress', got, total)}</span>}
-            </div>
-            {total !== null && (
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-base-300">
-                <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, (got / total) * 100)}%` }} />
-              </div>
-            )}
-            <p className="muted mt-2 text-xs">
-              {!task.enabled ? t('series.pausedHint') : task.lastCheckedAt ? t('series.checkedAgo', formatRelative(task.lastCheckedAt)) : t('series.notCheckedYet')}
-            </p>
-            {failed > 0 && <p className="mt-1 text-xs text-warning">{failed === 1 ? t('series.failedOne') : t('series.failedHint', failed)}</p>}
-          </>
-        )}
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-center gap-1 border-t border-base-300 pt-3">
-        {!task.finished && (
-          <button type="button" className="btn btn-ghost btn-sm" disabled={checking} onClick={() => void checkNow()}>
-            {checking ? <span className="loading loading-spinner loading-xs" /> : <RefreshCw size={14} />}{t('series.checkNow')}
-          </button>
-        )}
-        <button type="button" className="btn btn-ghost btn-sm" onClick={() => onEdit(task)}><Pencil size={14} />{t('common.edit')}</button>
-        {downloads.length > 0 && (
-          <button type="button" className="btn btn-ghost btn-sm" aria-expanded={showDownloads} onClick={() => setShowDownloads(s => !s)}>
-            {t('series.downloads', downloads.length)}<ChevronDown size={14} className={`transition-transform ${showDownloads ? 'rotate-180' : ''}`} />
-          </button>
-        )}
-        {show?.url && (
-          <a className="btn btn-ghost btn-sm btn-square muted" href={show.url} target="_blank" rel="noreferrer noopener" aria-label={t('series.onTvmaze')} title={t('series.onTvmaze')}>
-            <ExternalLink size={14} />
-          </a>
-        )}
-        <button type="button" className="btn btn-ghost btn-sm btn-square muted ml-auto hover:text-error" aria-label={t('series.deleteTask')} title={t('series.deleteTask')}
-          onClick={() => setDeleting(true)}><Trash2 size={16} /></button>
-      </div>
+      <EpisodeApproach now={now} episodes={future} />
+      {!task.finished && <button className="infall-small" disabled={checking} onClick={() => void checkNow()} aria-label={`${t('series.checkNow')}: ${task.name}`}>{checking ? t('search.searching') : t('series.checkNow')}</button>}
       {showDownloads && <div className="mt-3"><DownloadList downloads={downloads} hideSeries /></div>}
 
       {deleting && <ConfirmDialog open title={t('series.deleteTaskTitle')}
@@ -217,12 +177,7 @@ const SeriesCard = memo(function SeriesCard({ task, downloads, onEdit }: {
         }} />}
     </li>
   )
-}, (a, b) => a.task === b.task && a.onEdit === b.onEdit && sameRows(a.downloads, b.downloads))
-
-/** "S03E15", or just "E15", for an airing. */
-function airingLabel(airing: AiringDto): string {
-  return airing.number === null ? '' : episodeLabel(airing.season, airing.number)
-}
+}, (a, b) => a.now === b.now && a.task === b.task && a.onEdit === b.onEdit && sameRows(a.downloads, b.downloads))
 
 interface Form extends QualityForm {
   name: string
@@ -346,17 +301,12 @@ function SeriesDialog({ task, onClose }: { task: SeriesTaskDto | 'new' | null; o
 
         <FormSection title={t('series.whereTitle')}>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label={t('search.source')}>
-              <select className="select w-full" value={form.provider} onChange={e => set('provider')(e.target.value)}>
-                <option value="">{t('search.allSources')}</option>
-                {sources.filter(s => s.enabled || s.name === form.provider).map(s => <option key={s.name} value={s.name}>{s.name}</option>)}
-              </select>
-            </Field>
-            <Field label={t('series.checkEvery')}>
-              <select className="select w-full" value={form.checkIntervalMinutes} onChange={e => set('checkIntervalMinutes')(Number(e.target.value))}>
-                {intervals.map(m => <option key={m} value={m}>{intervalLabel(t, m)}</option>)}
-              </select>
-            </Field>
+            <SelectField label={t('search.source')} value={form.provider} onChange={set('provider')} options={[
+              { value: '', label: t('search.allSources') },
+              ...sources.filter(s => s.enabled || s.name === form.provider).map(s => ({ value: s.name, label: s.name })),
+            ]} />
+            <SelectField label={t('series.checkEvery')} value={form.checkIntervalMinutes} onChange={set('checkIntervalMinutes')}
+              options={intervals.map(m => ({ value: m, label: intervalLabel(t, m) }))} />
           </div>
           <FolderField label={t('series.folder')} value={form.downloadFolder} placeholder={settings?.downloadFolder}
             help={t('series.folderHelp')} onChange={set('downloadFolder')} />

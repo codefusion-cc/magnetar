@@ -10,7 +10,7 @@ export const content: FeaturesContent = {
     title: 'Funcionalidades do Magnetar',
     description: 'Pesquise seis fontes de torrents de uma vez, transfira no seu computador e siga tudo no navegador ou telemóvel, encriptado. Grátis para macOS, Windows e Linux.',
   },
-  header: { language: 'Idioma', signIn: 'Entrar', devices: 'Seus dispositivos', home: 'Página inicial do Magnetar' },
+  header: { language: 'Idioma', signIn: 'Entrar', devices: 'Seus computadores', home: 'Página inicial do Magnetar' },
   hero: {
     title: 'As suas transferências, em qualquer lugar',
     lead: 'O Magnetar pesquisa em seis fontes de torrents ao mesmo tempo, transfere no seu próprio computador e acompanha as suas séries. Abra-o a partir de qualquer navegador ou telemóvel: tudo o que passa entre eles tem encriptação ponto a ponto. Todas as capturas de ecrã desta página são da aplicação real.',
@@ -47,7 +47,7 @@ export const content: FeaturesContent = {
           points: [
             'Etiquetas da versão lidas do título: resolução (480p a 4K), HDR ou Dolby Vision, o codec (H.264, HEVC, AV1) e a origem (BluRay, WEB, HDTV, DVD)',
             'Filtre por resolução e origem; ordene por mais seeders, mais recentes, maiores ou menores',
-            'Uma fonte lenta ou em baixo nunca atrasa as outras: a que não responder em 15 segundos fica de fora, e «Mostrar fontes» diz o que cada uma encontrou',
+            'Uma fonte lenta ou indisponível não atrasa as outras. Acima dos resultados, uma frase e os números por fonte mostram quais responderam, não encontraram nada ou falharam.',
             'Os espelhos revezam-se: quando um não responde em segundo e meio, pergunta-se ao seguinte, e o mais rápido fica memorizado',
             'Só títulos com todas as palavras que escreveu, em qualquer alfabeto; os títulos com caracteres corrompidos são reparados',
             'Abra um resultado para ver os detalhes, copie a ligação magnet ou envie-o para qualquer pasta',
@@ -71,7 +71,7 @@ export const content: FeaturesContent = {
           points: [
             `Ficheiros .torrent até ${torrentMb} MB`,
             'No seu computador, o Magnetar pode passar a abrir as ligações magnet e os ficheiros .torrent, por isso basta um clique no navegador ou no gestor de ficheiros para os adicionar',
-            'No site, o navegador pode enviar as ligações magnet diretamente para o seu computador («Abrir ligações magnet aqui» na página dos dispositivos)',
+            'No site, o navegador pode enviar as ligações magnet diretamente para o seu computador («Abrir ligações magnet aqui» em Seus computadores)',
             'Escolha outra pasta na janela, com um explorador de pastas',
           ],
         },
@@ -83,7 +83,7 @@ export const content: FeaturesContent = {
             'Regras por série: resolução, mínimo de seeders, tamanho máximo, palavras a preferir e a evitar',
             'Comece por um episódio à sua escolha, pelo mais recente ou só com os novos',
             'Verifica de 15 em 15 minutos até uma vez por dia (de hora a hora por omissão), no máximo 25 episódios de cada vez',
-            'Cada cartão mostra a próxima data de estreia e o progresso da série',
+            'A temporada é uma órbita com um arco por episódio: guardado, a descarregar ou esperado. Uma frase indica o que vem a seguir e as datas aproximam-se de hoje numa linha de duas semanas.',
           ],
         },
         watches: {
@@ -105,12 +105,12 @@ export const content: FeaturesContent = {
       features: {
         engine: {
           title: 'Um motor de transferências integrado',
-          gain: 'Progresso, velocidade, pares e tempo restante de cada transferência em tempo real, sem mais nada para instalar.',
+          gain: 'Progresso, velocidade e tempo restante de cada transferência, sem instalar mais nada.',
           text: 'As transferências correm dentro do Magnetar, com o librqbit, DHT e trackers, e o painel atualiza-se a cada segundo. Pausar, reiniciar ou atualizar nunca volta a ler as partes já concluídas.',
           points: [
-            'Vistas Ativas, Concluídas e Todas com a respetiva contagem, e uma ordem à escolha (recentes, antigas, nome, tamanho, progresso), guardada em cada dispositivo; cada transferência mostra quando foi adicionada e concluída; pause, retome, tente novamente ou elimine cada uma',
+            'Vistas Ativas, Concluídas e Todas, ordem guardada por computador e botões de texto para pausar, retomar, tentar novamente ou remover. Uma transferência concluída fica visível até mudar de vista.',
             'Ao eliminar, pergunta se quer manter os ficheiros',
-            'Velocidade total de receção e envio e o espaço livre, que passa a aviso abaixo de 5 GB',
+            'O resumo mostra o computador, as transferências em curso, a velocidade total e o espaço livre. Aqui pode reduzir a velocidade ou voltar à máxima; os horários ficam em Definições → Transferências.',
             'A porta do router é aberta por UPnP, e um torrent que não encontra pares em três minutos avisa em vez de esperar para sempre',
             'Um torrent com vários ficheiros fica numa pasta própria',
           ],
@@ -122,14 +122,14 @@ export const content: FeaturesContent = {
           points: [
             'O navegador abre na última pasta usada, por isso guardar duas vezes no mesmo sítio são dois toques',
             'Marque «Guardar sempre aqui, não perguntar mais» para tornar essa pasta a das transferências e deixar de ser questionado; Definições → Transferências repõe a pergunta',
-            'Sem perguntar, Transferir adiciona à pasta de transferências com um clique, e os detalhes mantêm a ligação «Guardar noutra pasta…»',
+            'Sem a pergunta da pasta, Transferir adiciona à pasta predefinida com um clique. Definições → Transferências permite voltar a ativar a pergunta.',
             'Pelo site só se podem escolher a pasta de transferências e as adicionadas no computador, como em todo o lado',
           ],
         },
         files: {
           title: 'Só os ficheiros que quer',
           gain: 'Transfira um episódio de uma temporada inteira, ou deixe os extras de fora, e acompanhe cada ficheiro em separado.',
-          text: 'Os detalhes de uma transferência listam os ficheiros, cada um com uma caixa de seleção e o seu progresso, atualizado a cada dois segundos enquanto decorre, além do tamanho, rácio, datas, origem e pasta.',
+          text: 'Cada transferência abre a sua página com uma ligação para voltar, a faixa, a pasta, as datas, a origem e o rácio. Os ficheiros têm caixas de seleção, tamanhos e progresso atualizado a cada dois segundos. As atualizações conservam as alterações à seleção.',
           points: [
             'Altere a seleção a qualquer momento; um botão guarda-a',
             '«Mostrar na pasta» abre o Finder ou o Explorer no ficheiro, no seu computador',
@@ -148,7 +148,7 @@ export const content: FeaturesContent = {
         browse: {
           title: 'As suas transferências, pasta a pasta',
           gain: 'Veja o que chegou onde, reproduza-o ou escolha uma nova pasta de transferência, no computador ou no telemóvel.',
-          text: 'Ficheiros mostra a pasta de transferência e qualquer pasta adicionada no computador que executa o Magnetar: primeiro as pastas, depois os ficheiros, com tamanho e data. Os ficheiros de uma transferência podem ser reproduzidos ou abertos nos seus detalhes.',
+          text: 'Ficheiros abre a pasta de downloads, com vistas por local e caminhos com ligações para voltar. Uma pasta é um aglomerado, um ficheiro completo uma estrela azul e branca e um download em curso uma brasa com a percentagem. Tamanhos, datas, reprodução e detalhes continuam acessíveis.',
           points: [
             'Ordenados como se leem os nomes: o episódio 2 antes do 10',
             'Crie uma pasta ou use a que está no ecrã como pasta de transferência',
@@ -187,8 +187,8 @@ export const content: FeaturesContent = {
           gain: 'Inicie uma transferência no telemóvel, no autocarro, e ela fica à sua espera no computador, em casa.',
           text: 'Entre em magnetar.codefusion.cc e abra qualquer um dos seus computadores: a pesquisa, as transferências, a lista A seguir e as definições funcionam como em casa. O seu computador faz o trabalho; o site só o liga a ele.',
           points: [
-            'Os seus dispositivos com o estado online, atualizado a cada 15 segundos',
-            'Num telemóvel aparece uma barra de separadores em baixo; num computador, uma barra lateral',
+            'Os seus computadores com o estado online, atualizado a cada 15 segundos',
+            'Os separadores ficam em baixo no telemóvel e em cima no computador',
             'O que só faz sentido no computador (o seletor de pastas, abrir ficheiros) fica por lá',
             'Início de sessão com o Google; as sessões duram 30 dias desde a última visita, e ao terminar a sessão esse navegador desliga-se logo dos seus computadores',
           ],
@@ -215,7 +215,7 @@ export const content: FeaturesContent = {
         'device-addresses': {
           title: 'Cada computador no seu próprio endereço',
           gain: 'magnetar.codefusion.cc/MacBook-Pro/search: pela ligação, sabe que computador vai abrir.',
-          text: 'O nome de um computador é a primeira parte dos endereços das suas páginas. Mude de computador a partir do nome na barra lateral e fique na mesma página.',
+          text: 'O nome de um computador é a primeira parte dos endereços das suas páginas. Mude de computador a partir do nome no topo da página e fique na mesma página.',
           points: [
             `Os nomes são letras e algarismos unidos por hífenes, até ${DEVICE_NAME_MAX_LENGTH} caracteres; qualquer nome que escreva é convertido para essa forma («Mac do Paweł» passa a Mac-do-Pawel)`,
             'Mudar o nome a um computador leva uma página aberta para o novo endereço',
@@ -328,7 +328,7 @@ export const content: FeaturesContent = {
   shots: {
     search: 'Resultados da pesquisa com as etiquetas da versão, reunidos de todas as fontes',
     'search-phone': 'Pesquisa num telemóvel, com os botões de resolução',
-    'search-sources': 'O que cada fonte encontrou, e com que rapidez',
+    'search-sources': 'O que cada fonte encontrou e quais não responderam',
     add: 'A janela Adicionar com ligações magnet coladas',
     watchlist: 'A lista A seguir: séries com o próximo episódio',
     watches: 'Seguimentos de versões, com a frequência de cada um',
@@ -337,12 +337,12 @@ export const content: FeaturesContent = {
     details: 'Os ficheiros de uma transferência, cada um com o seu progresso',
     player: 'Um filme de licença livre a ser reproduzido no navegador, com as suas legendas em inglês',
     speed: 'Limites de velocidade, limites alternativos e o seu horário',
-    devices: 'Os seus dispositivos no site, com o estado online',
+    devices: 'Os seus computadores no site, com o estado online',
     'remote-phone': 'As transferências de um computador num telemóvel, através do site',
     remote: 'O acesso remoto nas definições da aplicação, ligado a uma conta',
     pair: 'Aprovar um computador no site',
     'link-qr': 'Um código QR que associa um telemóvel',
-    switcher: 'Mudar de computador a partir da barra lateral',
+    switcher: 'Mudar de computador a partir da barra de cima',
     notifications: 'Canais de notificação, cada um com um botão de teste',
     settings: 'Definições gerais: idioma, tema, início ao entrar na sessão',
     about: 'A versão e a procura de atualizações',
