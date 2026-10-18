@@ -7,22 +7,22 @@ import { changesShippedApp, latestVersion, nextVersion, parseTag, plan } from '.
 
 describe('nextVersion', () => {
   it('adds one patch to the latest tag', () => {
-    expect(nextVersion(['v1.0.0', 'v1.1.0', 'v1.2.1'], '1.2.0')).toBe('1.2.2')
+    expect(nextVersion(['v1.0.0', 'v1.1.0', 'v1.2.1'])).toBe('1.2.2')
   })
-  it('starts from the committed version when there is no release yet', () => {
-    expect(nextVersion([], '1.2.0')).toBe('1.2.0')
-    expect(nextVersion(['not-a-release'], '1.2.0')).toBe('1.2.0')
+  it('has none before the first release, which is tagged by hand', () => {
+    expect(nextVersion([])).toBeNull()
+    expect(nextVersion(['not-a-release', 'v1.3.0-rc.1'])).toBeNull()
   })
   it('continues from a minor release tagged by hand', () => {
-    expect(nextVersion(['v1.2.0', 'v1.2.7', 'v1.3.0'], '1.2.0')).toBe('1.3.1')
-    expect(nextVersion(['v1.9.9', 'v2.0.0'], '1.2.0')).toBe('2.0.1')
+    expect(nextVersion(['v1.2.0', 'v1.2.7', 'v1.3.0'])).toBe('1.3.1')
+    expect(nextVersion(['v1.9.9', 'v2.0.0'])).toBe('2.0.1')
   })
   it('compares numerically, not as text', () => {
     expect(latestVersion(['v1.9.0', 'v1.10.0', 'v1.2.30'])).toEqual([1, 10, 0])
-    expect(nextVersion(['v1.2.9', 'v1.2.10'], '0.0.0')).toBe('1.2.11')
+    expect(nextVersion(['v1.2.9', 'v1.2.10'])).toBe('1.2.11')
   })
   it('ignores pre-release and other tags', () => {
-    expect(nextVersion(['v1.2.0', 'v1.3.0-rc.1', 'v2.0.0-beta', 'latest', '1.9.0', 'v1.2.0.1'], '0.0.0')).toBe('1.2.1')
+    expect(nextVersion(['v1.2.0', 'v1.3.0-rc.1', 'v2.0.0-beta', 'latest', '1.9.0', 'v1.2.0.1'])).toBe('1.2.1')
     expect(parseTag('v1.3.0-rc.1')).toBeNull()
   })
 })
@@ -43,30 +43,31 @@ describe('changesShippedApp', () => {
 describe('plan', () => {
   const tags = ['v1.2.0', 'v1.2.1']
   it('releases the next patch when the app changed', () => {
-    expect(plan({ tags, first: '1.2.0', changed: ['apps/client/src/rpc.rs'] })).toMatchObject({ release: true, tag: 'v1.2.2' })
+    expect(plan({ tags, changed: ['apps/client/src/rpc.rs'] })).toMatchObject({ release: true, tag: 'v1.2.2' })
   })
   it('does not release docs-only changes', () => {
-    expect(plan({ tags, first: '1.2.0', changed: ['docs/MAP.md', '.github/workflows/ci.yml'] })).toMatchObject({ release: false, tag: '' })
+    expect(plan({ tags, changed: ['docs/MAP.md', '.github/workflows/ci.yml'] })).toMatchObject({ release: false, tag: '' })
   })
   it('does not release a commit the latest tag already contains', () => {
-    expect(plan({ tags, first: '1.2.0', containedInLatest: true, changed: ['apps/client/src/rpc.rs'] }).release).toBe(false)
+    expect(plan({ tags, containedInLatest: true, changed: ['apps/client/src/rpc.rs'] }).release).toBe(false)
   })
-  it('releases the first version when nothing is tagged', () => {
-    expect(plan({ tags: [], first: '1.2.0' })).toMatchObject({ release: true, tag: 'v1.2.0' })
+  it('releases nothing until the first tag is pushed by hand', () => {
+    expect(plan({ tags: [], changed: ['apps/client/src/rpc.rs'] })).toEqual({ release: false, tag: '', reason: 'no release tag yet: the first one is pushed by hand' })
+    expect(plan({ tags: [], explicitTag: 'v0.1.0' })).toMatchObject({ release: true, tag: 'v0.1.0' })
   })
   it('publishes a tag pushed by hand as it is', () => {
-    expect(plan({ tags, first: '1.2.0', explicitTag: 'v1.3.0', changed: [] })).toMatchObject({ release: true, tag: 'v1.3.0' })
+    expect(plan({ tags, explicitTag: 'v1.3.0', changed: [] })).toMatchObject({ release: true, tag: 'v1.3.0' })
   })
   it('holds an app change while the hold file exists, and says why', () => {
-    const held = plan({ tags, first: '1.2.0', changed: ['apps/web/src/a.ts'], held: 'Infall redesign\n' })
+    const held = plan({ tags, changed: ['apps/web/src/a.ts'], held: 'Infall redesign\n' })
     expect(held).toEqual({ release: false, tag: '', reason: 'held by .github/release-hold: Infall redesign' })
-    expect(plan({ tags, first: '1.2.0', changed: ['apps/web/src/a.ts'], held: '' }).reason).toBe('held by .github/release-hold: no reason given')
+    expect(plan({ tags, changed: ['apps/web/src/a.ts'], held: '' }).reason).toBe('held by .github/release-hold: no reason given')
   })
   it('lets a tag pushed by hand through a hold', () => {
-    expect(plan({ tags, first: '1.2.0', explicitTag: 'v1.3.0', changed: ['apps/web/src/a.ts'], held: 'x' })).toMatchObject({ release: true, tag: 'v1.3.0' })
+    expect(plan({ tags, explicitTag: 'v1.3.0', changed: ['apps/web/src/a.ts'], held: 'x' })).toMatchObject({ release: true, tag: 'v1.3.0' })
   })
-  it('never holds the first release', () => {
-    expect(plan({ tags: [], first: '1.2.0', held: 'x' })).toMatchObject({ release: true, tag: 'v1.2.0' })
+  it('never holds the first release, a tag pushed by hand', () => {
+    expect(plan({ tags: [], explicitTag: 'v0.1.0', held: 'x' })).toMatchObject({ release: true, tag: 'v0.1.0' })
   })
 })
 
@@ -84,9 +85,10 @@ describe('in a repository', () => {
   it('follows the tags and the paths changed since the latest one', () => {
     const cwd = mkdtempSync(join(tmpdir(), 'release-version-'))
     run(cwd, 'init', '-q', '-b', 'main')
-    writeFileSync(join(cwd, 'package.json'), '{"version":"1.2.0"}')
     commit(cwd, 'apps/client/src/main.rs')
-    expect(plan(cwd, 'plan')).toContain('tag=v1.2.0')
+    expect(plan(cwd, 'plan')).toContain('release=false')
+    expect(plan(cwd, 'display')).toBe('')
+    expect(plan(cwd, 'plan', '--tag', 'v1.2.0')).toContain('tag=v1.2.0')
     run(cwd, 'tag', 'v1.2.0')
     expect(plan(cwd, 'plan')).toContain('release=false')
     commit(cwd, 'docs/a.md')

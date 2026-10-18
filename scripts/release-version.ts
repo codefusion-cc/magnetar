@@ -5,13 +5,14 @@
  *   node scripts/release-version.ts plan [--sha <commit>] [--tag <v1.3.0>]
  *   node scripts/release-version.ts display [--sha <commit>]
  *
- * The version is the latest plain vX.Y.Z tag plus one patch; minor and major releases are tags pushed by hand.
+ * The version is the latest plain vX.Y.Z tag plus one patch; minor and major releases, and the first one, are tags
+ * pushed by hand. No file holds the version: the tag is the version.
  * Pre-release tags (v2.0.0-rc.1) are ignored. A merge that changes only docs, tests or CI files is not released, nor is
  * one while `.github/release-hold` exists: work that ships in parts (a redesign) collects on main and is released by the
  * merge that deletes the file. Its text says why it holds.
  */
 import { execFileSync } from 'node:child_process'
-import { appendFileSync, readFileSync } from 'node:fs'
+import { appendFileSync } from 'node:fs'
 import { parseArgs } from 'node:util'
 
 export type Version = readonly [major: number, minor: number, patch: number]
@@ -35,10 +36,10 @@ export function latestVersion(tags: readonly string[]): Version | null {
   return latest
 }
 
-/** The next patch release, "1.2.3" after v1.2.2; with no release yet, `first` (the committed version). */
-export function nextVersion(tags: readonly string[], first: string): string {
+/** The next patch release, "1.2.3" after v1.2.2; null with no release yet, whose first tag is pushed by hand. */
+export function nextVersion(tags: readonly string[]): string | null {
   const latest = latestVersion(tags)
-  return latest ? format([latest[0], latest[1], latest[2] + 1]) : first
+  return latest ? format([latest[0], latest[1], latest[2] + 1]) : null
 }
 
 /** Files that never reach a user of the app or the website: documentation, tests, CI and repository housekeeping. */
@@ -73,7 +74,6 @@ export interface Plan {
 /** What a commit becomes, given the release tags, its relation to the latest one and the files changed since. */
 export function plan(input: {
   tags: readonly string[]
-  first: string
   explicitTag?: string
   containedInLatest?: boolean
   changed?: readonly string[]
@@ -83,13 +83,14 @@ export function plan(input: {
 }): Plan {
   if (input.explicitTag) return { release: true, tag: input.explicitTag, reason: 'tag pushed by hand' }
   const latest = latestVersion(input.tags)
-  if (latest && input.containedInLatest) return { release: false, tag: '', reason: `already part of v${format(latest)}` }
-  if (latest && input.held != null) {
+  if (!latest) return { release: false, tag: '', reason: 'no release tag yet: the first one is pushed by hand' }
+  if (input.containedInLatest) return { release: false, tag: '', reason: `already part of v${format(latest)}` }
+  if (input.held != null) {
     const since = input.hold ? ` since ${input.hold.since || 'an unknown commit'}, ${input.hold.waiting} ${input.hold.waiting === 1 ? 'merge' : 'merges'} waiting` : ''
     return { release: false, tag: '', reason: `held by ${HOLD_FILE}${since}: ${input.held.trim() || 'no reason given'}` }
   }
-  if (latest && !changesShippedApp(input.changed ?? [])) return { release: false, tag: '', reason: `only docs, tests or CI changed since v${format(latest)}` }
-  return { release: true, tag: `v${nextVersion(input.tags, input.first)}`, reason: latest ? `the app changed since v${format(latest)}` : 'no release yet' }
+  if (!changesShippedApp(input.changed ?? [])) return { release: false, tag: '', reason: `only docs, tests or CI changed since v${format(latest)}` }
+  return { release: true, tag: `v${nextVersion(input.tags)}`, reason: `the app changed since v${format(latest)}` }
 }
 
 function git(...args: string[]): string {
@@ -101,7 +102,6 @@ function fromRepository(sha: string, explicitTag?: string): Plan & { latest: str
   const tags = git('tag', '--list', 'v*').split('\n').filter(Boolean)
   const latest = latestVersion(tags)
   const latestTag = latest ? `v${format(latest)}` : null
-  const first = (JSON.parse(readFileSync('package.json', 'utf8')) as { version: string }).version
   let containedInLatest = false
   let changed: string[] = []
   if (latestTag) {
@@ -121,7 +121,7 @@ function fromRepository(sha: string, explicitTag?: string): Plan & { latest: str
   const hold = held != null && latestTag && !containedInLatest
     ? { since: git('log', '-1', '--format=%h', '--diff-filter=A', sha, '--', HOLD_FILE), waiting: Number(git('rev-list', '--count', '--first-parent', `${latestTag}..${sha}`)) }
     : undefined
-  return { ...plan({ tags, first, explicitTag, containedInLatest, changed, held, hold }), latest: latestTag }
+  return { ...plan({ tags, explicitTag, containedInLatest, changed, held, hold }), latest: latestTag }
 }
 
 if (process.argv[1] === import.meta.filename) {
