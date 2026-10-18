@@ -31,7 +31,7 @@ Design and security are in [ARCHITECTURE.md](ARCHITECTURE.md), deploy and signin
 - CI runners: the jobs that move to the monorepo read `vars.CI_RUNNER_LIGHT` or `CI_RUNNER_HEAVY`; only the client's macOS, Windows and release jobs keep GitHub's labels (`docs/RUNNERS.md`, checked by `packages/release/runners.test.ts`).
 - `pnpm run build:web` ends with `apps/web/scripts/guard-preview.ts` (tested by `guard-preview.test.ts` beside it): link-preview tags in `apps/web/index.html`, `og-v1.jpg` and `robots.txt` in `dist/`. A new preview image gets a new file name.
 - Rust: `export PATH="/opt/homebrew/opt/rustup/bin:$PATH" && cargo test --locked -j4`.
-- E2E: `pnpm run e2e` (Playwright drives the real app; needs `pnpm run build:web` and `pnpm --filter @magnetar/e2e exec playwright install chromium`).
+- E2E: `pnpm run e2e` (Playwright drives the real app; needs `cargo` on `PATH`, `pnpm run build:web` and `pnpm --filter @magnetar/e2e exec playwright install chromium`).
 
 ## Deploy and migrations
 
