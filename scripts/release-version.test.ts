@@ -5,6 +5,8 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { changesShippedApp, latestVersion, nextVersion, parseTag, plan } from './release-version.ts'
 
+const MONOREPO = { prefix: 'magnetar-v', folder: 'apps/magnetar' }
+
 describe('nextVersion', () => {
   it('adds one patch to the latest tag', () => {
     expect(nextVersion(['v1.0.0', 'v1.1.0', 'v1.2.1'])).toBe('1.2.2')
@@ -71,6 +73,28 @@ describe('plan', () => {
   })
 })
 
+describe('as the monorepo tags it', () => {
+  it('reads only its own prefix', () => {
+    expect(parseTag('magnetar-v1.2.3', 'magnetar-v')).toEqual([1, 2, 3])
+    for (const tag of ['v1.2.3', 'magnetar-1.2.3', 'magnetar-v1.2', 'xmagnetar-v1.2.3', 'magnetar-v1.2.3-rc.1']) expect(parseTag(tag, 'magnetar-v'), tag).toBeNull()
+    expect(parseTag('magnetar-v1.2.3')).toBeNull()
+    expect(nextVersion(['v9.0.0', 'magnetar-v1.2.3', 'neko-v5.0.0'], 'magnetar-v')).toBe('1.2.4')
+  })
+  it("counts only changes in the app's folder", () => {
+    expect(changesShippedApp(['apps/neko/src/a.ts', 'packages/x/src/a.ts', 'apps/magnetarx/a.ts'], 'apps/magnetar')).toBe(false)
+    expect(changesShippedApp(['apps/magnetar/docs/MAP.md', 'apps/magnetar/apps/worker/test/a.test.ts', 'apps/magnetar'], 'apps/magnetar')).toBe(false)
+    expect(changesShippedApp(['apps/magnetar/apps/client/src/rpc.rs'], 'apps/magnetar/')).toBe(true)
+    expect(changesShippedApp(['docs/MAP.md', 'apps/client/src/rpc.rs'])).toBe(true)
+  })
+  it('names its tags, its hold file and the release before with the prefix', () => {
+    const tags = ['v9.9.9', 'magnetar-v1.2.0']
+    expect(plan({ tags, changed: ['apps/magnetar/apps/web/src/a.ts'] }, MONOREPO)).toEqual({ release: true, tag: 'magnetar-v1.2.1', reason: 'the app changed since magnetar-v1.2.0' })
+    expect(plan({ tags, changed: ['apps/neko/src/a.ts'] }, MONOREPO).reason).toBe('only docs, tests or CI changed since magnetar-v1.2.0')
+    expect(plan({ tags, changed: ['apps/magnetar/apps/web/src/a.ts'], held: 'x' }, MONOREPO).reason).toBe('held by apps/magnetar/.github/release-hold: x')
+    expect(plan({ tags: ['v1.2.0'] }, MONOREPO).release).toBe(false)
+  })
+})
+
 describe('in a repository', () => {
   const run = (cwd: string, ...args: string[]) => execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'commit.gpgsign=false', '-c', 'tag.gpgsign=false', ...args], { cwd, encoding: 'utf8' }).trim()
   const script = join(import.meta.dirname, 'release-version.ts')
@@ -121,6 +145,17 @@ describe('in a repository', () => {
     expect(plan(cwd, 'plan')).toContain('tag=v1.3.1')
     // An older commit read by its sha is judged by its own tree: still held.
     expect(plan(cwd, 'plan', '--sha', 'HEAD~1')).toContain('release=false')
+    // The monorepo's form beside it: its own tags, only its folder, the version without the prefix.
+    const mono = ['--prefix', 'magnetar-v', '--folder', 'apps/magnetar']
+    expect(plan(cwd, 'plan', ...mono)).toContain('release=false')
+    run(cwd, 'tag', 'magnetar-v2.0.0')
+    commit(cwd, 'apps/web/src/e.ts')
+    expect(plan(cwd, 'plan', ...mono)).toContain('release=false')
+    expect(plan(cwd, 'display', ...mono)).toBe('2.0.0')
+    commit(cwd, 'apps/magnetar/apps/web/src/a.ts')
+    expect(plan(cwd, 'plan', ...mono)).toMatch(/^release=true tag=magnetar-v2\.0\.1 version=2\.0\.1 /)
+    expect(plan(cwd, 'display', ...mono)).toBe('2.0.1')
+    expect(plan(cwd, 'plan')).toContain('tag=v1.3.1')
     // About thirty git and node processes: Windows runners need seconds for them, more than Vitest's default five.
   }, 30_000)
 })
