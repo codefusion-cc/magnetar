@@ -35,8 +35,8 @@ export interface Env {
   /** "enabled" only in the dev environment: passwordless sign-in for local testing. */
   DEV_LOGIN?: string
   /**
-   * "enabled" only on staging (wrangler.preview.jsonc): Google's callback here may return a sign-in to a branch
-   * Preview under this origin's host. Production and Previews never set it.
+   * "enabled" only on the preview Worker (wrangler.jsonc `env.preview`): Google's callback here may return a sign-in
+   * to a branch Preview under this origin's host. Production and Previews never set it.
    */
   AUTH_PREVIEW_PARENTS?: string
   /** A Preview's: the stable deployment whose Google callback it signs in through, since Google takes no wildcards. */
@@ -51,13 +51,15 @@ export function allowedOrigins(env: Env): string[] {
 }
 
 /**
- * Pages Google's callback may hand a sign-in to: the site's own, and on staging only, its branch Previews
- * (`https://<preview>.<staging host>`). Production never returns a token to a Preview, whose code nobody merged;
- * staging may, since staging and Previews share an OAuth client of their own and hold only test data.
+ * Pages Google's callback may hand a sign-in to: the site's own, and on the preview Worker only, its branch Previews
+ * (`https://<preview>.<preview Worker's host>`). Production never returns a token to a Preview, whose code nobody
+ * merged; the preview Worker may, since it and its Previews share an OAuth client of their own and hold only test data.
+ * A Preview, which signs in through another deployment's callback, is never a parent itself.
  */
 export function googleReturnOrigin(env: Env, origin: string): boolean {
   if (allowedOrigins(env).includes(origin)) return true
-  return env.AUTH_PREVIEW_PARENTS === 'enabled' && env.APP_ENV === 'staging' && isPreviewOrigin(origin, new URL(env.ORIGIN).host)
+  return env.AUTH_PREVIEW_PARENTS === 'enabled' && env.APP_ENV === 'preview' && !env.GOOGLE_CALLBACK_ORIGIN
+    && isPreviewOrigin(origin, new URL(env.ORIGIN).host)
 }
 
 /** The largest JSON body an API call takes; the biggest, a failure report, stays well under it. */

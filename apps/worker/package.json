@@ -4,11 +4,11 @@
   "type": "module",
   "scripts": {
     "dev": "npm run build -w @magnetar/web && wrangler dev --env dev --port 8790",
-    "deploy": "npm run build -w @magnetar/web && wrangler deploy",
+    "deploy": "npm run build -w @magnetar/web && wrangler deploy --env=\"\"",
     "migrate:local": "wrangler d1 migrations apply magnetar --local --env dev",
-    "migrate:remote": "wrangler d1 migrations apply magnetar --remote",
-    "deploy:staging": "npm run build -w @magnetar/web && wrangler deploy -c wrangler.preview.jsonc",
-    "migrate:staging": "wrangler d1 migrations apply DB --remote -c wrangler.preview.jsonc",
+    "migrate:remote": "wrangler d1 migrations apply magnetar --remote --env=\"\"",
+    "deploy:preview": "npm run build -w @magnetar/web && wrangler deploy --env preview",
+    "migrate:preview": "wrangler d1 migrations apply DB --remote --env preview",
     "typecheck": "tsc -p . && tsc -p test"
   },
   "dependencies": {

@@ -1,7 +1,7 @@
 # Deploying magnetar.codefusion.cc
 
 The Worker in `apps/worker` serves the website, sign-in, pairing and the relay. After the one-time setup below, every
-merge to `main` goes to staging (preview.magnetar.codefusion.cc) once every check has passed, and to production
+merge to `main` goes to the preview Worker (preview.magnetar.codefusion.cc) once every check has passed, and to production
 (magnetar.codefusion.cc) once the owner approves it in CodeFusion Console.
 
 ## 1. Google OAuth client
@@ -31,11 +31,12 @@ Its Deployments page reads this repository with the console's GitHub token, whic
 
 On every push to `main`, after the checks and the end-to-end tests pass, the CI workflow runs three jobs:
 
-1. **Deploy staging** deploys the commit to staging (section 5).
+1. **Deploy preview** deploys the commit to the preview Worker (section 5), with the `staging` environment's token.
 2. **Approve production** waits for the owner: the `production-approval` environment has the owner as its required
-   reviewer. CodeFusion Console's Deployments page shows what staging runs that production doesn't, and approves this
-   job once staging still serves that very commit (or approve it on GitHub). A newer merge replaces the one waiting, so
-   at most one waits, always for the commit staging just got. A failed staging deploy leaves nothing to approve.
+   reviewer. CodeFusion Console's Deployments page shows what the preview Worker runs that production doesn't, and
+   approves this job once the preview Worker still serves that very commit (or approve it on GitHub). A newer merge
+   replaces the one waiting, so at most one waits, always for the commit the preview Worker just got. A failed preview
+   deploy leaves nothing to approve.
 3. **Deploy production** deploys it to production, with the `production` environment's token.
 
 Both deploys are `.github/workflows/deploy-worker.yml`: build the dashboard (its `version.json` names the full commit),
@@ -75,14 +76,14 @@ emergency, deploy the checkout from this Mac, applying a new migration first:
 cd /Users/xeon/Projects/mediadownloader-v2 && codefusion-console cloudflare workers:edit,d1:edit,domains:edit -- sh -c 'npm run migrate:remote -w @magnetar/worker && npm run deploy -w @magnetar/worker'
 ```
 
-## 5. Staging and branch Previews
+## 5. The preview Worker and branch Previews
 
-Staging is the Worker `magnetar-preview` at https://preview.magnetar.codefusion.cc, from `apps/worker/wrangler.preview.jsonc`:
-its own D1 database (`magnetar-preview`), DeviceRelay objects, rate limits, secrets and Google OAuth client. The same
-`deploy` job deploys every merge to `main` there, migrations first, next to production. The console's Deployments
-page lists it as staging and each open pull request's Preview under it.
+The preview Worker is `magnetar-preview` at https://preview.magnetar.codefusion.cc, `env.preview` of
+`apps/worker/wrangler.jsonc` (`APP_ENV` `preview`): its own D1 database (`magnetar-preview`), DeviceRelay objects, rate
+limits, secrets and Google OAuth client. The same `deploy` job deploys every merge to `main` there, migrations first,
+before production. The console's Deployments page lists it as Preview and each open pull request's Preview under it.
 
-Every pull request from this repository gets a Worker Preview of staging at
+Every pull request from this repository gets a Worker Preview of the preview Worker at
 `https://<branch>.preview.magnetar.codefusion.cc` (the name as `@codefusion-cc/previews` makes it: `feat/Login` →
 `feat-login`): the `preview` job in `ci.yml` makes the branch's own database `magnetar-previews-<name>` on its first
 push, applies the migrations and uploads the Preview on every push. Each Preview has its own DeviceRelay objects
@@ -91,36 +92,37 @@ outside production the Worker marks every page `noindex`.
 
 ### Sign-in
 
-Staging and Previews use their own OAuth client, `Magnetar staging`, never production's: a page holding a token for
+The preview Worker and its Previews use their own OAuth client, `Magnetar staging`, never production's: a page holding a token for
 production's client could sign its holder in to magnetar.codefusion.cc, and Previews run code nobody merged. It was
 made like production's (section 1):
 
 - Authorized JavaScript origins: `https://preview.magnetar.codefusion.cc`
 - Authorized redirect URIs: `https://preview.magnetar.codefusion.cc/api/auth/google/callback`
 
-Its client id is `GOOGLE_CLIENT_ID` in `wrangler.preview.jsonc`, both in `vars` and in `previews.vars`
+Its client id is `GOOGLE_CLIENT_ID` in `env.preview` of `wrangler.jsonc`, both in `vars` and in `previews.vars`
 (`apps/worker/environments.test.ts` keeps them equal and unlike production's). Google takes no wildcard addresses, so a
-Preview signs in through staging's callback (`GOOGLE_CALLBACK_ORIGIN`), which returns the token to
-`https://<branch>.preview.magnetar.codefusion.cc/login` only because staging sets `AUTH_PREVIEW_PARENTS`. Production
-never does. A Preview's own API takes calls only from its own address.
+Preview signs in through the preview Worker's callback (`GOOGLE_CALLBACK_ORIGIN`), which returns the token to
+`https://<branch>.preview.magnetar.codefusion.cc/login` only because the preview Worker sets `AUTH_PREVIEW_PARENTS`.
+Production never does. A Preview's own API takes calls only from its own address.
 
 ### Tokens and secrets
 
 Each environment deploys with a Cloudflare token of its own, made by CodeFusion Console (Infrastructure → Deploy
-tokens, or `deploy_token_provision` with config `apps/worker/wrangler.preview.jsonc`) for the GitHub environments
-`staging` and `preview`. The preview token also makes and deletes the branch databases (D1 edit).
+tokens, or `deploy_token_provision` with config `apps/worker/wrangler.jsonc`) for the GitHub environments `staging` (the
+preview Worker) and `preview` (branch Previews). The preview token also makes and deletes the branch databases (D1
+edit).
 
-Staging's Worker secrets (`VAPID_PRIVATE_KEY` for browser notifications, optionally `GITHUB_TOKEN`) are set on the
+The preview Worker's secrets (`VAPID_PRIVATE_KEY` for browser notifications, optionally `GITHUB_TOKEN`) are set on the
 console's Secrets page or with its `set_secrets` tool, never in a chat. Previews take theirs from the Preview base
 config:
 
 ```bash
-cd /Users/xeon/Projects/mediadownloader-v2/apps/worker && codefusion-console cloudflare workers:edit -- sh -c 'npx -p @codefusion-cc/web-push codefusion-vapid | npx wrangler preview base-config secret put VAPID_PRIVATE_KEY -c wrangler.preview.jsonc'
+cd /Users/xeon/Projects/mediadownloader-v2/apps/worker && codefusion-console cloudflare workers:edit -- sh -c 'npx -p @codefusion-cc/web-push codefusion-vapid | npx wrangler preview base-config secret put VAPID_PRIVATE_KEY --env preview'
 ```
 
-### The app on staging
+### The app on the preview Worker
 
-A dev build pairs with staging when run with its address, and a data folder of its own, so its link never mixes with
+A dev build pairs with the preview Worker when run with its address, and a data folder of its own, so its link never mixes with
 the one your installed app has:
 
 ```bash
@@ -145,8 +147,8 @@ through `sh -c '…'`. Once on the Mac: `npm install -g @codefusion-cc/console &
 |---|---|
 | `npm run migrate:remote -w @magnetar/worker` | `d1:edit` |
 | `npm run deploy -w @magnetar/worker` | `workers:edit,d1:edit,domains:edit` (the `DB` binding, the custom domain) |
-| `npm run migrate:staging -w @magnetar/worker`, `npm run deploy:staging -w @magnetar/worker` | as for production |
-| `npx wrangler preview delete -c wrangler.preview.jsonc --name <name>` | `workers:edit` |
+| `npm run migrate:preview -w @magnetar/worker`, `npm run deploy:preview -w @magnetar/worker` | as for production |
+| `npx wrangler preview delete --env preview --name <name>` | `workers:edit` |
 | `npx wrangler secret put …` | `workers:edit` |
 | `npx wrangler tail` | `tail:read` |
 

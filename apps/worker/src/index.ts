@@ -77,7 +77,7 @@ export default {
     const headers = new Headers(response.headers)
     headers.set('x-content-type-options', 'nosniff')
     headers.set('referrer-policy', 'no-referrer')
-    // Staging and Previews hold test data and run unreleased code: no search engine lists them.
+    // The preview Worker and its Previews hold test data and run unreleased code: no search engine lists them.
     if (env.APP_ENV !== 'production') headers.set('x-robots-tag', 'noindex')
     return new Response(response.body, { status: response.status, statusText: response.statusText, headers })
   },
