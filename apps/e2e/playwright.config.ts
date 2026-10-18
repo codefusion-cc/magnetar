@@ -29,7 +29,7 @@ export default defineConfig({
     { name: 'phone', use: { ...devices['Pixel 7'] }, testMatch: /phone\.e2e\.ts/ },
   ],
   webServer: {
-    command: 'npm run build -w @magnetar/web && cargo run -q -p magnetar',
+    command: 'pnpm --filter @magnetar/web run build && cargo run -q -p magnetar',
     url: `http://localhost:${PORT}/health`,
     timeout: 600_000,
     reuseExistingServer: false,

@@ -4,43 +4,31 @@
   "description": "Magnetar — torrent search and download manager: a single-executable Rust client, a React dashboard, and a Cloudflare Worker for end-to-end encrypted remote access",
   "license": "MIT",
   "type": "module",
-  "packageManager": "npm@11.16.0",
+  "packageManager": "pnpm@12.14.0",
   "engines": {
     "node": ">=24 <25",
-    "npm": ">=11"
+    "pnpm": ">=12.14.0 <13"
   },
-  "workspaces": [
-    "packages/*",
-    "apps/*"
-  ],
   "scripts": {
-    "dev:client": "npm run dev -w @magnetar/client",
-    "dev:web": "npm run dev -w @magnetar/web",
-    "dev:worker": "npm run dev -w @magnetar/worker",
-    "build": "npm run build:web && npm run build:client",
-    "build:web": "npm run build -w @magnetar/web",
-    "build:client": "npm run build -w @magnetar/client --",
-    "typecheck": "npm run typecheck --workspaces",
+    "dev:client": "pnpm --filter @magnetar/client run dev",
+    "dev:web": "pnpm --filter @magnetar/web run dev",
+    "dev:worker": "pnpm --filter @magnetar/worker run dev",
+    "build": "pnpm run build:web && pnpm run build:client",
+    "build:web": "pnpm --filter @magnetar/web run build",
+    "build:client": "pnpm --filter @magnetar/client run build",
+    "typecheck": "pnpm --recursive run typecheck",
     "lint": "oxlint . && cargo clippy --all-targets --locked -- -D warnings && cargo fmt --check",
     "test": "vitest run && cargo test --locked",
     "test:watch": "vitest",
-    "e2e": "npm test -w @magnetar/e2e",
-    "check": "npm run lint && npm run typecheck && npm test"
+    "e2e": "pnpm --filter @magnetar/e2e run test",
+    "check": "pnpm run lint && pnpm run typecheck && pnpm test"
   },
   "devDependencies": {
-    "@cloudflare/vitest-plugin": "^1.3.3",
-    "@types/node": "^24.19.0",
-    "fast-check": "^4.10.2",
-    "oxlint": "^1.85.0",
-    "typescript": "^7.0.2",
-    "vitest": "^4.1.11"
-  },
-  "allowScripts": {
-    "esbuild@0.28.1": true,
-    "workerd@1.20260930.2": true,
-    "fsevents": false
-  },
-  "overrides": {
-    "sharp": "^0.35.5"
+    "@cloudflare/vitest-plugin": "1.4.4",
+    "@types/node": "24.19.0",
+    "fast-check": "4.10.2",
+    "oxlint": "1.88.0",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5"
   }
 }

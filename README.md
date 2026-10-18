@@ -147,20 +147,20 @@ computer, and the bearer token. Whatever comes through the proxy counts as remot
 
 ## Development
 
-Requires [Node.js](https://nodejs.org) 24 with npm 11, and a stable [Rust](https://rustup.rs) toolchain.
+Requires [Node.js](https://nodejs.org) 24 with pnpm 12 (`corepack enable` gives the version `package.json` names), and a stable [Rust](https://rustup.rs) toolchain.
 
 ```bash
-npm install
-npm run dev:client        # the app on http://localhost:47820 (cargo run; no tray, dev data in the normal folder unless MAGNETAR_DATA_DIRECTORY is set)
-npm run dev:web           # Vite on http://localhost:5173, proxying to the client (MAGNETAR_WEB_TARGET=cloud proxies to the Worker)
-npm run dev:worker        # the website on http://localhost:8790 with a local D1 and a passwordless dev sign-in
-npm run check             # oxlint, clippy, rustfmt, tsc, Vitest (the Worker's tests in workerd) and cargo test
-npm run e2e               # Playwright drives the real app (its own data and download folders) through the dashboard
-npm run build:client      # the dashboard and a release executable in apps/client/dist (--target <rust triple> for another platform)
-npm run screenshots -w @magnetar/e2e   # the features page's screenshots, light and dark (--only=search,player); see below
+pnpm install
+pnpm run dev:client       # the app on http://localhost:47820 (cargo run; no tray, dev data in the normal folder unless MAGNETAR_DATA_DIRECTORY is set)
+pnpm run dev:web          # Vite on http://localhost:5173, proxying to the client (MAGNETAR_WEB_TARGET=cloud proxies to the Worker)
+pnpm run dev:worker       # the website on http://localhost:8790 with a local D1 and a passwordless dev sign-in
+pnpm run check            # oxlint, clippy, rustfmt, tsc, Vitest (the Worker's tests in workerd) and cargo test
+pnpm run e2e              # Playwright drives the real app (its own data and download folders) through the dashboard
+pnpm run build:client     # the dashboard and a release executable in apps/client/dist (--target <rust triple> for another platform)
+pnpm --filter @magnetar/e2e run screenshots   # the features page's screenshots, light and dark (--only=search,player); see below
 ```
 
-The debug client serves the dashboard from `apps/web/dist`, so run `npm run build:web` once (or use `dev:web`). To try
+The debug client serves the dashboard from `apps/web/dist`, so run `pnpm run build:web` once (or use `dev:web`). To try
 remote access locally, run the client with `MAGNETAR_CLOUD_URL=http://localhost:8790` next to `dev:worker`; to pair it
 with the preview Worker, `MAGNETAR_CLOUD_URL=https://preview.magnetar.codefusion.cc` (or a branch Preview's address) and a data
 folder of its own (docs/DEPLOY.md, section 5). Released builds take only a Worker on this computer from it.
@@ -170,9 +170,9 @@ weekly in CI).
 The features page (`/features`, `/features/<language>`, the website's only) is `apps/web/src/features`: the outline of
 groups, features and shots in `outline.ts`, the words of each language in `content/`, and the page itself from
 [@codefusion-cc/features-page](https://www.npmjs.com/package/@codefusion-cc/features-page). Its screenshots are taken
-by `apps/e2e/features/screenshots.ts` from the real app on fresh data: build the dashboard (`npm run build:web`) and the
-app with a release's version (`MAGNETAR_VERSION=1.1.0 cargo build -p magnetar`), then run `npm run screenshots -w
-@magnetar/e2e`. It starts the Worker and three copies of the app on ports 8797 and 47891–47893, downloads Blender's
+by `apps/e2e/features/screenshots.ts` from the real app on fresh data: build the dashboard (`pnpm run build:web`) and the
+app with a release's version (`MAGNETAR_VERSION=1.1.0 cargo build -p magnetar`), then run `pnpm --filter
+@magnetar/e2e run screenshots`. It starts the Worker and three copies of the app on ports 8797 and 47891–47893, downloads Blender's
 open films and Linux images, and removes everything it made when it ends.
 
 Worktrees share compiled crates through [sccache](https://github.com/mozilla/sccache), set up once per machine rather
