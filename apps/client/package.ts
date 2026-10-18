@@ -58,8 +58,8 @@ const exe = platform === 'windows' ? '.exe' : ''
 const name = `Magnetar-${version}-${platform}-${arch}`
 
 if (!values['skip-web']) {
-  // Through a shell: npm is npm.cmd on Windows.
-  execSync('npm run build', { cwd: join(repo, 'apps', 'web'), env: { ...process.env, VITE_APP_VERSION: version }, stdio: 'inherit' })
+  // Through a shell: pnpm is pnpm.cmd on Windows.
+  execSync('pnpm run build', { cwd: join(repo, 'apps', 'web'), env: { ...process.env, VITE_APP_VERSION: version }, stdio: 'inherit' })
 }
 if (!existsSync(join(repo, 'apps', 'web', 'dist', 'index.html'))) throw new Error('apps/web/dist is missing; build the dashboard first')
 if (!process.env.MAGNETAR_RELEASE_PUBLIC_KEY && !existsSync(join(root, 'release-public-key.txt'))) {

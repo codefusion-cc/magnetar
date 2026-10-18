@@ -5,7 +5,7 @@ import { join } from 'node:path'
  * Checks a build of the website for what a shared link needs: scrapers (Messenger, WhatsApp, Slack) read the HTML and
  * run no JavaScript. dist/index.html needs the Open Graph and Twitter tags and a canonical link; og:image must be an
  * absolute https URL of a JPEG that is in the output and within budget; robots.txt must be a robots file, not the
- * dashboard's page (a path that is no file is answered with it). Run by `npm run build -w @magnetar/web`.
+ * dashboard's page (a path that is no file is answered with it). Run by `pnpm --filter @magnetar/web run build`.
  */
 const MAX_IMAGE_BYTES = 200_000
 const REQUIRED: [attribute: string, key: string][] = [

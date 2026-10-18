@@ -11,7 +11,7 @@ import { websiteVersion } from './src/lib/buildVersion.ts'
 import { themeConfig } from './src/ui/themeConfig.ts'
 
 /**
- * In development the dashboard talks either to a local client (`npm run dev:client`, port 47820, or
+ * In development the dashboard talks either to a local client (`pnpm run dev:client`, port 47820, or
  * MAGNETAR_CLIENT_PORT) or to the Worker (port 8790); MAGNETAR_WEB_TARGET picks which one Vite proxies to.
  */
 const repo = join(import.meta.dirname, '../..')

@@ -30,20 +30,21 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-          cache: npm
+          cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm test
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run lint
+      - run: pnpm run typecheck
+      - run: pnpm test
       - name: Build the executable for this runner
-        run: npm run build -w @magnetar/client -- --version 0.0.0-ci --profile ci
+        run: pnpm --filter @magnetar/client run build --version 0.0.0-ci --profile ci
       - name: Smoke-test the executable
         shell: bash
         run: |
@@ -72,16 +73,17 @@ jobs:
     runs-on: ${{ vars.CI_RUNNER_HEAVY }}
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-          cache: npm
+          cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
         working-directory: apps/e2e
-      - run: npm run e2e
+      - run: pnpm run e2e
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -213,9 +215,9 @@ jobs:
             echo "::error::The preview environment's CLOUDFLARE_API_TOKEN secret is not set; see docs/DEPLOY.md"
             exit 1
           fi
-          name=$(npx --no codefusion-previews up "$HEAD_REF" --config wrangler.jsonc --database-prefix magnetar-previews \
+          name=$(pnpm exec codefusion-previews up "$HEAD_REF" --config wrangler.jsonc --database-prefix magnetar-previews \
             --set 'https://preview-origin.invalid=https://{name}.preview.magnetar.codefusion.cc' | sed -n 's/^name=//p')
-          npx wrangler d1 migrations apply DB --remote -c wrangler.preview-db.generated.jsonc
-          npx wrangler preview -c wrangler.preview.generated.jsonc --env preview --name "$name" --message "${HEAD_SHA::7} #${PR_NUMBER}"
+          pnpm exec wrangler d1 migrations apply DB --remote -c wrangler.preview-db.generated.jsonc
+          pnpm exec wrangler preview -c wrangler.preview.generated.jsonc --env preview --name "$name" --message "${HEAD_SHA::7} #${PR_NUMBER}"
           node scripts/preview-worker-config.ts > "$RUNNER_TEMP/preview-worker.json"
-          npx --no codefusion-previews url "$HEAD_REF" --config "$RUNNER_TEMP/preview-worker.json" --domain preview.magnetar.codefusion.cc >> "$GITHUB_OUTPUT"
+          pnpm exec codefusion-previews url "$HEAD_REF" --config "$RUNNER_TEMP/preview-worker.json" --domain preview.magnetar.codefusion.cc >> "$GITHUB_OUTPUT"

@@ -26,17 +26,17 @@ Design and security are in [ARCHITECTURE.md](ARCHITECTURE.md), deploy and signin
 
 ## Tests and checks
 
-- Everything: `npm run check` (lint + typecheck + tests). Parts: `npm run lint` (oxlint, clippy `-D warnings`, `cargo fmt --check`), `npm run typecheck` (every workspace).
-- Unit (Node: `packages/*`, `apps/web`): `npx vitest run --project node --maxWorkers=2`. Worker (workerd, local D1 and real relay): `npx vitest run apps/worker`.
+- Everything: `pnpm run check` (lint + typecheck + tests). Parts: `pnpm run lint` (oxlint, clippy `-D warnings`, `cargo fmt --check`), `pnpm run typecheck` (every workspace).
+- Unit (Node: `packages/*`, `apps/web`): `pnpm exec vitest run --project node --maxWorkers=2`. Worker (workerd, local D1 and real relay): `pnpm exec vitest run apps/worker`.
 - CI runners: the jobs that move to the monorepo read `vars.CI_RUNNER_LIGHT` or `CI_RUNNER_HEAVY`; only the client's macOS, Windows and release jobs keep GitHub's labels (`docs/RUNNERS.md`, checked by `scripts/runners.test.ts`).
-- `npm run build:web` ends with `scripts/guard-preview.ts` (tested by `scripts/guard-preview.test.ts`): link-preview tags in `apps/web/index.html`, `og-v1.jpg` and `robots.txt` in `dist/`. A new preview image gets a new file name.
+- `pnpm run build:web` ends with `scripts/guard-preview.ts` (tested by `scripts/guard-preview.test.ts`): link-preview tags in `apps/web/index.html`, `og-v1.jpg` and `robots.txt` in `dist/`. A new preview image gets a new file name.
 - Rust: `export PATH="/opt/homebrew/opt/rustup/bin:$PATH" && cargo test --locked -j4`.
-- E2E: `npm run e2e` (Playwright drives the real app; needs `npm run build:web` and `npx playwright install chromium`).
+- E2E: `pnpm run e2e` (Playwright drives the real app; needs `pnpm run build:web` and `pnpm --filter @magnetar/e2e exec playwright install chromium`).
 
 ## Deploy and migrations
 
 - Merge to `main`: after checks and e2e, `.github/workflows/ci.yml` deploys the preview Worker (`env.preview` of `apps/worker/wrangler.jsonc`, preview.magnetar.codefusion.cc), waits for the owner's approval (`approve-production`, environment `production-approval`, given in CodeFusion Console), then deploys production (its top level, magnetar.codefusion.cc); both through `deploy-worker.yml` (build, D1 migrations, `wrangler deploy`), each with its own D1, relay and secrets. `apps/worker/environments.test.ts` keeps them apart.
-- Pull requests: the `preview` job uploads a Worker Preview at `https://<branch>.preview.magnetar.codefusion.cc` with a database of its own (`@codefusion-cc/previews`); `preview-cleanup.yml` deletes both when the pull request closes. Previews sign in through the preview Worker's Google callback. Locally: `npm run dev:worker`.
+- Pull requests: the `preview` job uploads a Worker Preview at `https://<branch>.preview.magnetar.codefusion.cc` with a database of its own (`@codefusion-cc/previews`); `preview-cleanup.yml` deletes both when the pull request closes. Previews sign in through the preview Worker's Google callback. Locally: `pnpm run dev:worker`.
 - A dev build of the app talks to the preview Worker or a Preview with `MAGNETAR_CLOUD_URL`; released builds only to production or loopback (`apps/client/src/config.rs`), and a link never sends its token to another Worker (`remote/service.rs` `device_token`).
 - Worker D1 migrations: add `apps/worker/migrations/NNNN_name.sql`; the old Worker must keep working during the deploy. App-side SQLite migrations are in `apps/client/src/db.rs` (append only).
 - App release: every merge to `main` that changes the app is released as the next patch (`release` job in `ci.yml` calls `.github/workflows/release.yml`; `scripts/release-version.ts` picks the version from the latest `v*` tag and skips docs/tests/CI-only merges, and the Worker deploy shows the same version). A minor or major is a hand-pushed `vX.Y.0` tag. No file holds the version: the tag is the version, and the website's build and `package.ts` read it through `release-version.ts display`. While `.github/release-hold` exists, merges are not released (the Worker still deploys); the merge that deletes it releases everything since the last tag. PR titles become the "What's new" notes.
