@@ -9,7 +9,7 @@ fn main() {
 
     let key = std::env::var("MAGNETAR_RELEASE_PUBLIC_KEY")
         .ok()
-        .or_else(|| std::fs::read_to_string("release-public-key.txt").ok())
+        .or_else(|| std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("release-public-key.txt")).ok())
         .map(|k| k.trim().to_owned())
         .unwrap_or_default();
     println!("cargo:rustc-env=MAGNETAR_RELEASE_PUBLIC_KEY={key}");
