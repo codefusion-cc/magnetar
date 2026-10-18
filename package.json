@@ -18,17 +18,11 @@
     "build:client": "pnpm --filter @magnetar/client run build",
     "typecheck": "pnpm --recursive run typecheck",
     "lint": "oxlint . && cargo clippy --all-targets --locked -- -D warnings && cargo fmt --check",
-    "test": "vitest run && cargo test --locked",
-    "test:watch": "vitest",
+    "test": "pnpm --recursive --workspace-concurrency=1 run test && cargo test --locked",
     "e2e": "pnpm --filter @magnetar/e2e run test",
     "check": "pnpm run lint && pnpm run typecheck && pnpm test"
   },
   "devDependencies": {
-    "@cloudflare/vitest-plugin": "1.4.4",
-    "@types/node": "24.19.0",
-    "fast-check": "4.10.2",
-    "oxlint": "1.88.0",
-    "typescript": "7.0.2",
-    "vitest": "5.0.5"
+    "oxlint": "1.88.0"
   }
 }

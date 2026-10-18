@@ -1,7 +1,7 @@
 name: Build the dashboard
 description: >-
   Node, the workspace's dependencies and apps/web/dist for a Worker deploy or Preview, after a checkout with tags.
-  Its version is the one the app has, or gets from the release this commit starts (scripts/release-version.ts), so the
+  Its version is the one the app has, or gets from the release this commit starts (packages/release/release-version.ts), so the
   website and the app show the same version for the same code; version.json names the commit CI built (GITHUB_SHA).
 inputs:
   sha:
@@ -18,7 +18,7 @@ runs:
     # Before any step has a Cloudflare token, so install scripts never have it in their environment.
     - run: pnpm install --frozen-lockfile
       shell: bash
-    - run: VITE_APP_VERSION="$(node scripts/release-version.ts display --sha "$SHA")" pnpm --filter @magnetar/web run build
+    - run: VITE_APP_VERSION="$(node packages/release/release-version.ts display --sha "$SHA")" pnpm --filter @magnetar/web run build
       shell: bash
       env:
         SHA: ${{ inputs.sha }}

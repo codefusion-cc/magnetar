@@ -10,6 +10,8 @@
   "devDependencies": {
     "@codefusion-cc/features-page": "0.2.0",
     "@codefusion-cc/ui": "0.2.4",
-    "@playwright/test": "1.63.0"
+    "@playwright/test": "1.63.0",
+    "@types/node": "24.19.0",
+    "typescript": "7.0.2"
   }
 }

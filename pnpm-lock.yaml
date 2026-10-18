@@ -166,26 +166,18 @@ importers:
 
   .:
     devDependencies:
-      '@cloudflare/vitest-plugin':
-        specifier: 1.4.4
-        version: 1.4.4(@cloudflare/workers-types@5.20261012.1)(@types/node@24.19.0)(vitest@5.0.5(@types/node@24.19.0)(vite@8.3.1(@types/node@24.19.0)(esbuild@0.28.2)(jiti@2.7.0)))
-      '@types/node':
-        specifier: 24.19.0
-        version: 24.19.0
-      fast-check:
-        specifier: 4.10.2
-        version: 4.10.2
       oxlint:
         specifier: 1.88.0
         version: 1.88.0
+
+  apps/client:
+    devDependencies:
+      '@types/node':
+        specifier: 24.19.0
+        version: 24.19.0
       typescript:
         specifier: 7.0.2
         version: 7.0.2
-      vitest:
-        specifier: 5.0.5
-        version: 5.0.5(@types/node@24.19.0)(vite@8.3.1(@types/node@24.19.0)(esbuild@0.28.2)(jiti@2.7.0))
-
-  apps/client: {}
 
   apps/e2e:
     devDependencies:
@@ -198,6 +190,12 @@ importers:
       '@playwright/test':
         specifier: 1.63.0
         version: 1.63.0
+      '@types/node':
+        specifier: 24.19.0
+        version: 24.19.0
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
 
   apps/web:
     dependencies:
@@ -259,6 +257,9 @@ importers:
       '@tailwindcss/vite':
         specifier: 4.3.3
         version: 4.3.3(vite@8.3.1(@types/node@24.19.0)(esbuild@0.28.2)(jiti@2.7.0))
+      '@types/node':
+        specifier: 24.19.0
+        version: 24.19.0
       '@types/qrcode':
         specifier: 1.5.6
         version: 1.5.6
@@ -274,12 +275,21 @@ importers:
       daisyui:
         specifier: 5.7.47
         version: 5.7.47
+      fast-check:
+        specifier: 4.10.2
+        version: 4.10.2
       tailwindcss:
         specifier: 4.3.3
         version: 4.3.3
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
       vite:
         specifier: 8.3.1
         version: 8.3.1(@types/node@24.19.0)(esbuild@0.28.2)(jiti@2.7.0)
+      vitest:
+        specifier: 5.0.5
+        version: 5.0.5(@types/node@24.19.0)(vite@8.3.1(@types/node@24.19.0)(esbuild@0.28.2)(jiti@2.7.0))
 
   apps/worker:
     dependencies:
@@ -311,9 +321,24 @@ importers:
         specifier: workspace:*
         version: link:../../packages/protocol
     devDependencies:
+      '@cloudflare/vitest-plugin':
+        specifier: 1.4.4
+        version: 1.4.4(@cloudflare/workers-types@5.20261012.1)(@types/node@24.19.0)(vitest@5.0.5(@types/node@24.19.0)(vite@8.3.1(@types/node@24.19.0)(esbuild@0.28.2)(jiti@2.7.0)))
       '@cloudflare/workers-types':
         specifier: 5.20261012.1
         version: 5.20261012.1
+      '@types/node':
+        specifier: 24.19.0
+        version: 24.19.0
+      fast-check:
+        specifier: 4.10.2
+        version: 4.10.2
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: 5.0.5
+        version: 5.0.5(@types/node@24.19.0)(vite@8.3.1(@types/node@24.19.0)(esbuild@0.28.2)(jiti@2.7.0))
       wrangler:
         specifier: 4.151.1
         version: 4.151.1(@cloudflare/workers-types@5.20261012.1)(@types/node@24.19.0)
@@ -326,6 +351,31 @@ importers:
       zod:
         specifier: 4.6.5
         version: 4.6.5
+    devDependencies:
+      '@types/node':
+        specifier: 24.19.0
+        version: 24.19.0
+      fast-check:
+        specifier: 4.10.2
+        version: 4.10.2
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: 5.0.5
+        version: 5.0.5(@types/node@24.19.0)(vite@8.3.1(@types/node@24.19.0)(esbuild@0.28.2)(jiti@2.7.0))
+
+  packages/release:
+    devDependencies:
+      '@types/node':
+        specifier: 24.19.0
+        version: 24.19.0
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: 5.0.5
+        version: 5.0.5(@types/node@24.19.0)(vite@8.3.1(@types/node@24.19.0)(esbuild@0.28.2)(jiti@2.7.0))
 
 packages:
 

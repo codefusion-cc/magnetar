@@ -2,8 +2,8 @@
  * Which release a merge to main becomes. Used by .github/workflows/release.yml (`plan`) and the Worker deploy in
  * ci.yml (`display`), so the website and the app name the same version for the same code.
  *
- *   node scripts/release-version.ts plan [--sha <commit>] [--tag <v1.3.0>] [--prefix v] [--folder <path>]
- *   node scripts/release-version.ts display [--sha <commit>] [--prefix v] [--folder <path>]
+ *   node packages/release/release-version.ts plan [--sha <commit>] [--tag <v1.3.0>] [--prefix v] [--folder <path>]
+ *   node packages/release/release-version.ts display [--sha <commit>] [--prefix v] [--folder <path>]
  *
  * Tags are `<prefix>X.Y.Z`: `v1.2.3` here, where installed apps read them, and `magnetar-v1.2.3` in the codefusion
  * monorepo, where the app is the folder `apps/magnetar` (`--folder`): only changes under it count, and its hold file is

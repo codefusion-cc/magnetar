@@ -157,7 +157,7 @@ through `sh -c '…'`. Once on the Mac: `pnpm add -g @codefusion-cc/console && c
 Once, from the repo root:
 
 ```bash
-node scripts/release-key.ts
+node packages/release/release-key.ts
 ```
 
 Commit `apps/client/release-public-key.txt` and save the printed private key as the repository secret

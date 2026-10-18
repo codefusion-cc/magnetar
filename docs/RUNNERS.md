@@ -7,7 +7,7 @@ test suites. CodeFusion Console sets both (`ci_minutes`). This repository is pub
 
 The Rust client and its releases stay in this public repository (codefusion docs/MONOREPO.md, decision 2). Their
 jobs need macOS and Windows, which the pool has no machine for, so they keep GitHub's own labels, free for a public
-repository. `scripts/runners.test.ts` allows those labels only in these jobs:
+repository. `packages/release/runners.test.ts` allows those labels only in these jobs:
 
 | Workflow, job | Runs on | Why it stays on GitHub's machines |
 | --- | --- | --- |

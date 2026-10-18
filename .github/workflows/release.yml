@@ -1,7 +1,7 @@
 name: Release
 
 # Every merge to main that changes the app is released as the next patch version (ci.yml calls this workflow once
-# its checks pass; scripts/release-version.ts picks the version and skips docs-, test- and CI-only merges, and every
+# its checks pass; packages/release/release-version.ts picks the version and skips docs-, test- and CI-only merges, and every
 # merge while .github/release-hold exists).
 # A minor or major release is a tag pushed by hand once CI is green on main: git tag v1.3.0 && git push origin v1.3.0.
 # The next automatic patch continues from it. A tag with a pre-release (v1.3.0-rc.1) publishes a pre-release, which
@@ -42,7 +42,7 @@ jobs:
         env:
           # Set by a tag pushed by hand; a call from ci.yml runs on a branch, where the version is computed.
           PUSHED_TAG: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
-        run: node scripts/release-version.ts plan --sha "$GITHUB_SHA" ${PUSHED_TAG:+--tag "$PUSHED_TAG"}
+        run: node packages/release/release-version.ts plan --sha "$GITHUB_SHA" ${PUSHED_TAG:+--tag "$PUSHED_TAG"}
 
   build:
     name: Build ${{ matrix.target }}
@@ -148,7 +148,7 @@ jobs:
           RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
         run: |
           cd assets && sha256sum Magnetar-* > SHA256SUMS.txt && cd ..
-          node scripts/sign-release.ts assets
+          node packages/release/sign-release.ts assets
       # What the release brings, from the pull requests merged since the release before, grouped by their branch's
       # type (feat/ New, fix/ Fixes, perf/ Faster…). The app's changelog and its update notice show these notes.
       # A GitHub hiccup here must not lose the release built above: GitHub's own notes stand in.

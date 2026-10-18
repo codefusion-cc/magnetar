@@ -13,7 +13,7 @@ Read docs/MAP.md before exploring; update it when you move or add something it n
   `/opt/homebrew/opt/rustup/bin` on PATH on the maintainer's Mac, where sccache (`~/.cargo/config.toml`, README ›
   Development) shares compiled crates between worktrees. Never give worktrees one `CARGO_TARGET_DIR`: Cargo's
   file-time freshness then hands a worktree another worktree's binary.
-- Scripts (`scripts/`, `apps/client/package.ts`) are TypeScript that Node runs as is: erasable syntax only, relative
+- Scripts (`packages/release/`, `apps/web/scripts/`, `apps/client/package.ts`) are TypeScript that Node runs as is: erasable syntax only, relative
   imports with their `.ts` extension.
 - The wire contract lives twice: zod schemas and types in `packages/protocol/src/{model,rpc}.ts`, serde types in
   `apps/client/src/protocol/model.rs`. Change both together. The E2E handshake is also implemented twice and both

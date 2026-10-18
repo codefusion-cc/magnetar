@@ -9,7 +9,8 @@
     "migrate:remote": "wrangler d1 migrations apply magnetar --remote --env=\"\"",
     "deploy:preview": "pnpm --filter @magnetar/web run build && wrangler deploy --env preview",
     "migrate:preview": "wrangler d1 migrations apply DB --remote --env preview",
-    "typecheck": "tsc -p . && tsc -p test"
+    "typecheck": "tsc -p . && tsc -p test",
+    "test": "vitest run"
   },
   "dependencies": {
     "@codefusion-cc/app-update": "0.1.2",
@@ -23,7 +24,12 @@
     "@magnetar/protocol": "workspace:*"
   },
   "devDependencies": {
+    "@cloudflare/vitest-plugin": "1.4.4",
     "@cloudflare/workers-types": "5.20261012.1",
+    "@types/node": "24.19.0",
+    "fast-check": "4.10.2",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5",
     "wrangler": "4.151.1"
   }
 }
