@@ -99,24 +99,25 @@ jobs:
     uses: ./.github/workflows/release.yml
     secrets: inherit
 
-  # Every merge to main goes to staging at preview.magnetar.codefusion.cc once every check above passed, and to
+  # Every merge to main goes to the preview Worker at preview.magnetar.codefusion.cc once every check above passed, and to
   # production at magnetar.codefusion.cc once the owner approves (deploy-worker.yml: migrations first, each with its
   # own database, relay and secrets). CodeFusion Console reads what runs from each one's version.json, and the
-  # outcome of each deploy from its GitHub deployment.
+  # outcome of each deploy from its GitHub deployment. The GitHub environment of the preview Worker is `staging`, whose
+  # token deploys it.
   deploy-staging:
-    name: Deploy staging
+    name: Deploy preview
     needs: [check, e2e]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/deploy-worker.yml
     with:
       environment: staging
-      config: wrangler.preview.jsonc
+      wrangler-env: preview
       origin: https://preview.magnetar.codefusion.cc
     secrets: inherit
 
   # Waits for the owner's approval (the production-approval environment's required reviewer), which CodeFusion
-  # Console gives once staging still serves this very commit. A newer merge replaces the one waiting, so at most one
-  # waits, and it is always the commit staging just got. The reviewers sit here rather than on production, whose
+  # Console gives once the preview Worker still serves this very commit. A newer merge replaces the one waiting, so at
+  # most one waits, and it is always the commit the preview Worker just got. The reviewers sit here rather than on production, whose
   # deploy a newer merge must never cancel.
   approve-production:
     name: Approve production
@@ -135,11 +136,11 @@ jobs:
     uses: ./.github/workflows/deploy-worker.yml
     with:
       environment: production
-      config: wrangler.jsonc
+      wrangler-env: ''
       origin: https://magnetar.codefusion.cc
     secrets: inherit
 
-  # Every pull request from this repository gets its own Worker Preview of staging at
+  # Every pull request from this repository gets its own Worker Preview of the preview Worker at
   # https://<branch>.preview.magnetar.codefusion.cc, with a database of its own (@codefusion-cc/previews), updated on
   # each push and deleted with its database when the pull request closes (preview-cleanup.yml). Forks get no token.
   # Closing a pull request stops none of its checks: one closed while they ran has had its cleanup already, which a
@@ -193,7 +194,9 @@ jobs:
         with:
           sha: ${{ github.event.pull_request.head.sha }}
       # The branch's database (made on its first push, kept after), its migrations, the Preview pointed at it and at
-      # its own address, and that address.
+      # its own address, and that address. codefusion-previews knows no Wrangler environments: `up` fills in the
+      # placeholders of env.preview's `previews` block, and `url` reads the preview Worker's name and account from
+      # scripts/preview-worker-config.ts.
       - id: upload
         name: Upload the Preview
         env:
@@ -204,8 +207,9 @@ jobs:
             echo "::error::The preview environment's CLOUDFLARE_API_TOKEN secret is not set; see docs/DEPLOY.md"
             exit 1
           fi
-          name=$(npx --no codefusion-previews up "$HEAD_REF" --config wrangler.preview.jsonc --database-prefix magnetar-previews \
+          name=$(npx --no codefusion-previews up "$HEAD_REF" --config wrangler.jsonc --database-prefix magnetar-previews \
             --set 'https://preview-origin.invalid=https://{name}.preview.magnetar.codefusion.cc' | sed -n 's/^name=//p')
           npx wrangler d1 migrations apply DB --remote -c wrangler.preview-db.generated.jsonc
-          npx wrangler preview -c wrangler.preview.generated.jsonc --name "$name" --message "${HEAD_SHA::7} #${PR_NUMBER}"
-          npx --no codefusion-previews url "$HEAD_REF" --config wrangler.preview.jsonc --domain preview.magnetar.codefusion.cc >> "$GITHUB_OUTPUT"
+          npx wrangler preview -c wrangler.preview.generated.jsonc --env preview --name "$name" --message "${HEAD_SHA::7} #${PR_NUMBER}"
+          node scripts/preview-worker-config.ts > "$RUNNER_TEMP/preview-worker.json"
+          npx --no codefusion-previews url "$HEAD_REF" --config "$RUNNER_TEMP/preview-worker.json" --domain preview.magnetar.codefusion.cc >> "$GITHUB_OUTPUT"

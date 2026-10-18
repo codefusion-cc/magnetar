@@ -211,7 +211,7 @@ impl RemoteService {
         self.kv.get("remote.cloudUrl").unwrap_or_else(|| DEFAULT_CLOUD_URL.to_owned())
     }
 
-    /// The device token, only for the Worker the link was made with: a production token never goes to staging or a
+    /// The device token, only for the Worker the link was made with: a production token never goes to the preview Worker or a
     /// Preview that a dev build talks to. Empty when the device is not linked; why not, when it is linked through
     /// another Worker than this build talks to.
     fn device_token(&self) -> Result<String, String> {
@@ -979,7 +979,7 @@ mod tests {
         service.stop();
         let reached_production = production.requests.lock().unwrap().len();
 
-        // The same data folder in a dev build pointed at staging or a Preview.
+        // The same data folder in a dev build pointed at the preview Worker or a Preview.
         let staging = fake_cloud(vec![], 200).await;
         let other = Arc::new(service_in(dir.path(), &staging.url));
         other.start();

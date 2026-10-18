@@ -54,7 +54,7 @@ export function LoginPage() {
     setError(null)
     try {
       const { nonce, clientId } = await cloud.startSignIn()
-      // Google returns to this page, /login with its `next`; a Preview's sign-in goes through staging's callback.
+      // Google returns to this page, /login with its `next`; a Preview's sign-in goes through the preview Worker's callback.
       if (!startGoogleSignIn({ clientId, nonce, locale: language, callbackOrigin: config.googleCallbackOrigin })) {
         setError(t('cloud.signInFailed'))
         setBusy(false)
