@@ -15,21 +15,23 @@ const staying: Record<string, RegExp> = {
 }
 
 const files = readdirSync(workflows).filter(name => name.endsWith('.yml'))
+// Git may check the files out with CRLF line ends (Windows).
+const read = (name: string) => readFileSync(join(workflows, name), 'utf8').replaceAll('\r\n', '\n')
 
 describe('CI runners', () => {
   it.each(files)('%s names none of GitHub\'s labels outside the jobs that stay', name => {
-    const lines = readFileSync(join(workflows, name), 'utf8').split('\n')
+    const lines = read(name).split('\n')
     const labelled = lines.filter(line => !line.trimStart().startsWith('#') && GITHUB_LABEL.test(line))
     expect(labelled.filter(line => !staying[name]?.test(line))).toEqual([])
   })
 
   it.each(files.filter(name => !(name in staying) || name === 'ci.yml'))('every job of %s takes the pool\'s runner or a matrix one', name => {
-    const runsOn = [...readFileSync(join(workflows, name), 'utf8').matchAll(/^\s+runs-on: (.+)$/gm)].map(m => m[1]!.trim())
+    const runsOn = [...read(name).matchAll(/^\s+runs-on: (.+)$/gm)].map(m => m[1]!.trim())
     expect(runsOn.length).toBeGreaterThan(0)
     for (const runner of runsOn) expect(runner, name).toMatch(runner.includes('matrix') ? /^\$\{\{ matrix\.runner \}\}$/ : POOL)
   })
 
   it("the Linux check takes the pool's heavy runner", () => {
-    expect(readFileSync(join(workflows, 'ci.yml'), 'utf8')).toContain("- { system: Linux, runner: '${{ vars.CI_RUNNER_HEAVY }}' }")
+    expect(read('ci.yml')).toContain("- { system: Linux, runner: '${{ vars.CI_RUNNER_HEAVY }}' }")
   })
 })
