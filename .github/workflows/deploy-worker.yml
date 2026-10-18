@@ -58,7 +58,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-          # scripts/release-version.ts reads tags, commits and trees, never file contents.
+          # packages/release/release-version.ts reads tags, commits and trees, never file contents.
           filter: blob:none
       # Until the release this merge starts has published its version, the website is ahead of the downloads.
       - uses: ./.github/actions/build-dashboard

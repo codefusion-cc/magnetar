@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { previewProblems } from './guard-preview.ts'
 
-const web = join(import.meta.dirname, '../apps/web')
+const web = join(import.meta.dirname, '..')
 const made: string[] = []
 afterEach(() => {
   for (const dir of made.splice(0)) rmSync(dir, { recursive: true, force: true })

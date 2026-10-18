@@ -16,12 +16,12 @@ import { themeConfig } from './src/ui/themeConfig.ts'
  */
 const repo = join(import.meta.dirname, '../..')
 // The tag is the version. The packaging script and CI's Worker deploy name the version they build; a plain build takes
-// the release this commit is or is heading for (scripts/release-version.ts), as a development build unless this commit
+// the release this commit is or is heading for (packages/release/release-version.ts), as a development build unless this commit
 // is the one the release tag names.
 const commit = buildCommit(repo)?.slice(0, 7) ?? 'unknown'
 function releaseVersion(): string {
   try {
-    return execFileSync('node', [join(repo, 'scripts/release-version.ts'), 'display'], { cwd: repo, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() || '0.0.0'
+    return execFileSync('node', [join(repo, 'packages/release/release-version.ts'), 'display'], { cwd: repo, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() || '0.0.0'
   } catch {
     return '0.0.0'
   }

@@ -63,7 +63,7 @@ export function previewProblems(dist: string): string[] {
 }
 
 if (import.meta.main) {
-  const problems = previewProblems(process.argv[2] ?? 'dist')
+  const problems = previewProblems(process.argv[2] ?? join(import.meta.dirname, '..', 'dist'))
   if (problems.length) {
     console.error(`guard-preview failed:\n${problems.map((p) => `  - ${p}`).join('\n')}`)
     process.exit(1)

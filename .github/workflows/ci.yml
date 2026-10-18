@@ -196,7 +196,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-          # scripts/release-version.ts reads tags, commits and trees, never file contents.
+          # packages/release/release-version.ts reads tags, commits and trees, never file contents.
           filter: blob:none
       - uses: ./.github/actions/build-dashboard
         with:

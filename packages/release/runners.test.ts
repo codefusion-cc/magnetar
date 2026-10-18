@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 // docs/RUNNERS.md: the jobs that move into the monorepo take the pool's runner; GitHub's own labels stay only where
 // the Rust client and its releases need macOS, Windows or an old Ubuntu.
-const workflows = join(import.meta.dirname, '../.github/workflows')
+const workflows = join(import.meta.dirname, '../../.github/workflows')
 const POOL = /^\$\{\{ vars\.CI_RUNNER_(LIGHT|HEAVY) \}\}$/
 const GITHUB_LABEL = /\b(ubuntu|macos|windows)-[\w.-]+/
 /** The lines that may name one of GitHub's labels, by workflow. */
