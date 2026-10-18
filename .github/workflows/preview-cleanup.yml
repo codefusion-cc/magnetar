@@ -14,7 +14,7 @@ jobs:
   delete:
     name: Delete the branch Preview
     if: github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER_LIGHT }}
     # The preview environment's token, without recording a deployment.
     environment:
       name: preview
