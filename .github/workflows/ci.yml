@@ -16,16 +16,17 @@ env:
 
 jobs:
   # Linux runs on the pool's machine for heavy jobs (vars.CI_RUNNER_HEAVY). macOS and Windows stay on GitHub's machines,
-  # free for this public repository, with the Rust client (docs/RUNNERS.md).
+  # free for this public repository, with the Rust client (docs/RUNNERS.md). `check` keeps the job names the ruleset
+  # "Protect main" requires, whatever machine runs them; in the monorepo, ci-ok replaces them.
   check:
-    name: Lint, types and tests (${{ matrix.system }})
+    name: Lint, types and tests (${{ matrix.check }})
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { system: Linux, runner: '${{ vars.CI_RUNNER_HEAVY }}' }
-          - { system: macOS, runner: macos-14 }
-          - { system: Windows, runner: windows-latest }
+          - { check: ubuntu-latest, runner: '${{ vars.CI_RUNNER_HEAVY }}' }
+          - { check: macos-14, runner: macos-14 }
+          - { check: windows-latest, runner: windows-latest }
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4

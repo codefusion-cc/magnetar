@@ -11,7 +11,8 @@ const GITHUB_LABEL = /\b(ubuntu|macos|windows)-[\w.-]+/
 const staying: Record<string, RegExp> = {
   'release.yml': /./,
   'provider-health.yml': /./,
-  'ci.yml': /^\s+- \{ system: (macOS|Windows), runner: (macos|windows)-[\w.-]+ \}$/,
+  // The check jobs keep the names the ruleset requires; only macOS and Windows run on GitHub's machines.
+  'ci.yml': /^\s+- \{ check: [\w.-]+, runner: ((macos|windows)-[\w.-]+|'\$\{\{ vars\.CI_RUNNER_HEAVY \}\}') \}$/,
 }
 
 const files = readdirSync(workflows).filter(name => name.endsWith('.yml'))
@@ -32,6 +33,6 @@ describe('CI runners', () => {
   })
 
   it("the Linux check takes the pool's heavy runner", () => {
-    expect(read('ci.yml')).toContain("- { system: Linux, runner: '${{ vars.CI_RUNNER_HEAVY }}' }")
+    expect(read('ci.yml')).toContain("- { check: ubuntu-latest, runner: '${{ vars.CI_RUNNER_HEAVY }}' }")
   })
 })
