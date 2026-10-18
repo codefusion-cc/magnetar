@@ -162,8 +162,8 @@ npm run screenshots -w @magnetar/e2e   # the features page's screenshots, light 
 
 The debug client serves the dashboard from `apps/web/dist`, so run `npm run build:web` once (or use `dev:web`). To try
 remote access locally, run the client with `MAGNETAR_CLOUD_URL=http://localhost:8790` next to `dev:worker`; to pair it
-with staging, `MAGNETAR_CLOUD_URL=https://preview.magnetar.codefusion.cc` (or a branch Preview's address) and a data
-folder of its own (docs/DEPLOY.md, Staging). Released builds take only a Worker on this computer from it.
+with the preview Worker, `MAGNETAR_CLOUD_URL=https://preview.magnetar.codefusion.cc` (or a branch Preview's address) and a data
+folder of its own (docs/DEPLOY.md, section 5). Released builds take only a Worker on this computer from it.
 `MAGNETAR_LIVE_TESTS=1 cargo test --test providers live_providers` checks every provider against the real sites (also run
 weekly in CI).
 

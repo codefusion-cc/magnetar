@@ -1,6 +1,6 @@
 name: Deploy the Worker
 
-# One environment's deploy of apps/worker, called by ci.yml for staging and, once approved, production: it builds
+# One environment's deploy of apps/worker, called by ci.yml for the preview Worker and, once approved, production: it builds
 # the dashboard (its version.json names the full commit, GITHUB_SHA, which the console and open pages read), applies
 # the D1 migrations, deploys the Worker, its assets and the DeviceRelay Durable Object, and waits until the website
 # serves the new commit.
@@ -11,8 +11,8 @@ on:
         description: The GitHub environment, whose CLOUDFLARE_API_TOKEN deploys
         required: true
         type: string
-      config:
-        description: The Wrangler config in apps/worker
+      wrangler-env:
+        description: The Wrangler environment of apps/worker/wrangler.jsonc, empty for production
         required: true
         type: string
       origin:
@@ -37,7 +37,7 @@ jobs:
       cancel-in-progress: false
     # The Cloudflare token only on the steps that call Cloudflare: dependencies' install scripts never see it.
     env:
-      CONFIG: ${{ inputs.config }}
+      WRANGLER_ENV: ${{ inputs.wrangler-env }}
       ORIGIN: ${{ inputs.origin }}
       ENVIRONMENT: ${{ inputs.environment }}
     defaults:
@@ -69,11 +69,11 @@ jobs:
       - name: Apply D1 migrations
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: npx wrangler d1 migrations apply DB --remote -c "$CONFIG"
+        run: npx wrangler d1 migrations apply DB --remote --env="$WRANGLER_ENV"
       - name: Deploy the Worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: npx wrangler deploy -c "$CONFIG" --message "${GITHUB_SHA::7} ${GITHUB_EVENT_NAME} by ${GITHUB_ACTOR}"
+        run: npx wrangler deploy --env="$WRANGLER_ENV" --message "${GITHUB_SHA::7} ${GITHUB_EVENT_NAME} by ${GITHUB_ACTOR}"
       # Fails the job when the site doesn't serve this commit a minute after the deploy (@codefusion-cc/console).
       - name: The website serves this commit
         run: npx --yes -p @codefusion-cc/console@^0.27.0 codefusion-console wait-for-deploy "$ORIGIN"

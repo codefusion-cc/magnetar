@@ -42,9 +42,9 @@ pub static IS_DEV: LazyLock<bool> =
 pub static CLOUD_URL: LazyLock<String> =
     LazyLock::new(|| cloud_url(option_env!("MAGNETAR_VERSION").is_some(), std::env::var("MAGNETAR_CLOUD_URL").ok().as_deref()));
 
-/// The Worker a build talks to. A dev build (`cargo run`) takes any `configured` one: staging, a branch Preview, or
+/// The Worker a build talks to. A dev build (`cargo run`) takes any `configured` one: the preview Worker, a branch Preview, or
 /// `wrangler dev`. A released build takes only a Worker on this computer (end-to-end runs of a packaged app), so a
-/// released app never reaches staging or a Preview, whose data is for testing and whose code nobody released.
+/// released app never reaches the preview Worker or a Preview, whose data is for testing and whose code nobody released.
 pub fn cloud_url(released: bool, configured: Option<&str>) -> String {
     let Some(url) = configured.map(|url| url.trim().trim_end_matches('/')).filter(|url| !url.is_empty()) else {
         return DEFAULT_CLOUD_URL.to_owned();

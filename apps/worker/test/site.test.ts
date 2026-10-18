@@ -56,9 +56,9 @@ describe('the website API', () => {
     expect([response.status, await response.json()]).toEqual([500, { error: 'Something went wrong. Try again.', code: 'server_error' }])
   })
 
-  test('staging and Previews mark every page noindex; production none', async () => {
+  test('the preview Worker, its Previews and dev mark every page noindex; production none', async () => {
     const files = { '/index.html': '<!doctype html>' }
-    for (const APP_ENV of ['staging', 'preview', 'development']) {
+    for (const APP_ENV of ['preview', 'development']) {
       for (const path of ['/', '/MacBook-Pro', '/api/nope']) {
         const page = await fetchWith({ ...env, APP_ENV, ASSETS: testAssets({ files }) }, new Request(`${ORIGIN}${path}`))
         expect(page.headers.get('x-robots-tag'), `${APP_ENV} ${path}`).toBe('noindex')
