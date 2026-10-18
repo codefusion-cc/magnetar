@@ -12,14 +12,14 @@
     "typecheck": "tsc -p . && tsc -p test"
   },
   "dependencies": {
-    "@codefusion-cc/app-update": "^0.1.0",
-    "@codefusion-cc/base58": "^0.1.0",
-    "@codefusion-cc/console": "^0.10.0",
-    "@codefusion-cc/google-sign-in": "^0.1.0",
+    "@codefusion-cc/app-update": "^0.1.2",
+    "@codefusion-cc/base58": "^0.1.1",
+    "@codefusion-cc/console": "^0.34.0",
+    "@codefusion-cc/google-sign-in": "^0.1.3",
     "@codefusion-cc/previews": "^0.1.3",
-    "@codefusion-cc/web-push": "^0.1.0",
-    "@codefusion-cc/workers-crypto": "^0.1.0",
-    "@codefusion-cc/workers-http": "^0.1.0",
+    "@codefusion-cc/web-push": "^0.1.1",
+    "@codefusion-cc/workers-crypto": "^0.1.2",
+    "@codefusion-cc/workers-http": "^0.1.3",
     "@magnetar/protocol": "*"
   },
   "devDependencies": {
