@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "playwright test",
     "screenshots": "node features/screenshots.ts",
+    "test:e2e": "playwright test",
     "typecheck": "tsc -p ."
   },
   "devDependencies": {
