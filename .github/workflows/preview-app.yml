@@ -9,12 +9,14 @@ on:
   workflow_call:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
-    name: Build and publish
+    name: Build
     runs-on: macos-14
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -48,29 +50,63 @@ jobs:
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
           VERSION: ${{ steps.version.outputs.version }}
         run: pnpm --filter @magnetar/client run build --target aarch64-apple-darwin --version "$VERSION" --preview
+      - uses: actions/upload-artifact@v4
+        with:
+          name: preview-app
+          path: apps/client/dist/*.zip
+          if-no-files-found: error
+
+  # Signed apart from the build, as a release is: the release key never shares a machine with the crates, build
+  # scripts and actions above, and this job runs nothing but the repository's own code and Node.
+  publish:
+    name: Sign and publish
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@v4
+        with:
+          name: preview-app
+          path: assets
       # The same signed manifest as a release's, so the preview app installs its updates the way the app does.
       - name: Checksums and signature
         env:
           RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
         run: |
-          mkdir assets && cp apps/client/dist/*.zip assets/
-          cd assets && shasum -a 256 Magnetar-* > SHA256SUMS.txt && cd ..
+          cd assets && sha256sum Magnetar-* > SHA256SUMS.txt && cd ..
           node packages/release/sign-release.ts assets
-      # The new build first, then the older ones go, so the preview website always has one to offer. A build that finishes
-      # after a newer one (the queue below keeps that rare) leaves the newer one standing.
+      # Builds run one at a time, but a later merge whose checks finished first may have published already: an older
+      # build then leaves it standing. A run that was cut short left its release unfinished (files missing, or a
+      # draft), so running it again completes that release. Once the new build is out, the older ones go.
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ needs.build.outputs.version }}
         run: |
           tag="v$VERSION"
+          build="${VERSION##*.}"
+          listed="$(gh release list --limit 100 --json tagName --jq '.[].tagName')"
+          previews="$(printf '%s\n' "$listed" | grep -E -- '-preview\.[0-9]+$' || true)"
+          newest="$(printf '%s\n' "$previews" | sed -nE 's/.*-preview\.([0-9]+)$/\1/p' | sort -n | tail -1)"
+          if [ -n "$newest" ] && [ "$newest" -gt "$build" ]; then
+            echo "Preview build $newest is newer than $build; leaving it."
+            exit 0
+          fi
           subject="$(git log -1 --format=%s "$GITHUB_SHA")"
           body="$(git log -1 --format=%b "$GITHUB_SHA" | head -1)"
           printf 'Magnetar Preview, built from main at %s: %s\n\nFor trying changes on preview.magnetar.codefusion.cc before they are released. Magnetar itself never updates to it.\n' \
             "${GITHUB_SHA::7}" "${body:-$subject}" > notes.md
-          if ! gh release view "$tag" >/dev/null 2>&1; then
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" assets/* --clobber
+            gh release edit "$tag" --draft=false --prerelease --latest=false
+          else
             gh release create "$tag" assets/* --target "$GITHUB_SHA" --prerelease --latest=false --title "Magnetar Preview $VERSION" --notes-file notes.md
           fi
-          gh release list --limit 100 --json tagName --jq '.[].tagName' | grep -E -- '-preview\.[0-9]+$' | while read -r old; do
-            if [ "${old##*.}" -lt "${VERSION##*.}" ]; then gh release delete "$old" --cleanup-tag --yes; fi
+          printf '%s\n' "$previews" | while read -r old; do
+            if [ -n "$old" ] && [ "${old##*.}" -lt "$build" ]; then gh release delete "$old" --cleanup-tag --yes; fi
           done

@@ -13,7 +13,8 @@ repository. `packages/release/runners.test.ts` allows those labels only in these
 | --- | --- | --- |
 | `ci.yml` check, macOS and Windows | `macos-14`, `windows-latest` | builds and smoke-tests the client on each system |
 | `release.yml` all jobs | see below | builds, signs and publishes the client |
-| `preview-app.yml` build | `macos-14` | builds, signs and publishes Magnetar Preview for Apple silicon Macs |
+| `preview-app.yml` build | `macos-14` | builds Magnetar Preview for Apple silicon Macs |
+| `preview-app.yml` publish | `ubuntu-latest` | signs its manifest and publishes it, apart from the build like a release |
 | `provider-health.yml` live | `ubuntu-latest` | the client's weekly live provider tests |
 
 Release targets, and whether the pool has a machine for them:
