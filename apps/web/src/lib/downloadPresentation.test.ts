@@ -26,12 +26,12 @@ describe('download presentation', () => {
 
   test('zero, one and many name the computer, count and decimal rate', () => {
     expect(downloadSummary(en, 'en', 'Mac-Mini-M1', 0, 0)).toBe('Mac-Mini-M1 is not downloading anything right now.')
-    expect(downloadSummary(en, 'en', 'Mac-Mini-M1', 1, 3.4e6)).toBe('Mac-Mini-M1 is downloading one thing at 3.4 MB/s.')
-    expect(downloadSummary(en, 'en', 'Mac-Mini-M1', 6, 31.4e6)).toBe('Mac-Mini-M1 is downloading 6 things at 31.4 MB/s.')
+    expect(downloadSummary(en, 'en', 'Mac-Mini-M1', 1, 3.4e6)).toBe('Mac-Mini-M1 is downloading one thing at 3.4\u00a0MB/s.')
+    expect(downloadSummary(en, 'en', 'Mac-Mini-M1', 6, 31.4e6)).toBe('Mac-Mini-M1 is downloading 6 things at 31.4\u00a0MB/s.')
     expect(downloadSummary(pl, 'pl', 'Mac-Mini-M1', 0, 0)).toBe('Mac-Mini-M1 niczego teraz nie pobiera.')
-    expect(downloadSummary(pl, 'pl', 'Mac-Mini-M1', 1, 3.4e6)).toBe('Mac-Mini-M1 pobiera jedną rzecz z prędkością 3,4 MB/s.')
+    expect(downloadSummary(pl, 'pl', 'Mac-Mini-M1', 1, 3.4e6)).toBe('Mac-Mini-M1 pobiera jedną rzecz z prędkością 3,4\u00a0MB/s.')
     for (const n of [2, 4, 5, 12, 21, 22, 25, 101, 102, 112]) {
-      expect(downloadSummary(pl, 'pl', 'Mac-Mini-M1', n, 31.4e6)).toBe(`Mac-Mini-M1 pobiera ${n} rzeczy z prędkością 31,4 MB/s.`)
+      expect(downloadSummary(pl, 'pl', 'Mac-Mini-M1', n, 31.4e6)).toBe(`Mac-Mini-M1 pobiera ${n} rzeczy z prędkością 31,4\u00a0MB/s.`)
     }
   })
 
@@ -43,23 +43,23 @@ describe('download presentation', () => {
   })
 
   test('sizes use decimal units and local decimal separators at the unit boundary', () => {
-    expect(formatBytes(0, 1, { decimal: true, locale: 'en' })).toBe('0 B')
-    expect(formatBytes(999, 1, { decimal: true, locale: 'en' })).toBe('999 B')
-    expect(formatBytes(1000, 1, { decimal: true, locale: 'en' })).toBe('1 KB')
-    expect(formatBytes(1.9e9, 1, { decimal: true, locale: 'pl' })).toBe('1,9 GB')
-    expect(formatBytes(137.8e9, 1, { decimal: true, locale: 'en' })).toBe('137.8 GB')
-    expect(formatBytes(NaN, 1, { decimal: true, locale: 'en' })).toBe('0 B')
-    expect(formatRate(1.5e9, 1, { decimal: true, locale: 'pl' })).toBe('1,5 GB/s')
+    expect(formatBytes(0, 1, { decimal: true, locale: 'en' })).toBe('0\u00a0B')
+    expect(formatBytes(999, 1, { decimal: true, locale: 'en' })).toBe('999\u00a0B')
+    expect(formatBytes(1000, 1, { decimal: true, locale: 'en' })).toBe('1\u00a0KB')
+    expect(formatBytes(1.9e9, 1, { decimal: true, locale: 'pl' })).toBe('1,9\u00a0GB')
+    expect(formatBytes(137.8e9, 1, { decimal: true, locale: 'en' })).toBe('137.8\u00a0GB')
+    expect(formatBytes(NaN, 1, { decimal: true, locale: 'en' })).toBe('0\u00a0B')
+    expect(formatRate(1.5e9, 1, { decimal: true, locale: 'pl' })).toBe('1,5\u00a0GB/s')
   })
 
   test('existing byte formatter callers keep binary units and rates', () => {
-    expect(formatBytes(1024)).toBe('1 KiB')
-    expect(formatBytes(1024 ** 3)).toBe('1 GiB')
-    expect(formatRate(3.4 * 1024 ** 2)).toBe('3.4 MiB/s')
-    expect(formatBytes(-1)).toBe('0 B')
+    expect(formatBytes(1024)).toBe('1\u00a0KiB')
+    expect(formatBytes(1024 ** 3)).toBe('1\u00a0GiB')
+    expect(formatRate(3.4 * 1024 ** 2)).toBe('3.4\u00a0MiB/s')
+    expect(formatBytes(-1)).toBe('0\u00a0B')
     fc.assert(fc.property(fc.integer({ min: 0, max: 999 }), bytes => {
-      expect(formatBytes(bytes, 1, { decimal: true, locale: 'en' })).toBe(`${bytes} B`)
-      expect(formatBytes(bytes)).toBe(`${bytes} B`)
+      expect(formatBytes(bytes, 1, { decimal: true, locale: 'en' })).toBe(`${bytes}\u00a0B`)
+      expect(formatBytes(bytes)).toBe(`${bytes}\u00a0B`)
     }))
   })
 

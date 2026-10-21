@@ -32,7 +32,8 @@ export function formatBytes(bytes: number, decimals = 1, options: ByteFormatOpti
     if (!format) { format = new Intl.NumberFormat(options.locale, { maximumFractionDigits: decimals }); numbers.set(key, format) }
     value = format.format(rounded)
   }
-  return `${value} ${units[unit]}`
+  // A no-break space: a line never ends between a number and its unit.
+  return `${value}\u00a0${units[unit]}`
 }
 
 /** Formats a per-second rate, e.g. "2.3 MiB/s". */
