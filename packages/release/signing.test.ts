@@ -1,16 +1,54 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { generateKeyPair } from './release-key.ts'
 
-// Magnetar Preview signs its updates with its own key, readable only from main, and trusts only that key: a preview
-// build's key can never sign an update the released app installs.
+// Magnetar and Magnetar Preview each sign their updates with a key of their own, readable only from main, and each
+// trusts only its own: a preview build's key can never sign an update the released app installs.
 const repo = join(import.meta.dirname, '../..')
 const read = (path: string) => readFileSync(join(repo, path), 'utf8').replaceAll('\r\n', '\n')
 const workflow = read('.github/workflows/preview-app.yml')
 const publish = workflow.slice(workflow.indexOf('\n  publish:'))
+
+const SIGNING_KEYS: Record<string, string> = { RELEASE_SIGNING_KEY: 'release-signing', PREVIEW_SIGNING_KEY: 'preview-signing' }
+const workflows = readdirSync(join(repo, '.github/workflows')).filter((name) => name.endsWith('.yml'))
+/** A workflow's jobs, each from its name to the next one's. */
+const jobsOf = (text: string) => text.slice(text.indexOf('\njobs:\n')).split(/\n(?=  [\w-]+:\n)/).slice(1)
+const secretsOf = (text: string) => [...text.matchAll(/secrets(?:\.(\w+)|\[\s*['"](\w+)['"]\s*\])/g)].map((m) => m[1] ?? m[2] ?? '')
+
+describe('signing keys', () => {
+  it.each(workflows)('%s reads a signing key only in its main-only environment', (name) => {
+    for (const job of jobsOf(read(`.github/workflows/${name}`))) {
+      for (const secret of secretsOf(job).filter((secret) => secret in SIGNING_KEYS)) {
+        expect(job, `${name}: ${secret}`).toMatch(new RegExp(`\n    environment: ${SIGNING_KEYS[secret]}\n`))
+      }
+    }
+  })
+
+  it('releases are signed in release-signing, checked against release-public-key.txt', () => {
+    const release = read('.github/workflows/release.yml')
+    const job = jobsOf(release).find((job) => job.startsWith('  publish:'))!
+    expect(job).toMatch(/\n    environment: release-signing\n/)
+    expect(job).toContain('RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}')
+    expect(job).toContain('node packages/release/sign-release.ts assets\n')
+  })
+
+  it('release-key.ts needs a terminal, and changes nothing without one', () => {
+    const before = ['release', 'preview'].map((flavour) => read(`apps/client/${flavour}-public-key.txt`))
+    for (const args of [[], ['--preview']]) {
+      let error = ''
+      try {
+        execFileSync(process.execPath, [join(import.meta.dirname, 'release-key.ts'), ...args], { stdio: 'pipe' })
+      } catch (thrown) {
+        error = String((thrown as { stderr: Buffer }).stderr)
+      }
+      expect(error).toContain('Run it in a terminal')
+    }
+    expect(['release', 'preview'].map((flavour) => read(`apps/client/${flavour}-public-key.txt`))).toEqual(before)
+  })
+})
 
 describe('Magnetar Preview signing', () => {
   it('publishes from the main-only preview-signing environment with PREVIEW_SIGNING_KEY', () => {
@@ -19,7 +57,7 @@ describe('Magnetar Preview signing', () => {
   })
 
   it('never reads the release signing key', () => {
-    const secrets = [...workflow.matchAll(/secrets(?:\.(\w+)|\[\s*['"](\w+)['"]\s*\])/g)].map((m) => m[1] ?? m[2])
+    const secrets = secretsOf(workflow)
     expect(secrets).toContain('PREVIEW_SIGNING_KEY')
     expect(secrets).not.toContain('RELEASE_SIGNING_KEY')
   })

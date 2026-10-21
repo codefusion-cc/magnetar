@@ -1,15 +1,13 @@
 /**
- * Generates the Ed25519 key pair that signs release manifests. Run once:
+ * Generates an Ed25519 key pair that signs release manifests, in a terminal:
  *
  *   node packages/release/release-key.ts [--preview]
  *
- * Commit the public key file it writes; store the private key as the GitHub Actions secret
- * RELEASE_SIGNING_KEY (it is printed once and written nowhere). Installed apps only accept updates
- * whose SHA256SUMS.txt is signed by this key.
- *
- * `--preview` makes Magnetar Preview's own pair: preview-public-key.txt, and PREVIEW_SIGNING_KEY in the main-only
- * environment preview-signing. Its private key goes to the clipboard (macOS) rather than the terminal, for pasting
- * into the secret's card, and is cleared from it once you press Enter.
+ * The private key goes to the clipboard (macOS), never the terminal or a file: paste it as RELEASE_SIGNING_KEY in the
+ * main-only environment release-signing, or with `--preview` as PREVIEW_SIGNING_KEY in preview-signing, then press
+ * Enter. Only then is the public key written (release-public-key.txt or preview-public-key.txt; commit it) and the
+ * clipboard cleared, so stopping before Enter changes nothing. Installed apps only accept updates whose SHA256SUMS.txt
+ * is signed by the key their build compiled in.
  */
 import { execFileSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
@@ -27,25 +25,16 @@ export async function generateKeyPair(): Promise<{ publicKey: string; privateKey
 
 if (import.meta.main) {
   const preview = parseArgs({ options: { preview: { type: 'boolean', default: false } } }).values.preview
-  const file = preview ? 'preview-public-key.txt' : 'release-public-key.txt'
+  if (!process.stdin.isTTY) throw new Error('Run it in a terminal: it waits while you paste the key')
+  const [file, secret, environment] = preview
+    ? ['preview-public-key.txt', 'PREVIEW_SIGNING_KEY', 'preview-signing']
+    : ['release-public-key.txt', 'RELEASE_SIGNING_KEY', 'release-signing']
   const { publicKey, privateKey } = await generateKeyPair()
-  if (preview) {
-    // Before the public key is written, so a failed copy leaves nothing to commit.
-    execFileSync('pbcopy', { input: privateKey })
-    writeFileSync(join(import.meta.dirname, '..', '..', 'apps', 'client', file), publicKey + '\n')
-    console.log(`Wrote apps/client/${file}; commit it.`)
-    console.log('The private key is on the clipboard: paste it as PREVIEW_SIGNING_KEY in the preview-signing environment.')
-    // Without a terminal to wait on, clearing it is left to whoever pastes it.
-    if (process.stdin.isTTY) {
-      const prompt = createInterface({ input: process.stdin, output: process.stdout })
-      await prompt.question('Press Enter once it is saved to clear the clipboard. ')
-      prompt.close()
-      if (execFileSync('pbpaste', { encoding: 'utf8' }) === privateKey) execFileSync('pbcopy', { input: '' })
-    }
-  } else {
-    writeFileSync(join(import.meta.dirname, '..', '..', 'apps', 'client', file), publicKey + '\n')
-    console.log(`Wrote apps/client/${file}; commit it.`)
-    console.log('\nStore this as the RELEASE_SIGNING_KEY repository secret, then forget it:\n')
-    console.log(privateKey)
-  }
+  execFileSync('pbcopy', { input: privateKey })
+  const prompt = createInterface({ input: process.stdin, output: process.stdout })
+  await prompt.question(`A new private key is on the clipboard. Paste it as ${secret} in the ${environment} environment, then press Enter. `)
+  prompt.close()
+  writeFileSync(join(import.meta.dirname, '..', '..', 'apps', 'client', file), publicKey + '\n')
+  if (execFileSync('pbpaste', { encoding: 'utf8' }) === privateKey) execFileSync('pbcopy', { input: '' })
+  console.log(`Wrote apps/client/${file}; commit it. The clipboard is cleared.`)
 }

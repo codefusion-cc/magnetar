@@ -107,6 +107,9 @@ jobs:
   publish:
     needs: [plan, build]
     runs-on: ubuntu-latest
+    # The signing key is readable only from main (a pull request's own workflow can't reach it). A tag pushed by hand
+    # publishes only once release-signing also lets v* tags deploy.
+    environment: release-signing
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0

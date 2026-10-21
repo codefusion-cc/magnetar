@@ -156,26 +156,22 @@ through `sh -c '…'`. Once on the Mac: `pnpm add -g @codefusion-cc/console && c
 
 ## Release signing
 
-Once, from the repo root:
+Installed apps only take an update whose `SHA256SUMS.txt` is signed by the key their build compiled in. Each flavour
+has its own pair: Magnetar `apps/client/release-public-key.txt`, Magnetar Preview `apps/client/preview-public-key.txt`.
+Each build refuses to compile in the other's key, and `sign-release.ts` refuses a secret that is not the private half
+of the key the app trusts. A new pair, in a terminal from the repo root:
 
 ```bash
 node packages/release/release-key.ts
-```
-
-Commit `apps/client/release-public-key.txt` and save the printed private key as the repository secret
-`RELEASE_SIGNING_KEY`. Keep no other copy: losing it means shipping a release with a new public key, which older
-installs will not auto-install (they fall back to opening the release page).
-
-Magnetar Preview has its own pair, so the preview workflow holds no key the released app trusts:
-
-```bash
 node packages/release/release-key.ts --preview
 ```
 
-It writes `apps/client/preview-public-key.txt` (commit it; only Preview builds trust it) and puts the private key on the
-clipboard until you press Enter, for the secret `PREVIEW_SIGNING_KEY` of the `preview-signing` environment, which only
-`main` deploys to. Each build refuses to compile in the other flavour's key, and `sign-release.ts` refuses a secret that
-is not the private half of the key the app trusts.
+It puts the private key on the clipboard, never the terminal or a file. Paste it as the secret it names,
+`RELEASE_SIGNING_KEY` in the `release-signing` environment or `PREVIEW_SIGNING_KEY` in `preview-signing`, then press
+Enter: it writes the public key file to commit and clears the clipboard. Only `main` deploys to either environment, so
+a pull request's own workflow never reads a signing key. Keep no other copy: a new pair means installs of the builds
+before it don't install the next update by themselves (they open the release page instead), so each of them is
+downloaded once by hand.
 
 ## Code signing
 
