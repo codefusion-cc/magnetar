@@ -270,7 +270,7 @@ export const content: FeaturesContent = {
           points: [
             'macOS (Apple silicon e Intel), Windows e Linux (x64 e ARM)',
             '«Avvia all’accesso» su macOS e Windows',
-            'Tema chiaro, scuro o di sistema, scelto per ogni browser',
+            'Chiaro o scuro con un interruttore in ogni pagina, o come il sistema, ricordato per ogni browser',
           ],
         },
         tray: {

@@ -270,7 +270,7 @@ export const content: FeaturesContent = {
           points: [
             'macOS (Apple Silicon und Intel), Windows und Linux (x64 und ARM)',
             '„Beim Anmelden starten“ unter macOS und Windows',
-            'Helles, dunkles oder System-Design, für jeden Browser einzeln gewählt',
+            'Hell oder dunkel per Schalter auf jeder Seite, oder wie im System, für jeden Browser gespeichert',
           ],
         },
         tray: {

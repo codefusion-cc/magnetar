@@ -270,7 +270,7 @@ export const content: FeaturesContent = {
           points: [
             'macOS (Apple silicon et Intel), Windows et Linux (x64 et ARM)',
             '« Lancer à l’ouverture de session » sur macOS et Windows',
-            'Thème clair, sombre ou système, choisi par navigateur',
+            'Clair ou sombre d’un bouton sur chaque page, ou comme le système, retenu par navigateur',
           ],
         },
         tray: {

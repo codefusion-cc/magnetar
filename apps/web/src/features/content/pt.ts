@@ -270,7 +270,7 @@ export const content: FeaturesContent = {
           points: [
             'macOS (Apple silicon e Intel), Windows e Linux (x64 e ARM)',
             '«Iniciar ao entrar na sessão» no macOS e no Windows',
-            'Tema claro, escuro ou do sistema, escolhido em cada navegador',
+            'Claro ou escuro com um botão em cada página, ou como o sistema, guardado em cada navegador',
           ],
         },
         tray: {

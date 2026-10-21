@@ -270,7 +270,7 @@ export const content: FeaturesContent = {
           points: [
             'macOS (Apple silicon i Intel), Windows i Linux (x64 i ARM)',
             '„Uruchamiaj po zalogowaniu” na macOS i Windows',
-            'Motyw jasny, ciemny lub systemowy, wybierany osobno w każdej przeglądarce',
+            'Jasny lub ciemny przełącznikiem na każdej stronie albo jak w systemie, zapamiętany w każdej przeglądarce',
           ],
         },
         tray: {

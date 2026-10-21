@@ -270,7 +270,7 @@ export const en: FeaturesContent = {
           points: [
             'macOS (Apple silicon and Intel), Windows and Linux (x64 and ARM)',
             'Start at login on macOS and Windows',
-            'The light, dark or system theme, chosen per browser',
+            'Light or dark from a switch on every page, or as the system has it, kept per browser',
           ],
         },
         tray: {
