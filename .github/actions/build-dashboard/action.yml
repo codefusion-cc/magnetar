@@ -7,6 +7,12 @@ inputs:
   sha:
     description: The commit whose version to show
     required: true
+  version:
+    description: >-
+      Which version it shows: `display`, the release, or `preview`, Magnetar Preview's build of the same commit
+      (v1.2.9-preview.89), so the preview website names the version of the app it offers
+    required: false
+    default: display
 runs:
   using: composite
   steps:
@@ -18,7 +24,8 @@ runs:
     # Before any step has a Cloudflare token, so install scripts never have it in their environment.
     - run: pnpm install --frozen-lockfile
       shell: bash
-    - run: VITE_APP_VERSION="$(node packages/release/release-version.ts display --sha "$SHA")" pnpm --filter @magnetar/web run build
+    - run: VITE_APP_VERSION="$(node packages/release/release-version.ts "$KIND" --sha "$SHA")" pnpm --filter @magnetar/web run build
       shell: bash
       env:
         SHA: ${{ inputs.sha }}
+        KIND: ${{ inputs.version }}
