@@ -20,7 +20,8 @@ import { useRun } from '../useRun.ts'
  * never reaches the website's server or its logs. Back and Forward still step through the folders.
  */
 export interface FilesLocation {
-  path?: string
+  /** The folder open; null for the list of places. Without it, the download folder. */
+  path?: string | null
 }
 
 /** The device's download folder and the folders added on it: browse them, play what was downloaded, choose a folder. */
@@ -30,8 +31,9 @@ export function FilesPage() {
   const location = useLocation()
   const { info, connection, settings } = useDevice()
   const { supported, roots, error, reload, setRoots } = useRoots()
-  const path = (location.state as FilesLocation | null)?.path ?? roots?.roots.find(r => r.kind === 'downloads')?.path ?? roots?.roots[0]?.path ?? null
-  const open = useCallback((next: string | null) => navigate(location.pathname, { state: next === null ? null : { path: next } satisfies FilesLocation }), [navigate, location.pathname])
+  const located = (location.state as FilesLocation | null)?.path
+  const path = located !== undefined ? located : roots?.roots.find(r => r.kind === 'downloads')?.path ?? roots?.roots[0]?.path ?? null
+  const open = useCallback((next: string | null) => navigate(location.pathname, { state: { path: next } satisfies FilesLocation }), [navigate, location.pathname])
 
   if (!info) return <Loading />
   if (!supported) {

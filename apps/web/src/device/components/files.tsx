@@ -272,6 +272,7 @@ export function FolderPanel({ path, roots, foldersOnly = false, onOpen, onHome, 
         <>
           {header && trail.length === 1 && <p className="folder-where"><span role="note" aria-label={t('files.folderPath')}>{state.page.path}</span> {toolbar?.(state.page)}</p>}
           {state.page.truncated && <p className="fine">{t('files.truncated', state.page.total)}</p>}
+          {header && trail.length > 1 && state.entries.length > 0 && toolbar?.(state.page)}
           {state.entries.length === 0
             ? <p className="folder-empty">{t(foldersOnly ? 'files.noFolders' : 'files.empty')}</p>
             : compact

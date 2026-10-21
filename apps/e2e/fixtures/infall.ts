@@ -53,10 +53,9 @@ const size = (value: string) => {
   return Number(n) * ({ GB: 1e9, MB: 1e6, KB: 1e3 }[unit ?? ''] ?? 1) || 0
 }
 
-export type InfallScreen = 'downloads' | 'many' | 'empty' | 'details' | 'details-fail' | 'held' | 'loading' | 'downloads-fail' | 'search' | 'long' | 'search-start' | 'search-wait' | 'search-none' | 'search-fail' | 'watchlist' | 'watch-empty' | 'watch-wait' | 'watch-fail' | 'files' | 'files-empty' | 'files-wait' | 'files-gone' | 'set-general' | 'set-dl' | 'set-notify' | 'set-sources' | 'settings' | 'set-agents' | 'set-about'
+export type InfallScreen = 'downloads' | 'many' | 'details' | 'details-fail' | 'held' | 'loading' | 'downloads-fail' | 'search' | 'search-start' | 'watchlist' | 'files' | 'set-general' | 'set-dl' | 'set-notify' | 'set-sources' | 'settings'
 
 export function infallDownloads(screen: InfallScreen): DownloadDto[] {
-  if (screen === 'empty') return []
   const source = screen === 'many' ? rows.many : screen === 'held' ? rows.downloads.filter(d => d.st === 'down' || d.st === 'paused') : rows.downloads
   return source.map((row, i) => ({
     id: i + 1, name: screen === 'watchlist' && i === 0 ? 'Dragnet S03E10 720p HDTV' : row.title, status: ({ down: 'Downloading', paused: 'Paused', seed: 'Seeding', done: 'Completed', error: 'Error' } as const)[row.st],
@@ -80,7 +79,7 @@ export function infallFiles(): DownloadFileDto[] {
 }
 
 export const infallSources: SourceDto[] = ['The Pirate Bay', 'Torrents-CSV', 'RARBG', 'Nyaa', 'EZTV', '1337x'].map((name, i) => ({ id: ['tpb', 'csv', 'rarbg', 'nyaa', 'eztv', '1337x'][i]!, name, enabled: true }))
-export function infallSearch(screen: InfallScreen): { results: SearchResultDto[]; outcomes: SourceOutcomeDto[] } {
+export function infallSearch(): { results: SearchResultDto[]; outcomes: SourceOutcomeDto[] } {
   const data: [string, number, number, number, string][] = [
     ['Sintel (2010) 1080p BluRay x264', 1.9e9, 124, 3, 'The Pirate Bay'],
     ['Sintel.2010.1080p.WEB.H264', 556e6, 30, 1, 'RARBG'],
@@ -89,18 +88,13 @@ export function infallSearch(screen: InfallScreen): { results: SearchResultDto[]
     ['Sintel.2010.720p.WEB', 383e6, 11, 1, 'RARBG'],
     ['Sintel, original soundtrack (FLAC)', 441e6, 4, 10, 'The Pirate Bay'],
   ]
-  if (screen === 'long') for (let i = 6; i < 43; i++) {
-    const a = i % 5, b = (i * 3) % 5
-    data.push([`Sintel.2010.${['2160p','1080p','1080p','720p','480p'][a]}.${['BluRay','WEB','BluRay','HDTV','DVDRip'][b]}.${['x265','H.264','x264','H.264','XviD'][a]}-${['NOGRP','RARBG','YTS','FGT','ION10'][(i*2)%5]}`, [4.8e9,1.9e9,1.4e9,700e6,350e6][a]!, Math.max(0,Math.round(150/(i*.5)-4)),1+i%9,[...Array(22).fill('The Pirate Bay'), ...Array(13).fill('Torrents-CSV'), ...Array(8).fill('RARBG')][(i*7)%43]!])
-  }
-  const empty = screen === 'search-none' || screen === 'search-fail'
-  const results = empty ? [] : data.filter(r => screen !== 'search-wait' || r[4] === 'The Pirate Bay').map(([title, sizeBytes, seeders, age, source], i) => ({
+  const results = data.map(([title, sizeBytes, seeders, age, source], i) => ({
     resultId: `result${i}`, title, sizeBytes, seeders, leechers: 0, source,
     publishedAt: `20${26-age}-10-14T12:00:00Z`, detailsUrl: null, infoHash: null,
   }))
-  const outcomes = infallSources.filter(s => screen !== 'search-wait' || ['The Pirate Bay','Nyaa'].includes(s.name)).map(s => ({
-    source: s.name, status: (screen === 'search-fail' || s.name === '1337x' ? 'failed' : 'ok') as 'failed' | 'ok',
-    returned: empty ? 0 : [22,13,8,0,0,0][infallSources.findIndex(source => source.name === s.name)]!, filtered: 0, error: null,
+  const outcomes = infallSources.map((s, i) => ({
+    source: s.name, status: (s.name === '1337x' ? 'failed' : 'ok') as 'failed' | 'ok',
+    returned: [22,13,8,0,0,0][i]!, filtered: 0, error: null,
   }))
   return { results, outcomes }
 }

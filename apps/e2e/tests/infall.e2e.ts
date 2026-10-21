@@ -127,7 +127,7 @@ test('failed details explain no peers and search using the title, without a dial
   await expect(page.getByText('No peers after 3 minutes', { exact: true })).toBeVisible()
   await expect(page.getByRole('dialog')).toHaveCount(0)
   const search = page.getByRole('link', { name: 'Search for it', exact: true })
-  await expect(search).toHaveAttribute('href', '/search/Night%20of%20the%20Living%20Dead%20(1968)')
+  await expect(search).toHaveAttribute('href', '/search/Night+of+the+Living+Dead+(1968)')
   await search.click()
   await expect(page.getByRole('searchbox')).toHaveValue('Night of the Living Dead (1968)')
 })

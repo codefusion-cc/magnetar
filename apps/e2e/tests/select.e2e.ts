@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 import { serveDevice } from '../fixtures/device.ts'
 import { combobox, listbox as list } from '../fixtures/select.ts'
 
@@ -8,6 +8,13 @@ const language = (page: Page) => combobox(page, 'Language')
 /** The source menu on Search: seven options, two starting with T. */
 const source = (page: Page) => combobox(page, 'Source')
 const sourceParam = (page: Page) => new URL(page.url()).searchParams.get('source')
+
+/** The menu marks `option` as the one the keys are on, by the option's own (non-empty) id. */
+async function expectActive(page: Page, menu: Locator, option: string) {
+  const id = await list(page).getByRole('option', { name: option }).getAttribute('id')
+  expect(id, option).toBeTruthy()
+  await expect(menu).toHaveAttribute('aria-activedescendant', id!)
+}
 
 test('a click opens the list with the choice marked, and an option changes it and closes the list', async ({ page }) => {
   const device = await serveDevice(page, { design: 'set-general' })
@@ -39,10 +46,10 @@ test('by keyboard: arrows open and move without choosing, Enter chooses, Escape 
   await page.keyboard.press('ArrowDown')
   await expect(list(page)).toBeVisible()
   // Opening marks the current choice; nothing is chosen yet.
-  await expect(menu).toHaveAttribute('aria-activedescendant', await list(page).getByRole('option', { name: 'All sources' }).getAttribute('id') ?? '')
+  await expectActive(page, menu, 'All sources')
   await page.keyboard.press('ArrowDown')
   await page.keyboard.press('ArrowDown')
-  await expect(menu).toHaveAttribute('aria-activedescendant', await list(page).getByRole('option', { name: 'Torrents-CSV' }).getAttribute('id') ?? '')
+  await expectActive(page, menu, 'Torrents-CSV')
   await page.keyboard.press('Escape')
   await expect(list(page)).toBeHidden()
   await expect(menu).toHaveText('All sources')
@@ -50,7 +57,7 @@ test('by keyboard: arrows open and move without choosing, Enter chooses, Escape 
   expect(sourceParam(page)).toBeNull()
 
   await page.keyboard.press('End')
-  await expect(menu).toHaveAttribute('aria-activedescendant', await list(page).getByRole('option', { name: '1337x' }).getAttribute('id') ?? '')
+  await expectActive(page, menu, '1337x')
   await page.keyboard.press('Home')
   await page.keyboard.press('ArrowDown')
   await page.keyboard.press('Enter')
@@ -66,9 +73,9 @@ test('typing a letter finds the option it starts, and the same letter again the 
   await menu.focus()
   await page.keyboard.press('t')
   await expect(list(page)).toBeVisible()
-  await expect(menu).toHaveAttribute('aria-activedescendant', await list(page).getByRole('option', { name: 'The Pirate Bay' }).getAttribute('id') ?? '')
+  await expectActive(page, menu, 'The Pirate Bay')
   await page.keyboard.press('t')
-  await expect(menu).toHaveAttribute('aria-activedescendant', await list(page).getByRole('option', { name: 'Torrents-CSV' }).getAttribute('id') ?? '')
+  await expectActive(page, menu, 'Torrents-CSV')
   // Tab takes the marked option and moves on, as a system menu does.
   await page.keyboard.press('Tab')
   await expect(list(page)).toBeHidden()
@@ -83,7 +90,7 @@ test('a space typed in the middle of a word is part of it, not a choice', async 
   await sort.focus()
   await page.keyboard.type('oldest f', { delay: 30 })
   await expect(list(page)).toBeVisible()
-  await expect(sort).toHaveAttribute('aria-activedescendant', await list(page).getByRole('option', { name: 'Oldest first' }).getAttribute('id') ?? '')
+  await expectActive(page, sort, 'Oldest first')
   await expect(sort).toHaveText('Newest first')
   // After a pause Space is a choice again.
   await page.waitForTimeout(800)

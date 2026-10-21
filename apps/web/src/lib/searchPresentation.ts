@@ -31,7 +31,7 @@ export function searchSummary(t: Translate, language: string, { outcomes, total,
 
 export function outcomeTitle(t: Translate, outcome: SourceOutcomeDto | undefined): string | undefined {
   if (!outcome) return undefined
-  if (outcome.status === 'failed') return t('search.outcomeFailedDetail', outcome.error ?? '')
+  if (outcome.status === 'failed') return outcome.error?.trim() ? t('search.outcomeFailedDetail', outcome.error) : t('search.outcomeFailedBare')
   if (outcome.filtered) return t('search.outcomeFiltered', outcome.returned - outcome.filtered, outcome.returned, outcome.filtered)
   return t('search.outcomeOk', outcome.returned)
 }

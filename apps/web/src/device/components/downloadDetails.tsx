@@ -1,19 +1,22 @@
 import { LanesSky } from '../../ui/sky/Sky.tsx'
 import type { DownloadDto, DownloadFileDto } from '@magnetar/protocol'
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { isFinished } from '../../lib/downloadViews.ts'
-import { downloadDay, noPeersError } from '../../lib/downloadPresentation.ts'
+import { downloadDay, noPeersError, searchForName } from '../../lib/downloadPresentation.ts'
 import { useSteadySpeeds } from '../../lib/steadySpeed.ts'
 import { errorMessage } from '../../lib/errors.ts'
 import { isWithin, separatorOf } from '../../lib/folderPaths.ts'
 import type { FilesLocation } from '../pages/FilesPage.tsx'
 import { formatters, useFormatBytes, useFormatDate, useLanguage, useT } from '../../lib/i18n.tsx'
-import { useConnection, useDevice, useDownloads, useDownloadRead } from '../DeviceContext.tsx'
+import { useConnection, useDevice, useDownload, useDownloadRead } from '../DeviceContext.tsx'
 import { useLockedRun, useRun } from '../useRun.ts'
 import { DownloadActions, DownloadFacts, ProgressBar, ratioOf } from './downloads.tsx'
 import { WindowedRows } from '../../ui/WindowedRows.tsx'
 import { PlayerDialog, subtitlesFor, type PlayTarget } from './player.tsx'
+
+/** A download's page opened from a row's Play: it plays as soon as its files are read. */
+export interface DownloadLocation { play?: boolean }
 
 /** While the download is running, the file list's progress is read again this often. */
 const REFRESH_MS = 2000
@@ -22,9 +25,8 @@ export function DownloadDetailsPage() {
   const { id } = useParams()
   const t = useT()
   const { basePath } = useDevice()
-  const downloads = useDownloads()
   const read = useDownloadRead()
-  const download = downloads.find(d => String(d.id) === id)
+  const download = useDownload(id && /^\d+$/.test(id) ? Number(id) : undefined)
   const back = <p className="download-back"><Link to={basePath || '/'}>{t('details.allDownloads')}</Link></p>
   if (read.failed) return <>{back}<div role="alert"><p>{t('downloads.readFailed')}</p><button type="button" className="infall-small" onClick={read.retry}>{t('common.retry')}</button></div></>
   if (download) return <>{back}<Details key={download.id} download={download} /></>
@@ -41,8 +43,14 @@ function Details({ download: d }: { download: DownloadDto }) {
   const speeds = useSteadySpeeds(useMemo(() => [d], [d])).get(d.id)!
   const local = connection.kind === 'local'
   const browsable = info?.fileBrowser === true && !!settings && isWithin(d.savePath, settings.downloadFolder, separatorOf(settings.downloadFolder))
-  const [play, setPlay] = useState(false)
-  const onPlayed = useCallback(() => setPlay(false), [])
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [play, setPlay] = useState(() => (location.state as DownloadLocation | null)?.play === true)
+  // Played once: going back to this page or reloading it does not play again.
+  const onPlayed = useCallback(() => {
+    setPlay(false)
+    if ((location.state as DownloadLocation | null)?.play) void navigate(location.pathname + location.search, { replace: true, state: null })
+  }, [location, navigate])
   const [canPlay, setCanPlay] = useState(false)
   const failed = d.status === 'Error'
   const hasMetadata = d.totalBytes > 0
@@ -57,7 +65,7 @@ function Details({ download: d }: { download: DownloadDto }) {
     {failed && noPeersError(d.error) && <p className="download-lead">{t('details.noPeersHint')}</p>}
     <div className="infall-acts">
       {!failed && d.totalBytes > 0 && <button type="button" className="infall-button" disabled={!canPlay} title={!canPlay ? t('details.filesPending') : undefined} onClick={() => setPlay(true)}>{t('details.play')}</button>}
-      <DownloadActions download={d} remove={failed} prominent={failed} between={failed ? <Link className="infall-small" to={`${basePath}/search/${encodeURIComponent(d.name)}`}>{t('details.searchForIt')}</Link> : undefined} />
+      <DownloadActions download={d} remove={failed} prominent={failed} between={failed ? <Link className="infall-small" to={basePath + searchForName(d.name)}>{t('details.searchForIt')}</Link> : undefined} />
       {!failed && <>
         <button type="button" disabled={!local} title={!local ? t('details.revealLocal') : undefined} className="infall-small" onClick={() => void run(() => connection.call('downloads.reveal', { id: d.id }))}>{t(info?.platform === 'macos' ? 'details.finder' : 'details.reveal')}</button>
         {browsable && <Link className="infall-small" to={`${basePath}/files`} state={{ path: d.savePath } satisfies FilesLocation}>{t('files.showInFiles')}</Link>}

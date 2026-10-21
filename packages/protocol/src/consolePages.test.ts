@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { consolePage } from './consolePages.ts'
+import { consolePage, PUBLIC_PAGES } from './consolePages.ts'
 
 test('names the screen a path shows, never the device in it', () => {
   expect(consolePage('/', true)).toBe('devices')
@@ -21,4 +21,9 @@ test('names the screen a path shows, never the device in it', () => {
   expect(consolePage('/d/d_123', true)).toBe('device-downloads')
   // A device named like a tab is still a device.
   expect(consolePage('/search-box/settings', true)).toBe('device-settings')
+})
+
+test('counts the pages someone signed out can open, and leaves those that send them to sign in to /login', () => {
+  for (const path of ['/', '/about', '/login', '/pair/abc', '/link', '/features/pl']) expect(PUBLIC_PAGES.has(consolePage(path, false)), path).toBe(true)
+  for (const path of ['/add', '/MacBook-Pro', '/d/d_123/search']) expect(PUBLIC_PAGES.has(consolePage(path, false)), path).toBe(false)
 })

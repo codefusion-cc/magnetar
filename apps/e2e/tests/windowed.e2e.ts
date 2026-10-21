@@ -200,21 +200,19 @@ test('the lanes picture draws only rows in the window and lines up with them aft
   await page.goto('/?view=all')
   await expect(page.getByRole('button', { name: 'Row 1', exact: true })).toBeVisible()
   await scrollPage(page, 50_000)
-  await page.waitForTimeout(200)
   const canvas = page.locator('canvas.lanes-sky')
   expect((await canvas.boundingBox())!.height).toBeLessThanOrEqual(page.viewportSize()!.height)
-  const lane = await page.evaluate(() => {
+  // The picture redraws for the new window on a later frame.
+  await expect.poll(() => page.evaluate(() => {
     const canvas = document.querySelector<HTMLCanvasElement>('canvas.lanes-sky')!
     const box = canvas.getBoundingClientRect(), scale = canvas.width / box.width, ctx = canvas.getContext('2d')!
     const lanes = [...document.querySelectorAll<HTMLElement>('.download-lane')].map(l => l.getBoundingClientRect()).filter(r => r.top > 150 && r.bottom < innerHeight - 60)
     // Drawn at a lane's middle, and not at the row's facts line 40 px below it.
     const alpha = (x: number, y: number) => { const d = ctx.getImageData(Math.round((x - box.left) * scale), Math.round((y - box.top) * scale) - 2, Math.round(20 * scale), 5).data; let a = 0; for (let i = 3; i < d.length; i += 4) a = Math.max(a, d[i]!); return a }
     const r = lanes[0]!
-    return { on: alpha(r.left + 2, r.top + r.height / 2), off: alpha(r.left + 2, r.top + r.height / 2 + 40), lanes: lanes.length }
-  })
-  expect(lane.lanes).toBeGreaterThan(3)
-  expect(lane.on).toBeGreaterThan(40)
-  expect(lane.off).toBeLessThan(lane.on / 2)
+    const on = alpha(r.left + 2, r.top + r.height / 2), off = alpha(r.left + 2, r.top + r.height / 2 + 40)
+    return { manyLanes: lanes.length > 3, drawn: on > 40, onTheLane: off < on / 2 }
+  })).toEqual({ manyLanes: true, drawn: true, onTheLane: true })
 })
 
 test('2000 search results mount a window of rows, and one far down downloads itself', async ({ page }) => {

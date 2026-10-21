@@ -8,8 +8,9 @@ import { Check } from '../ui/settings.tsx'
 import { useDevice } from './DeviceContext.tsx'
 
 type Field = keyof SettingsPatch
-interface Failure { fields: ReadonlySet<Field>; text: string }
-interface Saving { save: (patch: SettingsPatch) => Promise<boolean>; failure: Failure | null }
+/** Why each field's last change did not save, so a failure of one setting never hides another's. */
+export type Failures = ReadonlyMap<Field, string>
+interface Saving { save: (patch: SettingsPatch) => Promise<boolean>; failures: Failures }
 
 const SaveContext = createContext<Saving | null>(null)
 
@@ -26,7 +27,7 @@ export function notSavedText(t: Translate, deviceName: string, error: unknown): 
 export function SettingsSaveProvider({ children }: { children: ReactNode }) {
   const t = useT()
   const { connection, deviceName } = useDevice()
-  const [failure, setFailure] = useState<Failure | null>(null)
+  const [failures, setFailures] = useState<Failures>(() => new Map())
   // One change at a time, in the order they were made: a list saved whole (the sources) must not arrive before
   // the change it builds on, or the computer would keep the older list.
   const queue = useRef<Promise<unknown>>(Promise.resolve())
@@ -34,10 +35,11 @@ export function SettingsSaveProvider({ children }: { children: ReactNode }) {
     const fields = Object.keys(patch) as Field[]
     try {
       await connection.call('settings.update', patch)
-      setFailure(current => current && fields.some(f => current.fields.has(f)) ? null : current)
+      setFailures(current => withoutFailure(current, fields))
       return true
     } catch (error) {
-      setFailure({ fields: new Set(fields), text: notSavedText(t, deviceName, error) })
+      const text = notSavedText(t, deviceName, error)
+      setFailures(current => withFailure(current, fields, text))
       return false
     }
   }, [connection, deviceName, t])
@@ -46,7 +48,7 @@ export function SettingsSaveProvider({ children }: { children: ReactNode }) {
     queue.current = next
     return next
   }, [send])
-  const value = useMemo(() => ({ save, failure }), [save, failure])
+  const value = useMemo(() => ({ save, failures }), [save, failures])
   return <SaveContext.Provider value={value}>{children}</SaveContext.Provider>
 }
 
@@ -57,8 +59,29 @@ export function useSaveSetting(): (patch: SettingsPatch) => Promise<boolean> {
 
 /** What to say under a setting made of these fields when its last change did not save. */
 export function useSaveFailure(...fields: Field[]): string | undefined {
-  const failure = useContext(SaveContext)!.failure
-  return failure && fields.some(f => failure.fields.has(f)) ? failure.text : undefined
+  return failureOf(useContext(SaveContext)!.failures, fields)
+}
+
+/** The failures once these fields failed to save, for this reason. */
+export function withFailure(failures: Failures, fields: readonly Field[], text: string): Failures {
+  return new Map([...failures, ...fields.map(f => [f, text] as const)])
+}
+
+/** The failures once these fields saved. */
+export function withoutFailure(failures: Failures, fields: readonly Field[]): Failures {
+  if (!fields.some(f => failures.has(f))) return failures
+  const next = new Map(failures)
+  for (const f of fields) next.delete(f)
+  return next
+}
+
+/** Why the last change of any of these fields did not save. */
+export function failureOf(failures: Failures, fields: readonly Field[]): string | undefined {
+  for (const f of fields) {
+    const text = failures.get(f)
+    if (text !== undefined) return text
+  }
+  return undefined
 }
 
 /**
@@ -105,19 +128,41 @@ export function useDraft(shown: string): [string, (draft: string) => void, { onF
   return [draft, setDraft, focus, reset]
 }
 
+const same = (typed: string) => typed
+
+/** What is typed without the spaces around it, for a field whose value never has them. */
+export const trimmed = (typed: string) => typed.trim()
+
+/** A mail server's port as typed, or null when it is not one. */
+export function typedPort(typed: string): number | null {
+  const digits = typed.trim()
+  const port = Number(digits)
+  return /^\d+$/.test(digits) && port >= 1 && port <= 65535 ? port : null
+}
+
+/** What a text field shows once left, and what to save: nothing when it spells the value the computer has. */
+export function textChange(draft: string, value: string, normalize: (typed: string) => string = same): { draft: string; save: string | null } {
+  const shown = normalize(draft)
+  return { draft: shown, save: shown === value ? null : shown }
+}
+
 /** A labelled text setting saved when it loses focus; a change that did not save goes back to what the computer has. */
-export function TextSetting({ label, value, onSave, className = '', ...rest }: {
+export function TextSetting({ label, value, onSave, normalize, className = '', ...rest }: {
   label: string
   value: string
   onSave: (value: string) => Promise<boolean> | void
+  /** The value as the computer would keep what was typed: the field shows that once left. */
+  normalize?: (typed: string) => string
   className?: string
 } & Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'onBlur' | 'onKeyDown' | 'id'>) {
   const id = useId()
   const [draft, setDraft, focus, reset] = useDraft(value)
   const commit = async () => {
     focus.onBlur()
-    if (draft === value) return
-    const saved = await onSave(draft)
+    const change = textChange(draft, value, normalize)
+    setDraft(change.draft)
+    if (change.save === null) return
+    const saved = await onSave(change.save)
     if (saved === false) reset()
   }
   return (

@@ -46,14 +46,14 @@ export function DownloadFacts({ download: d, down, up, eta, series }: { download
 }
 
 /** A row's contents for a windowed list, one fixed height: unchanged row objects and scalar speeds let memo skip rows a push leaves alone. */
-export const DownloadRow = memo(function DownloadRow({ download, down, up, eta, seriesName, onOpen }: {
-  download: DownloadDto; down: number; up: number; eta: number | null; seriesName?: string; onOpen: (id: number) => void
+export const DownloadRow = memo(function DownloadRow({ download, down, up, eta, seriesName, onOpen, onPlay }: {
+  download: DownloadDto; down: number; up: number; eta: number | null; seriesName?: string; onOpen: (id: number) => void; onPlay: (id: number) => void
 }) {
   return <>
     <h2><button type="button" title={download.name} onClick={() => onOpen(download.id)}>{download.name}</button></h2>
     <ProgressBar download={download} />
     <DownloadFacts download={download} down={down} up={up} eta={eta} series={seriesName} />
-    <DownloadActions download={download} onPlay={onOpen} />
+    <DownloadActions download={download} onPlay={onPlay} />
   </>
 })
 

@@ -65,7 +65,8 @@ Every feature with screenshots of the app, in English and Polish: [magnetar.code
   arrives as a system notification with an **Install** button (once per version), and **What's new** (Settings →
   About, the menu-bar icon, or magnetar.codefusion.cc/about) shows what each release brings.
 - **Always know what runs:** the app (Settings → About, the menu-bar icon) and the website (its footer) show their
-  version and commit, and the website flags any of your computers whose app is out of date, with one-click update.
+  version and commit. Your computers says which of them have an update waiting, and a computer's pages offer
+  **Update now**.
 - **Two languages**: English and Polish.
 - Secrets (SMTP password, bot token, agent and device tokens, browser keys) are **encrypted at rest**.
 
@@ -106,7 +107,7 @@ address; links by id (`/d/<device id>/…`, as notifications use) always find th
 website, the device's name at the top of the page switches to another one and keeps the page you are on; each
 shows whether it is online and whether this browser is linked to it. A computer's own dashboard links to the others once it is on an account.
 Downloads, Search, Watchlist, Files and Settings sit in the top row on a computer and in a fixed bottom tab bar
-on a phone. The number beside Downloads counts running downloads, including those waiting for metadata.
+on a phone. The number beside Downloads counts downloads under way, including those queued or waiting for metadata.
 Sizes and transfer rates use decimal units (KB, MB, GB) and the dashboard language’s decimal separator.
 Build details and Features are in **Settings → About**. The Downloads summary shows this computer, its combined
 download speed and free space; **Slow down** and **Full speed** change the limits there, while the schedule stays
@@ -117,7 +118,7 @@ Long lists (downloads, search results, a folder in Files, a download's files) ke
 page, so thousands of rows scroll as lightly as ten; a long title ends in an ellipsis and shows in full on hover.
 The browser's find-in-page therefore finds only rows on screen: use the page's own search, views and sort instead.
 
-Revoke a browser, rename the device or disconnect it from the same Settings section, or remove a device from the
+Remove a browser, rename the device or disconnect it from the same Settings section, or remove a device from the
 website's device list. How the encryption works is described in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#end-to-end-encryption).
 
 ## Coming from MediaDownloader

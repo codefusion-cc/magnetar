@@ -114,8 +114,6 @@ export async function serveDevice(page: Page, { name = 'Test computer', language
         reply(socket, { id, error: failure })
         return
       }
-      if ((method === 'series.list' && design === 'watch-wait') || (method === 'fs.browse' && design === 'files-wait')) return
-      if (method === 'series.list' && design === 'watch-fail') { reply(socket, { id, error: { code: 'timeout', message: 'The computer did not answer in time' } }); return }
       if (design && method === 'fs.browse' && String(params.path).startsWith('/Volumes/')) { reply(socket, {id, error:{ code:'not_found', message: language === 'pl' ? 'Dysk może być odłączony od Mac-Mini-M1. Pliki pokażą go znowu, gdy wróci.' : 'It may be unplugged from Mac-Mini-M1. Files shows it again when it is back.' }}); return }
       if (method === 'downloads.list' && design === 'loading') return
       if (method === 'downloads.list' && listFails) {
@@ -128,10 +126,10 @@ export async function serveDevice(page: Page, { name = 'Test computer', language
         result = {searchId: `search${searchNumber}`}
         const searchId = (result as {searchId:string}).searchId
         if (design && !manualSearch) setTimeout(() => {
-          const data = infallSearch(design)
+          const data = infallSearch()
           send('search.results', {searchId,results:data.results})
           for (const outcome of data.outcomes) send('search.source', {searchId,outcome})
-          if (design !== 'search-wait') send('search.done', {searchId,error:null})
+          send('search.done', {searchId,error:null})
         }, 100)
       } else if (method === 'search.cancel') result = null
       else if (method === 'series.checkNow' || method === 'watches.checkNow') {
@@ -194,8 +192,7 @@ export async function serveDevice(page: Page, { name = 'Test computer', language
     },
     setReply: <M extends keyof RpcResults>(method: M, result: RpcResults[M]) => { replies[method] = result },
     releaseList: () => { holdList = false; for (const release of heldLists) release(); heldLists.clear() },
-    /** The next call of `method` fails; `timeout` reads as a computer that did not answer. */
-    /** Fails the next call of `method`, or only the next one whose parameters `when` picks. */
+    /** Fails the next call of `method`, or only the next one whose parameters `when` picks; `timeout` reads as a computer that did not answer. */
     failNext: (method: string, message: string, code = 'test_failure', when?: (params: Record<string, any>) => boolean) => failures.set(method, { message, code, when }),
     setFiles: (next: DownloadFileDto[]) => { files = next },
     /** Serves `entries` at `path`, `pageSize` at a time by offset. */

@@ -144,7 +144,8 @@ test('the slower schedule: its times show focus, its days toggle, and an overnig
   await from.fill('23:30')
   await page.getByLabel('To', { exact: true }).fill('07:00')
   await expect(page.getByText('Runs overnight: from the evening of a chosen day into the next morning.')).toBeVisible()
-  expect(device.settings().altScheduleFrom).toBe(23 * 60 + 30)
+  // The sentence follows what was typed at once; the computer has it once the save arrives.
+  await expect.poll(() => device.settings().altScheduleFrom).toBe(23 * 60 + 30)
 })
 
 test('every section can be reached and used by keyboard', async ({ page }) => {

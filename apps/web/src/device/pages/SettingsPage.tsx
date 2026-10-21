@@ -25,7 +25,7 @@ import { useLegacyImport } from '../components/legacyImport.tsx'
 import { RemoteAccessSection } from '../components/remoteAccess.tsx'
 import { NetworkSetting, SeedingSetting, SlowerLimits, SpeedLimits } from '../components/transferSettings.tsx'
 import { AgentClients } from '../components/agentClients.tsx'
-import { notSavedText, SettingCheck, SettingsSaveProvider, TextSetting, useChosen, useSaveFailure, useSaveSetting } from '../settingsSave.tsx'
+import { notSavedText, SettingCheck, SettingsSaveProvider, TextSetting, trimmed, typedPort, useChosen, useSaveFailure, useSaveSetting } from '../settingsSave.tsx'
 import { useRun } from '../useRun.ts'
 import { Loading } from '../../ui/Loading.tsx'
 import { CommitLink } from '@codefusion-cc/app-update/react'
@@ -76,7 +76,7 @@ export function SettingsPage() {
 function GeneralSection({ settings }: { settings: SettingsDto }) {
   const t = useT()
   const save = useSaveSetting()
-  const { connection, deviceName } = useDevice()
+  const { connection, connectionState, deviceName } = useDevice()
   const { mode } = useTheme(theme)
   const [language, chooseLanguage] = useChosen(settings.language, language => save({ language }))
   const languageId = useId()
@@ -86,7 +86,9 @@ function GeneralSection({ settings }: { settings: SettingsDto }) {
   const languageFailure = useSaveFailure('language')
   const reportsFailure = useSaveFailure('errorReportsEnabled')
   const refreshStartup = useCallback(() => void connection.call('startup.status').then(r => setStartup(r.status)).catch(() => setStartup('unavailable')), [connection])
-  useEffect(refreshStartup, [refreshStartup])
+  // Asked once the device answers: a page opened while it reconnects would otherwise ask too early and never again.
+  const open = connectionState.status === 'open'
+  useEffect(() => { if (open) refreshStartup() }, [open, refreshStartup])
 
   const changeStartup = async (enabled: boolean) => {
     setChanging(true)
@@ -133,12 +135,13 @@ function GeneralSection({ settings }: { settings: SettingsDto }) {
 function HandlerSetting() {
   const t = useT()
   const run = useRun()
-  const { connection } = useDevice()
+  const { connection, connectionState } = useDevice()
+  const open = connectionState.status === 'open'
   const [status, setStatus] = useState<HandlerStatus | null>(null)
   const [busy, setBusy] = useState(false)
   useEffect(() => {
-    void connection.call('handlers.status').then(r => setStatus(r.status)).catch(() => setStatus('unavailable'))
-  }, [connection])
+    if (open) void connection.call('handlers.status').then(r => setStatus(r.status)).catch(() => setStatus('unavailable'))
+  }, [connection, open])
   const register = async () => {
     setBusy(true)
     const result = await run(() => connection.call('handlers.register'), 'settings.handlersFailed')
@@ -247,9 +250,10 @@ function NotificationsSection({ settings: s }: { settings: SettingsDto }) {
         <SettingCheck label={t('settings.useEmail')} checked={s.emailEnabled} onSave={emailEnabled => save({ emailEnabled })} />
         {s.emailEnabled && <>
           <div className="setting-two">
-            <TextSetting label={t('settings.smtpHost')} value={s.smtpHost} onSave={smtpHost => save({ smtpHost: smtpHost.trim() })} />
+            <TextSetting label={t('settings.smtpHost')} normalize={trimmed} value={s.smtpHost} onSave={smtpHost => save({ smtpHost })} />
             <TextSetting label={t('settings.port')} className="setting-short" inputMode="numeric" value={String(s.smtpPort)}
-              onSave={v => { const port = Number(v); return port >= 1 && port <= 65535 ? save({ smtpPort: port }) : Promise.resolve(false) }} />
+              normalize={typed => String(typedPort(typed) ?? typed)}
+              onSave={v => { const port = typedPort(v); return port === null ? Promise.resolve(false) : save({ smtpPort: port }) }} />
           </div>
           <SettingCheck label={t('settings.ssl')} checked={s.smtpUseSsl} onSave={smtpUseSsl => save({ smtpUseSsl })} />
           <div className="setting-two">
@@ -257,8 +261,8 @@ function NotificationsSection({ settings: s }: { settings: SettingsDto }) {
             <SecretSetting label={t('settings.password')} isSet={s.smtpPasswordSet} onSave={smtpPassword => save({ smtpPassword })} />
           </div>
           <div className="setting-two">
-            <TextSetting type="email" label={t('settings.from')} value={s.emailFrom} onSave={emailFrom => save({ emailFrom: emailFrom.trim() })} />
-            <TextSetting type="email" label={t('settings.to')} value={s.emailTo} onSave={emailTo => save({ emailTo: emailTo.trim() })} />
+            <TextSetting type="email" label={t('settings.from')} normalize={trimmed} value={s.emailFrom} onSave={emailFrom => save({ emailFrom })} />
+            <TextSetting type="email" label={t('settings.to')} normalize={trimmed} value={s.emailTo} onSave={emailTo => save({ emailTo })} />
           </div>
         </>}
       </SettingSection>
@@ -266,7 +270,7 @@ function NotificationsSection({ settings: s }: { settings: SettingsDto }) {
         <SettingCheck label={t('settings.useTelegram')} checked={s.telegramEnabled} onSave={telegramEnabled => save({ telegramEnabled })} />
         {s.telegramEnabled && <>
           <SecretSetting label={t('settings.botToken')} isSet={s.telegramBotTokenSet} onSave={telegramBotToken => save({ telegramBotToken })} />
-          <TextSetting label={t('settings.chatId')} inputMode="numeric" value={s.telegramChatId} onSave={telegramChatId => save({ telegramChatId: telegramChatId.trim() })} />
+          <TextSetting label={t('settings.chatId')} inputMode="numeric" normalize={trimmed} value={s.telegramChatId} onSave={telegramChatId => save({ telegramChatId })} />
         </>}
       </SettingSection>
       <SettingSection>
@@ -308,7 +312,8 @@ function AgentSection() {
   const t = useT()
   const toast = useToast()
   const run = useRun()
-  const { connection } = useDevice()
+  const { connection, connectionState } = useDevice()
+  const open = connectionState.status === 'open'
   const copy = useCopy(t('settings.agentCopied'))
   // Undefined while asking; null when the app is from before agents and cannot say.
   const [agent, setAgent] = useState<AgentStatusDto | null | undefined>(undefined)
@@ -316,8 +321,8 @@ function AgentSection() {
   const [confirming, setConfirming] = useState(false)
   const tokenId = useId()
   useEffect(() => {
-    void connection.call('agent.status').then(setAgent).catch(() => setAgent(null))
-  }, [connection])
+    if (open) void connection.call('agent.status').then(setAgent).catch(() => setAgent(null))
+  }, [connection, open])
   const change = useCallback(async (patch: { enabled?: boolean; allowRemote?: boolean }) => {
     const next = await run(() => connection.call('agent.set', patch), 'settings.saveFailed')
     if (next) setAgent(next)

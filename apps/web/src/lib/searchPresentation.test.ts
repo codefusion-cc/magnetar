@@ -12,7 +12,7 @@ const state = {outcomes:sources,total:6,sourceCount:6,searching:false,ran:true,q
 
 test('source totals, empty answers and failures give the reference sentence in both languages', () => {
   expect(searchSummary(en,'en',state)).toEqual({line:'43 results from 3 of 6 sources. Nyaa and EZTV found nothing, 1337x did not answer.',allFailed:false})
-  expect(searchSummary(pl,'pl',state)).toEqual({line:'43 wyniki z 3 z 6 źródeł. Nyaa i EZTV nic nie znalazły, 1337x nie odpowiedział.',allFailed:false})
+  expect(searchSummary(pl,'pl',state)).toEqual({line:'43 wyniki z 3 z 6 źródeł. Źródła Nyaa i EZTV nic nie znalazły, a źródło 1337x nie odpowiedziało.',allFailed:false})
 })
 test('out-of-order answers produce the same source counts and filtered matches do not count', () => {
   const shuffled = [sources[2]!,sources[0]!,sources[1]!]
@@ -51,7 +51,11 @@ test('source details and counts distinguish pending, failed, filtered and empty 
   expect(outcomeCount(en, undefined, true)).toBe('asking')
   expect(outcomeCount(en, sources[5], false)).toBe('no answer')
   expect(outcomeTitle(en, { ...sources[5]!, error: 'timeout' })).toBe('This source could not be reached (timeout). Its results are missing from the list below.')
+  for (const error of [undefined, null, '', '  ']) {
+    expect(outcomeTitle(en, { ...sources[5]!, error } as SourceOutcomeDto)).toBe('This source could not be reached. Its results are missing from the list below.')
+    expect(outcomeTitle(pl, { ...sources[5]!, error } as SourceOutcomeDto)).toBe('Nie udało się połączyć z tym źródłem. Jego wyników nie ma na liście poniżej.')
+  }
   expect(outcomeCount(en, filtered, false)).toBe(5)
-  expect(outcomeTitle(en, filtered)).toBe("Showing 5 of 8 results — 3 were dropped because their title didn't match every word of your query.")
+  expect(outcomeTitle(en, filtered)).toBe("Showing 5 of 8 results. 3 were left out because their title didn't match every word of your query.")
   expect(outcomeTitle(en, { ...sources[0]!, returned: 0 })).toBe('0 results from this source.')
 })

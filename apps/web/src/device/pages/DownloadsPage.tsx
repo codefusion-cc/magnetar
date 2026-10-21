@@ -16,6 +16,7 @@ import { magnetsIn } from '../../lib/magnets.ts'
 import { useSteadySpeeds } from '../../lib/steadySpeed.ts'
 import { useDevice, useDownloads, useDownloadRead, useSearchLink } from '../DeviceContext.tsx'
 import { AddDownloadDialog, DropOverlay, useAddShortcuts, type PendingAdd } from '../components/addDownload.tsx'
+import type { DownloadLocation } from '../components/downloadDetails.tsx'
 import { DownloadRow } from '../components/downloads.tsx'
 import { LegacyImportBanner } from '../components/legacyImport.tsx'
 import { AltSpeedToggle, DiskFullNotice, TransferNotice } from '../components/transfer.tsx'
@@ -99,8 +100,9 @@ export function DownloadList({ downloads, hideSeries = false }: { downloads: Dow
   const unknown = t('downloads.unknownSeries')
   const seriesName = (d: DownloadDto) => (d.seriesTaskId === null || hideSeries ? undefined : names.get(d.seriesTaskId) || unknown)
   const open = useCallback((id: number) => navigate(`${basePath}/downloads/${id}`), [navigate, basePath])
+  const play = useCallback((id: number) => navigate(`${basePath}/downloads/${id}`, { state: { play: true } satisfies DownloadLocation }), [navigate, basePath])
   const speeds = useSteadySpeeds(downloads)
   const getKey = useCallback((index: number) => downloads[index]!.id, [downloads])
   return <WindowedRows label={t('downloads.title')} count={downloads.length} getKey={getKey} className="download-list" rowClassName="download-row"
-    renderRow={index => { const d = downloads[index]!; return <DownloadRow download={d} {...speeds.get(d.id)!} seriesName={seriesName(d)} onOpen={open} /> }} />
+    renderRow={index => { const d = downloads[index]!; return <DownloadRow download={d} {...speeds.get(d.id)!} seriesName={seriesName(d)} onOpen={open} onPlay={play} /> }} />
 }

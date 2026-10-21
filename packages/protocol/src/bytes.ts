@@ -19,7 +19,12 @@ export function formatBytes(bytes: number, decimals = 1, options: ByteFormatOpti
     unit++
   }
   const factor = 10 ** decimals
-  const rounded = Math.round(size * factor) / factor
+  let rounded = Math.round(size * factor) / factor
+  // 999.96 KB rounds to 1000 KB: say 1 MB instead.
+  if (rounded >= base && unit < units.length - 1) {
+    unit++
+    rounded = Math.round((size / base) * factor) / factor
+  }
   let value: string | number = rounded
   if (options.locale) {
     const key = `${options.locale}:${decimals}`

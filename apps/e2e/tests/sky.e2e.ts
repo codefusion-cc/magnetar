@@ -28,8 +28,7 @@ test('with reduced motion the downloads picture is one still frame; with motion 
   await page.reload()
   await expect(page.locator('.download-row')).not.toHaveCount(0)
   const moving = await picture(page)
-  await page.waitForTimeout(600)
-  expect(await picture(page)).not.toBe(moving)
+  await expect.poll(() => picture(page)).not.toBe(moving)
 })
 
 test('leaving Downloads leaves no animation loop behind', async ({ page }) => {
@@ -37,8 +36,7 @@ test('leaving Downloads leaves no animation loop behind', async ({ page }) => {
   await serveDevice(page, { design: 'downloads' })
   await page.goto('/')
   await expect(page.locator('.download-row')).not.toHaveCount(0)
-  await page.waitForTimeout(300)
-  expect(await frames()).toBeGreaterThan(5)
+  await expect.poll(frames).toBeGreaterThan(5)
   await page.getByRole('link', { name: 'Settings', exact: true }).click()
   await expect(page.locator('canvas.sky')).toHaveCount(0)
   await page.waitForTimeout(100)
@@ -82,10 +80,10 @@ test('on a 200-row list the canvas stays the height of the screen, and the lanes
   expect((await lanes(page).boundingBox())!.height).toBeLessThanOrEqual(viewport.height)
 
   await page.mouse.wheel(0, 2400)
-  await page.waitForTimeout(300)
+  await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(0)
   expect((await lanes(page).boundingBox())!.height).toBeLessThanOrEqual(viewport.height)
-  // A row brought into view by the scroll has its lane drawn where its bar is.
-  const drawn = await page.evaluate(() => {
+  // A row brought into view by the scroll has its lane drawn where its bar is, once the picture redraws.
+  await expect.poll(() => page.evaluate(() => {
     const canvas = document.querySelector<HTMLCanvasElement>('canvas.lanes-sky')!
     const box = canvas.getBoundingClientRect(), scale = canvas.width / box.width
     const row = [...document.querySelectorAll<HTMLElement>('.download-lane[data-status="Downloading"]')]
@@ -95,8 +93,7 @@ test('on a 200-row list the canvas stays the height of the screen, and the lanes
     let alpha = 0
     for (let i = 3; i < pixels.length; i += 4) alpha = Math.max(alpha, pixels[i]!)
     return alpha
-  })
-  expect(drawn).toBeGreaterThan(40)
+  })).toBeGreaterThan(40)
 })
 
 for (const theme of ['dark', 'light'] as const) {
@@ -107,8 +104,10 @@ for (const theme of ['dark', 'light'] as const) {
       await serveDevice(page, { design })
       await page.goto(route)
       await page.locator(design === 'search' ? '.source-figure li' : '.download-row').first().waitFor()
+      let waited = 0
       for (const wait of [100, 1500, 6000]) {
-        await page.waitForTimeout(wait === 100 ? wait : wait - 100)
+        await page.waitForTimeout(wait - waited)
+        waited = wait
         const worst = await page.evaluate(measureContrast, theme)
         expect.soft(worst, `${design} after ${wait} ms: ${JSON.stringify(worst)}`).toEqual(expect.objectContaining({ ok: true }))
       }

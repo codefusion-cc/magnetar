@@ -10,6 +10,9 @@ test('keyboard focus wraps, Home and End reach boundaries and unrelated keys do 
   expect(nextFocusIndex('End', 0, 3)).toBe(2)
   expect(nextFocusIndex('Tab', 0, 3)).toBeNull()
   expect(nextFocusIndex('ArrowDown', 0, 0)).toBeNull()
+  // Focus on none of the items yet: the arrows start from the ends.
+  expect(nextFocusIndex('ArrowUp', -1, 3)).toBe(2)
+  expect(nextFocusIndex('ArrowDown', -1, 3)).toBe(0)
   fc.assert(fc.property(fc.integer({ min: 1, max: 1000 }), fc.nat(), (length, n) => {
     const at = n % length
     const next = nextFocusIndex('ArrowDown', at, length)!

@@ -26,9 +26,12 @@ export interface SearchState {
 
 const EMPTY_SEARCH: SearchState = { query: '', ran: null, searchId: null, requestId: 0, searching: false, results: null, outcomes: [] }
 
-export interface ListRead {
+export interface ReadState {
   loading: boolean
   failed: boolean
+}
+
+interface ListRead extends ReadState {
   retry: () => void
 }
 
@@ -121,6 +124,16 @@ const SearchAddressContext = createContext('')
 /** Just the connection, which never changes for a device: for per-row views that only make calls. */
 const ConnectionContext = createContext<RpcClient | null>(null)
 
+/** A list's state as a read of it starts: only a list never read waits; one on screen stays while a reconnect reads it. */
+export function readStarted(read: ReadState): ReadState {
+  return read.loading || read.failed ? { loading: true, failed: false } : read
+}
+
+/** A list's state once a read of it failed: a list on screen stays. */
+export function readFailed(read: ReadState): ReadState {
+  return read.loading ? { loading: false, failed: true } : read
+}
+
 export function DeviceProvider({ connection, basePath, deviceName, children }: {
   connection: RpcClient
   basePath: string
@@ -129,14 +142,14 @@ export function DeviceProvider({ connection, basePath, deviceName, children }: {
 }) {
   const [connectionState, setConnectionState] = useState<ConnectionState>(connection.state)
   const [info, setInfo] = useState<AppInfoDto | null>(null)
-  const [read, setRead] = useState({ loading: true, failed: false })
+  const [read, setRead] = useState<ReadState>({ loading: true, failed: false })
   // Reads the downloads and the watchlist again; set by the connection's effect.
   const readListsAgain = useRef<() => void>(() => {})
   const retryDownloads = useCallback(() => readListsAgain.current(), [])
   const readValue = useMemo<ListRead>(() => ({ ...read, retry: retryDownloads }), [read, retryDownloads])
   const [downloads, setDownloads] = useState<DownloadDto[]>([])
   const downloadsById = useMemo(() => new Map(downloads.map(d => [d.id, d])), [downloads])
-  const [seriesRead, setSeriesRead] = useState({ loading: true, failed: false })
+  const [seriesRead, setSeriesRead] = useState<ReadState>({ loading: true, failed: false })
   const seriesReadValue = useMemo<ListRead>(() => ({ ...seriesRead, retry: retryDownloads }), [seriesRead, retryDownloads])
   const [series, setSeries] = useState<SeriesTaskDto[]>([])
   const [watches, setWatches] = useState<WatchDto[]>([])
@@ -180,7 +193,7 @@ export function DeviceProvider({ connection, basePath, deviceName, children }: {
       const downloadsCurrent = () => !cancelled && attempt === listsId && version === downloadsVersion
       duringList = new Map()
       pendingList = true
-      setRead({ loading: true, failed: false })
+      setRead(readStarted)
       void connection.call('downloads.list').then(list => {
         if (!downloadsCurrent()) return
         setDownloads(mergeRows(list, [...duringList.values()]))
@@ -188,14 +201,14 @@ export function DeviceProvider({ connection, basePath, deviceName, children }: {
         duringList.clear()
         setRead({ loading: false, failed: false })
       }, () => {
-        if (downloadsCurrent()) { pendingList = false; duringList.clear(); setRead({ loading: false, failed: true }) }
+        if (downloadsCurrent()) { pendingList = false; duringList.clear(); setRead(readFailed) }
       })
-      setSeriesRead({ loading: true, failed: false })
+      setSeriesRead(readStarted)
       const seriesAtRead = seriesVersion
       const seriesCurrent = () => !cancelled && attempt === listsId && seriesAtRead === seriesVersion
       void connection.call('series.list').then(list => {
         if (seriesCurrent()) { setSeries(list); setSeriesRead({ loading: false, failed: false }) }
-      }, () => { if (seriesCurrent()) setSeriesRead({ loading: false, failed: true }) })
+      }, () => { if (seriesCurrent()) setSeriesRead(readFailed) })
     }
     readListsAgain.current = () => { if (!cancelled && connection.state.status === 'open') readLists() }
     const refresh = async () => {

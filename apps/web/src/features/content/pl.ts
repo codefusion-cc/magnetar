@@ -47,7 +47,7 @@ export const content: FeaturesContent = {
           points: [
             'Tagi wydania z tytułu: rozdzielczość (od 480p do 4K), HDR lub Dolby Vision, kodek (H.264, HEVC, AV1) i źródło (BluRay, WEB, HDTV, DVD)',
             'Zawężanie według rozdzielczości i źródła; sortowanie według liczby seedów, od najnowszych, największych lub najmniejszych',
-            'Wolne lub niedostępne źródło nie wstrzymuje pozostałych. Nad wynikami zdanie i liczby przy źródłach pokazują, które odpowiedziały, nic nie znalazły lub zawiodły.',
+            'Wolne lub niedostępne źródło nie wstrzymuje pozostałych. Zdanie nad wynikami i liczby przy źródłach pokazują, które źródła odpowiedziały, które nic nie znalazły, a które zawiodły.',
             'Serwery lustrzane działają na zmianę: gdy jeden nie odpowie w półtorej sekundy, pytany jest następny, a najszybszy zostaje zapamiętany',
             'Tylko tytuły zawierające każde wpisane słowo, w dowolnym alfabecie; zniekształcone tytuły są naprawiane',
             'Otwórz wynik, by zobaczyć szczegóły, skopiuj jego link magnet albo wyślij go do dowolnego folderu',
@@ -270,7 +270,7 @@ export const content: FeaturesContent = {
           points: [
             'macOS (Apple silicon i Intel), Windows i Linux (x64 i ARM)',
             '„Uruchamiaj po zalogowaniu” na macOS i Windows',
-            'Jasny lub ciemny przełącznikiem na każdej stronie albo jak w systemie, zapamiętany w każdej przeglądarce',
+            'Motyw jasny lub ciemny, przełączany na każdej stronie albo zgodny z systemem. Każda przeglądarka pamięta swój wybór',
           ],
         },
         tray: {

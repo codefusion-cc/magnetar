@@ -38,6 +38,30 @@ export function SeedingSetting({ settings }: { settings: SettingsDto }) {
   )
 }
 
+/** A number as its field shows it: at most two decimals, so a ratio of 1.555 shows as 1.56. */
+export const numberText = (n: number, language: string) => formatters(language).number(n, { maximumFractionDigits: 2, useGrouping: false })
+const typedNumber = (draft: string) => Number(draft.trim().replace(',', '.'))
+
+/** The number to save once the field is left, or null: unchanged, or still showing the value as it was rounded. */
+export function numberToSave(draft: string, value: number, language: string): number | null {
+  const parsed = typedNumber(draft)
+  return draft === numberText(value, language) || parsed === value ? null : parsed
+}
+
+/** A speed cap in MB/s as its field shows it, to three decimals; blank is no cap. */
+export const speedText = (bytes: number, language: string) => (bytes ? formatters(language).number(bytes / MB, { maximumFractionDigits: 3, useGrouping: false }) : '')
+/** Bytes a second from what is typed in MB/s; NaN when it is not a number. */
+export function typedSpeed(draft: string): number {
+  const text = draft.trim().replace(',', '.')
+  return text === '' ? 0 : Math.round(Number(text) * MB)
+}
+
+/** The cap to save once the field is left, or null: unchanged, or still showing the cap as it was rounded. */
+export function speedToSave(draft: string, value: number, language: string): number | null {
+  const bytes = typedSpeed(draft)
+  return draft === speedText(value, language) || bytes === value ? null : bytes
+}
+
 /** A number typed in the dashboard's language (1,5 in Polish); out of range or not a number goes back to the value. */
 function NumberSetting({ label, value, min, max, onSave }: {
   label: string
@@ -48,14 +72,14 @@ function NumberSetting({ label, value, min, max, onSave }: {
 }) {
   const id = useId()
   const language = useLanguage()
-  const shown = (n: number) => formatters(language).number(n, { maximumFractionDigits: 2, useGrouping: false })
-  const [draft, setDraft, focus, reset] = useDraft(shown(value))
-  const parsed = Number(draft.trim().replace(',', '.'))
+  const [draft, setDraft, focus, reset] = useDraft(numberText(value, language))
+  const parsed = typedNumber(draft)
   const valid = draft.trim() !== '' && Number.isFinite(parsed) && parsed >= min && parsed <= max
   const commit = async () => {
     focus.onBlur()
     if (!valid) return reset()
-    if (parsed !== value && !(await onSave(parsed))) reset()
+    const next = numberToSave(draft, value, language)
+    if (next !== null && !(await onSave(next))) reset()
   }
   return (
     <div className="setting-field setting-short">
@@ -71,16 +95,14 @@ function SpeedSetting({ label, value, onSave }: { label: string; value: number; 
   const t = useT()
   const id = useId()
   const language = useLanguage()
-  const shown = (bytes: number) => (bytes ? formatters(language).number(bytes / MB, { maximumFractionDigits: 3, useGrouping: false }) : '')
-  const [draft, setDraft, focus, reset] = useDraft(shown(value))
-  const text = draft.trim().replace(',', '.')
-  const bytes = text === '' ? 0 : Math.round(Number(text) * MB)
+  const [draft, setDraft, focus, reset] = useDraft(speedText(value, language))
+  const bytes = typedSpeed(draft)
   const error = !Number.isFinite(bytes) || bytes < 0 ? t('settings.speedInvalid')
     : bytes !== 0 && bytes < MIN_SPEED_LIMIT ? t('settings.speedTooLow', formatters(language).number(Math.ceil(MIN_SPEED_LIMIT / 1000))) : null
   const commit = async () => {
     focus.onBlur()
-    if (error || bytes === value) return
-    if (!(await onSave(bytes))) reset()
+    const next = error ? null : speedToSave(draft, value, language)
+    if (next !== null && !(await onSave(next))) reset()
   }
   return (
     <div className="setting-field">

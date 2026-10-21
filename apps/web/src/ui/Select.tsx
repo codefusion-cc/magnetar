@@ -1,12 +1,39 @@
 import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { findTyped, moveActive, typedCharacter } from './selectKeys.ts'
 
-export interface SelectOption<T> { value: T; label: string; /** The label's language, when it is not the page's (a language's own name). */ lang?: string }
+interface SelectOption<T> { value: T; label: string; /** The label's language, when it is not the page's (a language's own name). */ lang?: string }
 
 /** How long typed letters count as one word when finding an option. */
 const TYPING_PAUSE_MS = 600
-/** Room the list wants below the button before it opens above it instead: its tallest (max-h-72) and its gap. */
-const LIST_ROOM_PX = 296
+/** The list's tallest, and the least it shrinks to where it is short of room. */
+const LIST_MAX_PX = 288
+const LIST_MIN_PX = 120
+/** Room the list wants below the button before it opens above it instead: its tallest and its gap. */
+const LIST_ROOM_PX = LIST_MAX_PX + 8
+
+/**
+ * The part of the screen the list can show in: the screen, or the nearest box that clips what overflows it (a dialog's
+ * body scrolls, so a list running past it would be cut off there).
+ */
+function roomFor(element: HTMLElement): { top: number; bottom: number } {
+  for (let node = element.parentElement; node && node !== document.body; node = node.parentElement) {
+    if (getComputedStyle(node).overflowY === 'visible') continue
+    const box = node.getBoundingClientRect()
+    return { top: Math.max(0, box.top), bottom: Math.min(innerHeight, box.bottom) }
+  }
+  return { top: 0, bottom: innerHeight }
+}
+
+/**
+ * Where the list opens for a button at `box`, shown within `room`: above when the room below is short and there is
+ * more above, no taller than the room on its side; toward the middle from a side of a screen `width` wide.
+ */
+export function listPlace(box: { top: number; bottom: number; left: number; width: number }, room: { top: number; bottom: number },
+  width: number): { above: boolean; end: boolean; height: number } {
+  const below = room.bottom - box.bottom, aboveRoom = box.top - room.top
+  const above = below < LIST_ROOM_PX && aboveRoom > below
+  return { above, end: box.left + box.width / 2 > width / 2, height: Math.max(LIST_MIN_PX, Math.min(LIST_MAX_PX, (above ? aboveRoom : below) - 8)) }
+}
 
 const LOOKS = {
   field: 'min-h-[46px] w-full min-w-40 rounded-[10px] border border-line bg-surface px-3.5 text-base text-ink',
@@ -43,7 +70,7 @@ export function Select<T extends string | number>({ value, options, onChange, on
   const [open, setOpen] = useState(false)
   // The marked option, by value: options read again while the list is open keep the mark on the same one.
   const [marked, setMarked] = useState<T | null>(null)
-  const [place, setPlace] = useState({ above: false, end: false })
+  const [place, setPlace] = useState({ above: false, end: false, height: LIST_MAX_PX })
   const button = useRef<HTMLButtonElement>(null)
   const list = useRef<HTMLUListElement>(null)
   const typed = useRef({ text: '', at: 0 })
@@ -64,9 +91,7 @@ export function Select<T extends string | number>({ value, options, onChange, on
   const show = (at: number) => {
     if (options.length === 0) return
     mark(at, true)
-    // Opens above when the room below is short and there is more above; toward the middle from a side.
-    const box = button.current?.getBoundingClientRect()
-    if (box) setPlace({ above: innerHeight - box.bottom < LIST_ROOM_PX && box.top > innerHeight - box.bottom, end: box.left + box.width / 2 > innerWidth / 2 })
+    if (button.current) setPlace(listPlace(button.current.getBoundingClientRect(), roomFor(button.current), innerWidth))
     setOpen(true)
     onOpen?.()
   }
@@ -127,7 +152,8 @@ export function Select<T extends string | number>({ value, options, onChange, on
       </button>
       {/* A press anywhere in the list (an option, its scrollbar) leaves the focus on the button: leaving it closes the list. */}
       <ul ref={list} id={listId} role="listbox" aria-labelledby={buttonId} hidden={!open} onPointerDown={event => event.preventDefault()}
-        className={`absolute z-50 max-h-72 min-w-full max-w-[calc(100vw-2rem)] overflow-y-auto rounded-[10px] border border-line bg-surface p-1 text-[15px] text-ink ${
+        style={{ maxHeight: place.height }}
+        className={`absolute z-50 min-w-full max-w-[calc(100vw-2rem)] overflow-y-auto rounded-[10px] border border-line bg-surface p-1 text-[15px] text-ink ${
           place.above ? 'bottom-full mb-1' : 'top-full mt-1'} ${place.end ? 'right-0' : 'left-0'}`}>
         {open && options.map((option, index) => (
           <li key={String(option.value)} id={`${ownId}-option-${index}`} role="option" data-index={index} lang={option.lang}

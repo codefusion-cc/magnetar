@@ -5,7 +5,9 @@ import { describe, expect, test } from 'vitest'
 import english from '../i18n/en.json'
 import polish from '../i18n/pl.json'
 import { formatEta, pluralMessage } from './i18n.tsx'
-import { downloadDay, downloadSummary, noPeersError, retainFinished } from './downloadPresentation.ts'
+import { downloadDay, downloadSummary, noPeersError, retainFinished, searchForName } from './downloadPresentation.ts'
+import { RESOLUTIONS } from './quality.ts'
+import { readSearch, searchAddress, type SearchChoices } from './urlState.ts'
 
 const translate = (strings: Record<string, string>) => (key: string, ...args: (string | number)[]) => (strings[key] ?? key).replace(/\{(\d+)\}/g, (_, n) => String(args[Number(n)]))
 const en = translate(english.strings)
@@ -86,6 +88,40 @@ describe('download presentation', () => {
       const retained = retainFinished(new Set(ids), [], list)
       expect([...retainFinished(retained, list, list)]).toEqual(ids.filter(id => id % 2))
       expect([...retainFinished(retained, list, [])]).toEqual([])
+    }))
+  })
+})
+
+describe('searching for a download by name', () => {
+  const choices: SearchChoices<string, string> = { resolutions: RESOLUTIONS, sorts: [['seeders', 'seeders'], ['newest', 'new']], sources: [] }
+  /** What the Search page reads from the address the link opens, under a computer's pages. */
+  const opened = (name: string) => {
+    const url = new URL(`/Mac-Mini-M1${searchForName(name)}`, 'https://magnetar.example')
+    const prefix = '/Mac-Mini-M1/search'
+    return { inPage: url.pathname === prefix || url.pathname.startsWith(`${prefix}/`), url, view: readSearch(url.pathname.slice(prefix.length + 1), url.searchParams, choices) }
+  }
+
+  test('a name of only dots stays on the Search page', () => {
+    for (const name of ['.', '..']) {
+      const { inPage, view } = opened(name)
+      expect(inPage, name).toBe(true)
+      expect(view.query).toBe(name)
+    }
+  })
+
+  test('the link is the address the Search page itself writes for that text', () => {
+    for (const name of ['Sintel (2010) 1080p BluRay', 'a+b & c/d?e#f', 'Zażółć gęślą jaźń', 'Миры 🌟']) {
+      const { url, view } = opened(name)
+      expect(view.query).toBe(name)
+      expect(url.pathname.slice('/Mac-Mini-M1'.length) + url.search).toBe(searchAddress(view, choices))
+    }
+  })
+
+  test('any name opens the Search page for that name', () => {
+    fc.assert(fc.property(fc.string({ unit: 'grapheme', maxLength: 200 }), name => {
+      const { inPage, view } = opened(name)
+      expect(inPage).toBe(true)
+      expect(view).toEqual({ query: name.trim(), resolution: '', source: '', sort: 'seeders' })
     }))
   })
 })

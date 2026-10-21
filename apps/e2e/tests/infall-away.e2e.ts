@@ -118,7 +118,7 @@ test('an update the app did not install says so on the bar, and Try again instal
   device.holdNext('updates.install')
   await bar(page).getByRole('button', { name: 'Try again', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Updating Magnetar on Mac-Mini-M1' })).toBeVisible()
-  expect(device.calls.filter(c => c === 'updates.install')).toHaveLength(2)
+  await expect.poll(() => device.calls.filter(c => c === 'updates.install').length).toBe(2)
 })
 
 test('an offline computer gets its own screen, without the bar, and the page reconnects by itself', async ({ page }) => {

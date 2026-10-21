@@ -70,7 +70,7 @@
 /* The way in: its words beside the icon, the icon alone on a phone. */
 .fp-account { gap: 8px; }
 @media (max-width: 639px) {
-  .fp-account { width: 38px; padding: 0; }
+  .infall-button.fp-account { width: 38px; padding: 0; }
 }
 
 .fp-lead { margin-top: 0.75rem; max-width: 42rem; color: var(--cf-muted); text-wrap: pretty; }

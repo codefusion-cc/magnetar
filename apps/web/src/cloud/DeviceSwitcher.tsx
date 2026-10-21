@@ -1,12 +1,10 @@
-import type { CloudDeviceDto } from '@magnetar/protocol/cloud'
 import { Spinner } from '@codefusion-cc/ui/react'
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { Link, useLocation, useParams } from 'react-router'
-import { cloud } from '../lib/cloudApi.ts'
 import { useFormatRelative, useT } from '../lib/i18n.tsx'
-import { listDeviceKeys } from '../lib/keyStore.ts'
 import { MenuButton } from '../ui/Menu.tsx'
 import { devicePath, samePageOn } from './devicePaths.ts'
+import { useComputers } from './useComputers.ts'
 
 /**
  * The device name in the dashboard's frame, as a menu of the account's devices: picking one opens the
@@ -17,31 +15,17 @@ export function DeviceSwitcher({ children, placement }: { children: ReactNode; p
   const formatRelative = useFormatRelative()
   const { deviceName = '' } = useParams()
   const { pathname, search } = useLocation()
-  const [devices, setDevices] = useState<CloudDeviceDto[] | null>(null)
-  const [linked, setLinked] = useState<Set<string>>(new Set())
-  const [failed, setFailed] = useState(false)
-
-  const load = useCallback(async () => {
-    try {
-      const [list, keys] = await Promise.all([cloud.devices(), listDeviceKeys().catch(() => [])])
-      setDevices(list)
-      setLinked(new Set(keys.map(k => k.deviceId)))
-      setFailed(false)
-    } catch {
-      setFailed(true)
-    }
-  }, [])
   // Loaded up front, so the menu opens filled in; fresh again each time it opens.
-  useEffect(() => void load(), [load])
+  const { devices, linked, state, reload } = useComputers()
 
   return (
-    <MenuButton label={t('devices.switch')} placement={placement} onOpen={() => void load()} className="min-w-0 flex-1"
+    <MenuButton label={t('devices.switch')} placement={placement} onOpen={() => reload()} className="min-w-0 flex-1"
       button={children}
       items={close => (
         <>
           <li role="none" className="infall-menu-title">{t('devices.title')}</li>
-          {devices === null && !failed && <li role="none" aria-busy="true" className="infall-menu-note"><Spinner /><span className="sr-only">{t('common.loading')}</span></li>}
-          {failed && <li role="none" className="infall-menu-note">{t('devices.loadFailed')}</li>}
+          {!devices && state === 'loading' && <li role="none" aria-busy="true" className="infall-menu-note"><Spinner /><span className="sr-only">{t('common.loading')}</span></li>}
+          {state === 'failed' && <li role="none" className="infall-menu-note">{t('devices.loadFailed')}</li>}
           {devices?.map(device => {
             const current = device.name === deviceName
             return (
@@ -52,7 +36,7 @@ export function DeviceSwitcher({ children, placement }: { children: ReactNode; p
                     <span className="block truncate font-medium">{device.name}</span>
                     <span className="muted block truncate text-xs">
                       {device.online ? t('devices.online') : device.lastSeenAt ? t('remote.lastSeen', formatRelative(device.lastSeenAt)) : t('devices.offline')}
-                      {!linked.has(device.id) && <span className="block text-warn">{t('devices.notLinkedShort')}</span>}
+                      {state === 'fresh' && !linked.has(device.id) && <span className="block text-warn">{t('devices.notLinkedShort')}</span>}
                     </span>
                   </span>
                 </Link>

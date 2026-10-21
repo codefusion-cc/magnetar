@@ -3,6 +3,15 @@ import { formatRate } from '@magnetar/protocol/bytes'
 import { formatters, pluralMessage, type Translate } from './i18n.tsx'
 import { calendarDistance } from './seriesPresentation.ts'
 import { isFinished } from './downloadViews.ts'
+import { searchAddress, type SearchChoices } from './urlState.ts'
+
+/** Every choice at its default, so the address holds only the text. */
+const PLAIN_SEARCH: SearchChoices<'', ''> = { resolutions: [''], sorts: [['', '']], sources: [] }
+
+/** The Search page's address, from `/search` on, for a download's name with every other choice at its default. */
+export function searchForName(name: string): string {
+  return searchAddress({ query: name, resolution: '', source: '', sort: '' }, PLAIN_SEARCH)
+}
 
 export function downloadSummary(t: Translate, language: string, name: string, count: number, speed: number): string {
   return pluralMessage(t, language, 'downloads.summary', count, name, count, formatRate(speed, 1, { decimal: true, locale: language }))

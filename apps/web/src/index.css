@@ -58,10 +58,12 @@ body {
   }
 }
 
-/* Every focus ring in the look's focus colour. */
-:focus-visible {
-  outline: 2px solid var(--cf-focus);
-  outline-offset: 3px;
+/* Every focus ring in the look's focus colour, under the utilities so `outline-none` and a control's own offset win. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--cf-focus);
+    outline-offset: 3px;
+  }
 }
 
 /* The frame shares one navigation element between the desktop row and the phone's fixed bar. */
@@ -718,7 +720,7 @@ body {
 .source-figure b { color: var(--cf-ink); font-weight: 600; }
 .source-figure .none b { color: var(--cf-muted); font-weight: 400; }
 .search-results li { display: grid; grid-template-columns: 22px minmax(0,1fr) auto; gap: 8px 20px; align-items: center; padding: 14px 0; border-top: 1px solid var(--cf-line); }
-.search-results h2, .series-shows h2, .file-entry h2, .release-watch h3 { font: 600 17px/1.3 var(--cf-font-body); overflow-wrap: anywhere; }
+.search-results h2, .series-shows h2, .file-entry h2 { font: 600 17px/1.3 var(--cf-font-body); overflow-wrap: anywhere; }
 .search-results h2 button { text-align: left; cursor: pointer; }
 .search-meta, .file-meta { display: flex; flex-wrap: wrap; gap: 0 16px; font-size: 14px; color: var(--cf-muted); font-variant-numeric: tabular-nums; }
 .search-meta .tags { color: var(--cf-ink); }
@@ -749,9 +751,7 @@ body {
 /* "Today" ends with the line, so a long word ("aujourd'hui") stays inside the row. */
 .approach-today small { bottom: auto; top: 28px; left: auto; right: 0; translate: none; }
 .series-paused { opacity: .8; }
-.file-places { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 14px; }
-.file-places button { min-height: 38px; padding: 0 13px; border-radius: 8px; color: var(--cf-muted); cursor: pointer; }
-.file-places [aria-checked=true] { background: var(--cf-raised); color: var(--cf-ink); font-weight: 600; }
+.file-places { margin-bottom: 14px; }
 .files-screen .folder-heading { position: absolute; width: 1px; height: 1px; clip-path: inset(50%); overflow: hidden; }
 .files-screen .folder-secondary { order: 5; margin-top: 10px; }
 .folder-where { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; color: var(--cf-muted); overflow-wrap: anywhere; font-size: 15px; }
@@ -780,7 +780,6 @@ body {
   .series-shows > li > button, .episode-approach { grid-column: 2; justify-self: start; }
   .episode-approach { width: 100%; }
   .file-entry { grid-template-columns: 30px minmax(0,1fr); }
-  .file-entry > button { grid-column: 2; justify-self: start; }
 }
 
 .folder-where > span:first-child { color: var(--cf-ink); font-weight: 500; }
@@ -832,7 +831,7 @@ body {
 .settings-panel { display: grid; max-width: 620px; min-width: 0; }
 .setting { display: grid; gap: 10px; justify-items: start; padding: 22px 0; border-top: 1px solid var(--cf-line); min-width: 0; }
 .setting > * { max-width: 100%; }
-.setting h2 { font-size: 17px; font-weight: 600; line-height: 1.3; }
+.setting > h2 { font-size: 17px; font-weight: 600; line-height: 1.3; }
 .setting p { overflow-wrap: anywhere; }
 .fine { font-size: 14px; color: var(--cf-muted); }
 .settings-saves { padding-top: 12px; }
@@ -1021,7 +1020,6 @@ textarea.infall-field { min-height: 7rem; padding: 12px 14px; resize: vertical; 
 :is(.infall-button, .infall-small, .setting-link)[aria-busy="true"]::after { content: ""; flex: none; width: 14px; height: 14px; margin-left: 10px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: busy-turn .8s linear infinite; }
 @keyframes busy-turn { to { transform: rotate(1turn); } }
 @media (prefers-reduced-motion: reduce) { :is(.infall-button, .infall-small, .setting-link)[aria-busy="true"]::after { animation: none; border-right-color: currentColor; opacity: .5; } }
-.site .infall-acts { gap: 10px; }
 
 /* First page: what it is beside the picture of every source falling in, three facts under it. */
 .home-hero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 56px; align-items: stretch; padding: 44px 0 36px; }

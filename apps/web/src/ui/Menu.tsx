@@ -1,12 +1,12 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 
-/** The wrapped next focus target for an arrow, Home or End; other keys leave it alone. */
+/** The wrapped next focus target for an arrow, Home or End; other keys leave it alone. `current` -1 is none yet. */
 export function nextFocusIndex(key: string, current: number, length: number): number | null {
   if (length === 0) return null
   if (key === 'Home') return 0
   if (key === 'End') return length - 1
-  if (key === 'ArrowDown' || key === 'ArrowRight') return (current + 1) % length
-  if (key === 'ArrowUp' || key === 'ArrowLeft') return (current + length - 1) % length
+  if (key === 'ArrowDown' || key === 'ArrowRight') return current < 0 ? 0 : (current + 1) % length
+  if (key === 'ArrowUp' || key === 'ArrowLeft') return current < 0 ? length - 1 : (current + length - 1) % length
   return null
 }
 

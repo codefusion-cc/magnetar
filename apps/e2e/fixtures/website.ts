@@ -7,7 +7,7 @@ import { seedDeviceKeys } from './keys.ts'
 /** The code each fake computer accepts from a browser linking itself; any other is refused as the relay does. */
 export const LINK_CODE = '7K2QM-4XPDR-9TBVN-3HWJC'
 
-export const COMPUTERS: CloudDeviceDto[] = [
+const COMPUTERS: CloudDeviceDto[] = [
   { id: 'mini', name: 'Mac-Mini-M1', platform: 'macos', version: '1.2.2', online: true, lastSeenAt: null, createdAt: '2026-01-01T00:00:00Z' },
   { id: 'mbp', name: 'MacBook-Pro', platform: 'macos', version: '1.2.2', online: true, lastSeenAt: null, createdAt: '2026-02-01T00:00:00Z' },
   { id: 'pc', name: 'Living-Room-PC', platform: 'windows', version: '1.1.0', online: false, lastSeenAt: '2026-10-13T21:10:00Z', createdAt: '2026-03-01T00:00:00Z' },

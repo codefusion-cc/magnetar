@@ -85,7 +85,8 @@ export default function CloudApp({ config }: { config: AppConfig }) {
   }, [toast])
   useEffect(() => void refresh(), [refresh])
 
-  if (account === undefined) return <Loading screen />
+  // The wait for the account is in the page's language too, and its words load meanwhile.
+  if (account === undefined) return <I18nProvider language={browserLanguage()}><Loading screen /></I18nProvider>
 
   return (
     <AccountContext.Provider value={{ account, config, refresh, signOut }}>
