@@ -4,64 +4,6 @@
 /* A change of theme as a circle from the click (revealChange in ui/theme.ts). */
 @import "@codefusion-cc/theme/reveal.css";
 
-@plugin "daisyui" {
-  themes: false;
-}
-
-/*
- * daisyUI's names read the Infall look (src/looks/infall.ts, written by uiLooks as the --cf-* roles), so every screen
- * not yet moved onto the kit takes its colours from the same place, in light and dark alike: the roles follow
- * color-scheme. Status keeps its own colours, the accent never borrows them: info = downloading (heat), success =
- * seeding and finished (blue-white), warning = paused, error = failed. Beware one name: daisyUI's components
- * (btn-accent, badge-accent) take the look's second accent (amber), while the utility text-accent / bg-accent is the
- * kit's, the look's main accent; screens use text-accent-2 for amber. daisyUI goes when the last screen has moved
- * (the redesign's sweep).
- */
-@plugin "daisyui/theme" {
-  name: "magnetar-light";
-  default: true;
-  color-scheme: light;
-}
-
-@plugin "daisyui/theme" {
-  name: "magnetar-dark";
-  prefersdark: true;
-  color-scheme: dark;
-}
-
-/* Both themes alike: each role already holds its light and its dark value, picked by color-scheme. */
-:root,
-[data-theme] {
-  --color-base-100: var(--cf-surface);
-  --color-base-200: var(--cf-page);
-  --color-base-300: var(--cf-line);
-  --color-base-content: var(--cf-ink);
-  --color-primary: var(--cf-accent);
-  --color-primary-content: var(--cf-on-accent);
-  --color-secondary: var(--cf-muted);
-  --color-secondary-content: var(--cf-page);
-  --color-accent: var(--cf-accent-2);
-  --color-accent-content: var(--cf-page);
-  --color-neutral: var(--cf-inverse);
-  --color-neutral-content: var(--cf-on-inverse);
-  --color-info: var(--cf-info);
-  --color-info-content: var(--cf-page);
-  --color-success: var(--cf-ok);
-  --color-success-content: var(--cf-page);
-  --color-warning: var(--cf-warn);
-  --color-warning-content: var(--cf-page);
-  --color-error: var(--cf-danger);
-  --color-error-content: var(--cf-page);
-  --radius-selector: var(--cf-radius-ctl);
-  --radius-field: var(--cf-radius-ctl);
-  --radius-box: var(--cf-radius-card);
-  --size-selector: 0.25rem;
-  --size-field: 0.25rem;
-  --border: 1px;
-  --depth: 0;
-  --noise: 0;
-}
-
 @theme inline {
   --font-sans: var(--cf-font-body);
   --font-mono: var(--cf-font-mono);
@@ -100,11 +42,6 @@ body {
   word-break: break-word;
 }
 
-/* A card, until each screen moves to rows separated by one rule: no shadow in Infall. */
-.surface {
-  @apply rounded-box border border-base-300 bg-base-100;
-}
-
 /* Secondary text, one step quieter than the body (the look keeps it above 4.5:1 on every ground). */
 .muted {
   color: var(--cf-muted);
@@ -121,30 +58,7 @@ body {
   }
 }
 
-/* A row of chips that scrolls sideways on narrow screens, without a scrollbar. */
-.scroll-strip {
-  scrollbar-width: none;
-}
-
-.scroll-strip::-webkit-scrollbar {
-  display: none;
-}
-
-@layer components {
-  /* A strip whose chips reach 4px past its column, so their focus rings and edges are not cut: margin, padding and
-     width move together, or the strip ends up narrower than its chips and scrolls by the difference. */
-  .strip-bleed {
-    margin-inline: -0.25rem;
-    padding-inline: 0.25rem;
-    max-width: calc(100% + 0.5rem);
-  }
-}
-
-/* Focused fields and every focus ring in the look's focus colour. */
-:root :is(.input, .textarea):is(:focus, :focus-within) {
-  --input-color: var(--cf-focus);
-}
-
+/* Every focus ring in the look's focus colour. */
 :focus-visible {
   outline: 2px solid var(--cf-focus);
   outline-offset: 3px;
@@ -693,6 +607,7 @@ body {
 .update-bar > p { flex: 1 1 24ch; min-width: 0; overflow-wrap: anywhere; }
 .update-bar .infall-acts { gap: 8px; }
 .update-bar.trouble { box-shadow: inset 0 0 0 1px var(--cf-warn); }
+.update-bar.danger { box-shadow: inset 0 0 0 1px var(--cf-danger); }
 /* Updating and offline take the page; they take focus only to be read out. */
 .shell-main:focus, .away-screen:focus { outline: none; }
 .download-empty > :is(h1, h2) { overflow-wrap: anywhere; }
@@ -866,8 +781,6 @@ body {
   .episode-approach { width: 100%; }
   .file-entry { grid-template-columns: 30px minmax(0,1fr); }
   .file-entry > button { grid-column: 2; justify-self: start; }
-  .folder-panel .breadcrumbs { overflow: visible; white-space: normal; }
-  .folder-panel .breadcrumbs ul { flex-wrap: wrap; }
 }
 
 .folder-where > span:first-child { color: var(--cf-ink); font-weight: 500; }
@@ -943,19 +856,21 @@ body {
 .setting-field input { width: 100%; }
 .setting-short input { width: 6.5em; }
 .setting-field-error { font-size: 14px; color: var(--cf-danger); }
-.setting input:not([type=checkbox]), .setting-inline input {
+.setting input:not([type=checkbox]), .setting-inline input, .infall-field {
   min-height: 46px; min-width: 0; padding: 0 14px; border: 1px solid var(--cf-line); border-radius: 10px; background: var(--cf-surface); color: var(--cf-ink); font-size: 16px;
 }
-.setting input:not([type=checkbox]):focus-visible { outline: 2px solid var(--cf-focus); outline-offset: 2px; border-color: var(--cf-accent); }
+.setting input:not([type=checkbox]):focus-visible, .infall-field:focus-visible { outline: 2px solid var(--cf-focus); outline-offset: 2px; border-color: var(--cf-accent); }
 /* Time fields draw their own parts; the ring goes on the whole field whichever part has focus. */
 .setting input[type=time]:focus-within { outline: 2px solid var(--cf-focus); outline-offset: 2px; }
-.setting input[aria-invalid=true] { border-color: var(--cf-danger); }
+.setting input[aria-invalid=true], .infall-field[aria-invalid=true] { border-color: var(--cf-danger); }
+.infall-field { width: 100%; }
+textarea.infall-field { min-height: 7rem; padding: 12px 14px; resize: vertical; }
 .setting-mono { font-family: var(--cf-font-mono); font-size: 14px; }
 .setting-inline { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; max-width: 560px; }
 .setting-inline input { flex: 1 1 12em; }
 .setting-inline :is(.infall-button, .infall-small) { white-space: normal; text-align: center; }
 .setting-days { display: flex; flex-wrap: wrap; gap: 4px; }
-.setting-days button { min-width: 44px; min-height: 36px; padding: 0 10px; border-radius: 8px; color: var(--cf-muted); box-shadow: inset 0 0 0 1px var(--cf-line); }
+.setting-days button { min-width: 44px; white-space: nowrap; min-height: 36px; padding: 0 10px; border-radius: 8px; color: var(--cf-muted); box-shadow: inset 0 0 0 1px var(--cf-line); }
 .setting-days button[aria-pressed=true] { color: var(--cf-ink); font-weight: 600; background: var(--cf-raised); box-shadow: none; }
 .setting-list, .setting-rows { width: 100%; }
 .setting-list { max-width: 420px; }
@@ -975,6 +890,113 @@ body {
 }
 /* A setting's choices wrap on a phone rather than run past the screen (long in Polish and German). */
 .setting .download-views { flex-wrap: wrap; }
+
+/* A field's name above it and its help under it, in forms and dialogs. */
+.infall-labelled { display: grid; gap: 6px; min-width: 0; align-content: start; }
+.infall-labelled > :first-child { font-weight: 500; }
+
+/* A switch for something that runs or rests, beside its name (Switch in ui/controls.tsx). */
+.setting-check .infall-switch {
+  appearance: none; position: relative; width: 40px; height: 24px; border-radius: 12px; background: var(--cf-surface);
+  box-shadow: inset 0 0 0 1.5px var(--cf-muted); cursor: pointer;
+}
+.infall-switch::before {
+  content: ""; position: absolute; top: 5px; left: 5px; width: 14px; height: 14px; border-radius: 50%;
+  background: var(--cf-muted); transition: translate .15s ease;
+}
+.setting-check .infall-switch:checked { background: var(--cf-accent); box-shadow: none; }
+.infall-switch:checked::before { translate: 16px 0; background: var(--cf-on-accent); }
+.setting-check .infall-switch:disabled { opacity: .55; cursor: default; }
+@media (prefers-reduced-motion: reduce) { .infall-switch::before { transition: none; } }
+@media (forced-colors: active) {
+  .setting-check .infall-switch { border: 1px solid CanvasText; }
+  .infall-switch::before { background: CanvasText; }
+  .infall-switch:checked::before { background: Highlight; }
+}
+
+/* A word marking a row's state (Tag in ui/Tag.tsx): the state's colour inside a thin edge of the same. */
+.infall-tag {
+  display: inline-flex; align-items: center; min-height: 22px; padding: 0 7px; border-radius: 6px;
+  box-shadow: inset 0 0 0 1px currentColor; color: var(--cf-muted); font-size: 13px; font-weight: 600; line-height: 1.2; white-space: nowrap;
+}
+.infall-tag[data-tone=accent] { color: var(--cf-accent); }
+.infall-tag[data-tone=ok] { color: var(--cf-ok); }
+.infall-tag[data-tone=warn] { color: var(--cf-warn); }
+.infall-tag[data-tone=danger] { color: var(--cf-danger); }
+
+/* Dialogs (ui/Modal.tsx): a sheet from the bottom on a phone, in the middle wider; the one lifted thing in Infall. */
+.infall-dialog {
+  width: min(100% - 32px, 32rem); max-width: none; max-height: calc(100dvh - 32px); margin: auto; padding: 0; border: 0;
+  border-radius: 12px; background: var(--cf-surface); color: var(--cf-ink); box-shadow: var(--cf-shadow-lift); overflow: hidden;
+}
+.infall-dialog.wide { width: min(100% - 32px, 42rem); }
+.infall-dialog[open] { display: flex; flex-direction: column; }
+.infall-dialog::backdrop { background: rgb(0 0 0 / .55); }
+:root:has(.infall-dialog[open]) { overflow: hidden; }
+.infall-dialog-head { display: flex; align-items: center; gap: 8px; padding: 10px 10px 10px 20px; border-bottom: 1px solid var(--cf-line); }
+.infall-dialog-head h3 { font-size: 17px; font-weight: 600; line-height: 1.3; }
+.infall-dialog-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 18px 20px; }
+.infall-dialog-acts { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; padding: 12px 20px; border-top: 1px solid var(--cf-line); }
+.infall-dialog .download-views { flex-wrap: wrap; }
+@media (max-width: 639px) {
+  .infall-dialog, .infall-dialog.wide { width: 100%; max-height: 92dvh; margin: auto 0 0; border-radius: 14px 14px 0 0; }
+  .infall-dialog-acts { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+}
+
+/* Menus (ui/Menu.tsx): a list over the page, as the Select's. */
+.infall-menu {
+  position: absolute; z-index: 50; width: 18rem; max-width: calc(100vw - 2rem); padding: 4px; border: 1px solid var(--cf-line);
+  border-radius: 10px; background: var(--cf-surface); color: var(--cf-ink); font-size: 15px;
+}
+.infall-menu [role=menuitem] { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+.infall-menu [role=menuitem]:hover { background: var(--cf-raised); }
+.infall-menu [role=menuitem]:focus-visible { outline-offset: -2px; }
+.infall-menu [role=menuitem][aria-current=page] { background: var(--cf-raised); font-weight: 600; }
+.infall-menu-title { padding: 8px 12px 4px; font-size: 13px; color: var(--cf-muted); }
+.infall-menu-note { display: flex; align-items: center; min-height: 40px; padding: 0 12px; font-size: 14px; color: var(--cf-muted); }
+.infall-menu-end { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--cf-line); }
+
+/* Toasts (ui/toast.tsx): above the phone tab bar, at the bottom right on a computer. */
+.toasts {
+  position: fixed; z-index: 60; left: 50%; bottom: calc(5.5rem + env(safe-area-inset-bottom)); translate: -50% 0;
+  display: grid; gap: 8px; width: min(100% - 32px, 28rem); pointer-events: none;
+}
+.toasts > * { pointer-events: auto; }
+@media (min-width: 721px) { .toasts { left: auto; right: 24px; bottom: 24px; translate: none; } }
+.toast-item {
+  display: flex; align-items: center; gap: 12px; padding: 4px 4px 4px 14px; border-radius: 10px;
+  background: var(--cf-surface); color: var(--cf-ink); box-shadow: var(--cf-shadow-lift); font-size: 15px;
+}
+.toast-item > svg { flex: none; }
+
+/* What's new (ui/Changelog.tsx): each release a row under one rule. */
+.releases { display: grid; gap: 4px; width: 100%; }
+.release { display: grid; gap: 10px; justify-items: start; padding: 18px 0 8px; border-top: 1px solid var(--cf-line); }
+.release > * { max-width: 100%; }
+.release:first-child { border-top: 0; padding-top: 0; }
+.release header { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; width: 100%; }
+.release h3 { font-size: 17px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+.release time { margin-left: auto; }
+.releases details[open] > summary { margin-bottom: 4px; }
+.releases-trouble { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; color: var(--cf-warn); }
+
+/* Adding downloads: links typed in, or .torrent files chosen or dropped. */
+.add-or { display: flex; align-items: center; gap: 12px; margin: 16px 0; font-size: 14px; color: var(--cf-muted); }
+.add-or::before, .add-or::after { content: ""; flex: 1; height: 1px; background: var(--cf-line); }
+.add-drop {
+  display: grid; justify-items: center; gap: 4px; width: 100%; padding: 20px 16px; border: 1.5px dashed var(--cf-muted);
+  border-radius: 10px; color: var(--cf-ink); text-align: center; cursor: pointer;
+}
+.add-drop:not(:disabled):hover { background: var(--cf-raised); }
+.add-drop:disabled { opacity: .55; cursor: default; }
+.add-picked { margin-top: 12px; }
+.add-picked li { display: flex; align-items: center; gap: 6px 10px; min-height: 44px; padding: 6px 0; border-top: 1px solid var(--cf-line); font-size: 15px; }
+
+/* The places that can be browsed, each a row: what it is, where, and the room left. */
+.root-list { display: grid; gap: 12px; color: var(--cf-ink); font-size: 15px; }
+.root-list li { display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--cf-line); }
+.root-list li > button:first-child { display: grid; gap: 2px; flex: 1; min-width: 0; padding: 12px 0; text-align: left; cursor: pointer; }
+.root-list li > button:first-child:hover > :first-child { text-decoration: underline; text-underline-offset: 4px; }
 
 /* The website's own pages: the mark and the way in over the page, and a footer; no cards, rows parted by one rule. */
 .site { min-height: 100dvh; display: flex; flex-direction: column; background: var(--cf-page); color: var(--cf-ink); --gut: 40px; }

@@ -1,5 +1,4 @@
 import type { SettingsDto, TransferStatusDto } from '@magnetar/protocol'
-import { HardDrive } from 'lucide-react'
 import { Link } from 'react-router'
 import { useT } from '../../lib/i18n.tsx'
 import { useDevice } from '../DeviceContext.tsx'
@@ -28,12 +27,8 @@ export function DiskFullNotice({ transfer }: { transfer: TransferStatusDto | nul
   const full = transfer?.diskFull
   if (!full) return null
   return (
-    <div role="alert" className="surface mb-5 flex items-start gap-3 border-error/40 bg-error/5 p-4">
-      <HardDrive size={20} className="mt-0.5 shrink-0 text-error" />
-      <div className="min-w-0 flex-1 text-sm">
-        <div className="font-semibold">{t('transfer.diskFullTitle')}</div>
-        <p className="muted mt-0.5 break-words">{full.drive ? t('transfer.diskFullText', full.drive) : t('transfer.diskFullHere')}</p>
-      </div>
+    <div role="alert" className="update-bar danger">
+      <p><b className="font-semibold">{t('transfer.diskFullTitle')}</b> {full.drive ? t('transfer.diskFullText', full.drive) : t('transfer.diskFullHere')}</p>
     </div>
   )
 }

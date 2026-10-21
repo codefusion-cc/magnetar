@@ -208,7 +208,7 @@ parallel builds wait on one lock.
 |---|---|
 | `packages/protocol` | The RPC contract shared by dashboard and device, the end-to-end encryption, relay framing, Worker API types |
 | `apps/client` | The app, in Rust: search providers, librqbit engine, series monitor, notifications, RPC/REST/MCP server, relay connector, tray, updater, legacy importer |
-| `apps/web` | The React + Tailwind + daisyUI dashboard, served by the app locally and by the Worker remotely |
+| `apps/web` | The React + Tailwind dashboard on @codefusion-cc/ui, served by the app locally and by the Worker remotely |
 | `apps/worker` | The Cloudflare Worker: Google sign-in, pairing, device registry (D1), the relay (a Durable Object per device), Web Push forwarding and the latest-release lookup |
 | `apps/e2e` | Playwright tests of the dashboard against the real app, and the features page's screenshots |
 | `docs/` | [Architecture and security](docs/ARCHITECTURE.md), [deployment](docs/DEPLOY.md) |

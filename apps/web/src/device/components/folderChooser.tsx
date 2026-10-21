@@ -1,4 +1,3 @@
-import { CircleAlert, TriangleAlert } from 'lucide-react'
 import { useEffect } from 'react'
 import { fileBrowserNotice } from '../../lib/buildVersion.ts'
 import { chipLabels, exceedsFreeSpace, usableOrDefault } from '../../lib/recentFolders.ts'
@@ -48,11 +47,11 @@ export function Chooser({ start, path, onPath, recent, fallback, needBytes, onRe
 
   if (!supported) {
     return (
-      <p className="flex items-start gap-2 text-sm"><CircleAlert size={16} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+      <p className="setting-warn">
         {t(connection.kind === 'local' ? 'files.updateLocal' : fileBrowserNotice(info?.version ?? '', BUILD.version), info?.version ?? '')}</p>
     )
   }
-  if (error && !roots) return <p role="alert" className="text-sm text-error">{error}</p>
+  if (error && !roots) return <p role="alert" className="setting-alert">{error}</p>
   if (!roots || path === undefined) return <Loading />
   // Only folders the device lets this dashboard browse: a remembered one may be outside them now.
   const jumps = (recent ?? []).filter(rootOf)
@@ -62,12 +61,12 @@ export function Chooser({ start, path, onPath, recent, fallback, needBytes, onRe
   return (
     <>
       {jumps.length > 0 && (
-        <div className="mb-3 flex flex-col gap-1.5">
-          <h4 className="text-xs font-semibold">{t('folderBrowser.recent')}</h4>
-          <ul className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+        <div className="mb-3 grid gap-1.5">
+          <h4 className="fine">{t('folderBrowser.recent')}</h4>
+          <ul className="setting-days">
             {jumps.map((folder, i) => (
-              <li key={folder} className="shrink-0">
-                <button type="button" className={`btn btn-xs whitespace-nowrap ${folder === path ? 'btn-primary btn-soft' : 'btn-outline'}`}
+              <li key={folder}>
+                <button type="button"
                   aria-pressed={folder === path} title={folder} onClick={() => onPath(folder)}>
                   {labels[i]}
                 </button>
@@ -77,17 +76,16 @@ export function Chooser({ start, path, onPath, recent, fallback, needBytes, onRe
         </div>
       )}
       {tooSmall && (
-        <p className="mb-3 flex items-start gap-2 text-sm text-warning">
-          <TriangleAlert size={16} className="mt-0.5 shrink-0" aria-hidden />
+        <p className="setting-warn mb-3">
           {t('folderBrowser.notEnough', formatBytes(needBytes!), formatBytes(here!.freeBytes!))}
         </p>
       )}
       {path === null
-        ? <RootList compact roots={roots.roots} canAdd={roots.canAdd} onOpen={onPath} onChanged={setRoots} />
+        ? <RootList roots={roots.roots} canAdd={roots.canAdd} onOpen={onPath} onChanged={setRoots} />
         : <FolderPanel compact foldersOnly path={path} roots={roots.roots} onOpen={onPath} onHome={() => onPath(null)} onReady={onReady}
           status={recent === undefined ? undefined : root => root?.freeBytes != null && (
-            <span className={`text-sm tabular-nums ${tooSmall ? 'text-warning' : 'muted'}`}>
-              {rootLabel(root, separatorOf(root.path), t)} · {t('transfer.free', formatBytes(root.freeBytes))}
+            <span className={`flex flex-wrap gap-x-3 text-[15px] tabular-nums ${tooSmall ? 'text-warn' : 'text-muted'}`}>
+              <span>{rootLabel(root, separatorOf(root.path), t)}</span><span>{t('transfer.free', formatBytes(root.freeBytes))}</span>
             </span>
           )} />}
     </>

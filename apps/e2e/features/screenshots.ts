@@ -459,7 +459,7 @@ try {
       sizesFile: new URL('shots.json', WEB),
       scenes: scenes(website),
       contextOptions: { locale: 'en-US' },
-      busy: '[aria-busy="true"], .loading-dots',
+      busy: '[aria-busy="true"]',
       prepare: (context, { mode }) => context.addInitScript(value => {
         try { localStorage.setItem('magnetar-theme', value) } catch { /* about:blank */ }
       }, mode),

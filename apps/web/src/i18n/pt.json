@@ -582,7 +582,6 @@
     "update.installed": "O Magnetar {0} está instalado.",
     "settings.commit": "Compilada a partir do commit",
     "about.title": "Sobre o Magnetar",
-    "about.subtitle": "Versões, downloads e o que cada lançamento traz.",
     "about.website": "Este site",
     "about.websiteHint": "Atualizado a cada mudança, então pode estar à frente da última versão do app.",
     "about.latestApp": "App mais recente",

@@ -1,6 +1,5 @@
 import { LanesSky } from '../../ui/sky/Sky.tsx'
 import type { DownloadDto, DownloadFileDto } from '@magnetar/protocol'
-import { FileAudio, FileText, FileVideo } from 'lucide-react'
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { isFinished } from '../../lib/downloadViews.ts'
@@ -69,13 +68,6 @@ function Details({ download: d }: { download: DownloadDto }) {
   </article>
 }
 
-/** A file's icon by what a browser can play of it, the same in a download's details and in Files. */
-export function MediaIcon({ media, size = 16 }: { media: 'video' | 'audio' | null; size?: number }) {
-  if (media === 'audio') return <FileAudio size={size} className="shrink-0 text-accent-2" aria-hidden />
-  if (media === 'video') return <FileVideo size={size} className="shrink-0 text-info" aria-hidden />
-  return <FileText size={size} className="muted shrink-0" aria-hidden />
-}
-
 /** The torrent's files with a checkbox each; the choice is saved with one button, not per click. */
 const FileList = memo(function FileList({ id, status, hasMetadata, play, onPlayable, onPlayed }: { id: number; status: DownloadDto['status']; hasMetadata: boolean; play: boolean; onPlayable: (playable: boolean) => void; onPlayed: () => void }) {
   const t = useT()
@@ -122,7 +114,7 @@ const FileList = memo(function FileList({ id, status, hasMetadata, play, onPlaya
   }, [play, files, running, id, onPlayed])
 
   if (!hasMetadata) return <p className="muted text-sm">{t('details.filesPending')}</p>
-  if (error && !files) return <div role="alert"><p className="text-error">{error}</p><button type="button" className="infall-small" onClick={() => setRetry(n => n + 1)}>{t('common.retry')}</button></div>
+  if (error && !files) return <div role="alert"><p className="setting-alert">{error}</p><button type="button" className="infall-small" onClick={() => setRetry(n => n + 1)}>{t('common.retry')}</button></div>
   if (!files) return <p role="status" className="muted">{t('details.filesLoading')}</p>
 
   const toggle = (index: number) => setChosen(current => new Map(current).set(index, !selected.has(index)))
@@ -149,7 +141,7 @@ const FileList = memo(function FileList({ id, status, hasMetadata, play, onPlaya
         )}
       </div>
       {files.length === 0 && <p className="muted">{t('details.filesPending')}</p>}
-      {error && <p role="alert" className="text-error">{error}</p>}
+      {error && <p role="alert" className="setting-alert">{error}</p>}
       {files.length > 0 && <WindowedRows label={t('details.filesHeading')} count={files.length} getKey={fileKey} className="download-files" rowClassName="download-file"
         renderRow={index => {
           const file = files[index]!

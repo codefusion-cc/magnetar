@@ -1,4 +1,5 @@
 import type { AgentClientDto, AgentClientId, AgentStatusDto } from '@magnetar/protocol'
+import { buttonClass } from '@codefusion-cc/ui/react'
 import { Copy } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useT } from '../../lib/i18n.tsx'
@@ -94,19 +95,19 @@ function ManualSetup({ client }: { client: AgentClientDto }) {
   const { manual } = client
   if (manual.kind === 'command') {
     return (
-      <div className="flex flex-col gap-1.5">
-        <span className="muted text-sm">{t('settings.agentManualCommand')}</span>
+      <div className="grid w-full gap-1.5">
+        <span className="fine">{t('settings.agentManualCommand')}</span>
         <CopyInput label={client.name} value={manual.text} copyLabel={t('common.copy')} onCopy={copy} small />
       </div>
     )
   }
   return (
-    <div className="flex flex-col gap-1.5">
-      <span className="muted break-release text-sm">{t('settings.agentManualFile', manual.file)}</span>
+    <div className="grid w-full gap-1.5">
+      <span className="fine break-release">{t('settings.agentManualFile', manual.file)}</span>
       <div className="relative">
-        <pre className="max-h-64 overflow-auto rounded-field bg-base-200 p-3 pr-12 font-mono text-xs"><code>{manual.text}</code></pre>
-        <button type="button" className="btn btn-ghost btn-sm btn-square absolute right-1.5 top-1.5" aria-label={`${t('common.copy')}: ${client.name}`}
-          title={t('common.copy')} onClick={() => void copy(manual.text)}><Copy size={14} /></button>
+        <pre className="max-h-64 overflow-auto rounded-ctl bg-raised p-3 pr-12 font-mono text-[13px]"><code>{manual.text}</code></pre>
+        <button type="button" className={`${buttonClass({ tone: 'ghost', size: 'icon' })} absolute right-1 top-1`} aria-label={`${t('common.copy')}: ${client.name}`}
+          title={t('common.copy')} onClick={() => void copy(manual.text)}><Copy size={16} aria-hidden /></button>
       </div>
     </div>
   )

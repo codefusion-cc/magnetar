@@ -1,6 +1,7 @@
 import { FanSky } from '../../ui/sky/Sky.tsx'
 import type { SearchResultDto, SourceOutcomeDto, TorrentDetailsDto } from '@magnetar/protocol'
-import { Check, Copy, Download, ExternalLink, Sprout } from 'lucide-react'
+import { Spinner } from '@codefusion-cc/ui/react'
+import { ExternalLink, Sprout } from 'lucide-react'
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { askingWhere } from '../../lib/downloadFlow.ts'
@@ -16,6 +17,7 @@ import { Segmented } from '../../ui/controls.tsx'
 import { Loading } from '../../ui/Loading.tsx'
 import { Modal } from '../../ui/Modal.tsx'
 import { Select } from '../../ui/Select.tsx'
+import { Tag } from '../../ui/Tag.tsx'
 import { WindowedRows } from '../../ui/WindowedRows.tsx'
 import { useCopy, useToast } from '../../ui/toast.tsx'
 import { useDevice, useSearch } from '../DeviceContext.tsx'
@@ -147,7 +149,7 @@ export function SearchPage() {
         <button type="submit" className="infall-button" disabled={search.searching || !search.query.trim()}>{t('search.button')}</button>
       </form>
       <div className="search-filters">
-        <Segmented appearance="quiet" label={t('search.resolution')} value={view.resolution}
+        <Segmented label={t('search.resolution')} value={view.resolution}
           onChange={resolution => show({ resolution }, { replace: true })} options={resolutionOptions(t)} />
         <Select look="small" label={t('search.source')} value={view.source} onChange={source => show({ source }, { replace: true })} options={[
           { value: '', label: t('search.allSources') },
@@ -177,9 +179,9 @@ export function SearchPage() {
 
 function Health({ seeders }: { seeders: number }) {
   const t = useT()
-  const tone = seeders >= 10 ? 'text-success' : seeders > 0 ? 'text-warning' : 'text-error'
+  const tone = seeders >= 10 ? 'text-ok' : seeders > 0 ? 'text-warn' : 'text-danger'
   return (
-    <span className={`inline-flex items-center gap-1 font-medium tabular-nums ${tone}`} title={`${t('search.seeders', seeders)} — ${t('search.seedersHint')}`}
+    <span className={`inline-flex items-center gap-1 font-medium tabular-nums ${tone}`} title={`${t('search.seeders', seeders)}. ${t('search.seedersHint')}`}
       aria-label={t('search.seeders', seeders)}>
       <Sprout size={13} aria-hidden />{seeders}
     </span>
@@ -191,10 +193,8 @@ function Tags({ title }: { title: string }) {
   const list = [tags.resolution, tags.hdr, tags.codec, tags.source].filter(Boolean)
   if (list.length === 0) return null
   return (
-    <span className="inline-flex flex-wrap gap-1">
-      {list.map(tag => (
-        <span key={tag} className={`badge badge-sm font-semibold ${tag === tags.resolution ? 'badge-neutral' : 'badge-ghost border-base-300'}`}>{tag}</span>
-      ))}
+    <span className="inline-flex flex-wrap gap-1.5">
+      {list.map(tag => <Tag key={tag} tone={tag === tags.resolution ? 'accent' : 'muted'}>{tag}</Tag>)}
     </span>
   )
 }
@@ -238,7 +238,7 @@ function Outcomes({ list, line, allFailed, searching }: {
 }) {
   const t = useT()
   return <div className="search-sources">
-    <p role={allFailed ? 'alert' : 'status'} className={allFailed ? 'text-error' : ''}>{line}</p>
+    <p role={allFailed ? 'alert' : 'status'} className={allFailed ? 'text-danger' : ''}>{line}</p>
     <div className="source-figure">
       <FanSky revision={list} />
       <ul>{list.map(({ id, name, outcome }) => <li key={id} data-count={!outcome ? searching ? -2 : 0 : outcome.status === 'failed' ? -1 : Math.max(0, outcome.returned - outcome.filtered)} className={!outcome || outcome.status === 'failed' || outcome.returned === outcome.filtered ? 'none' : ''} title={outcomeTitle(t, outcome)}>
@@ -293,36 +293,31 @@ function TorrentInfoDialog({ result, added, onClose, onDownload, onDownloadTo, a
   return (
     <Modal open title={t('info.title')} onClose={onClose} wide
       actions={<>
-        {row.detailsUrl && <a className="btn btn-ghost btn-sm mr-auto" href={row.detailsUrl} target="_blank" rel="noreferrer noopener"><ExternalLink size={14} />{t('info.openPage')}</a>}
+        {row.detailsUrl && <a className="setting-link mr-auto" href={row.detailsUrl} target="_blank" rel="noreferrer noopener"><ExternalLink size={14} aria-hidden className="mr-1.5" />{t('info.openPage')}</a>}
         {offersOtherFolder(ask) && !added && (
-          <button type="button" className="link link-hover mr-1 text-sm" disabled={busy} onClick={() => onDownloadTo(result)}>{t('info.saveElsewhere')}</button>
+          <button type="button" className="setting-link mr-1" disabled={busy} onClick={() => onDownloadTo(result)}>{t('info.saveElsewhere')}</button>
         )}
-        <button type="button" className="btn btn-primary btn-sm" disabled={added || busy} onClick={() => onDownload(result)}>
-          {added ? <Check size={14} /> : <Download size={14} />}{added ? t('search.added') : t('common.download')}
+        <button type="button" className="infall-button" disabled={added || busy} aria-busy={busy} onClick={() => onDownload(result)}>
+          {added ? t('search.added') : t('common.download')}
         </button>
       </>}>
-      <p className="break-release mb-3 text-lg font-semibold leading-snug">{row.title}</p>
+      <p className="break-release mb-3 text-[17px] font-semibold leading-snug">{row.title}</p>
       <div className="mb-4"><Tags title={row.title} /></div>
-      <dl className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
-        {facts.map(([label, value]) => (
-          <div key={label} className="rounded-field bg-base-200 px-3 py-2">
-            <dt className="muted text-xs">{label}</dt>
-            <dd className="mt-0.5 text-sm font-medium tabular-nums">{value}</dd>
-          </div>
-        ))}
+      <dl className="download-facts mb-4 last:mb-0 grid-cols-2! sm:grid-cols-5!">
+        {facts.map(([label, value]) => <div key={label}><dt>{label}</dt><dd className="tabular-nums">{value}</dd></div>)}
       </dl>
-      {loading && <p className="muted mb-3 flex items-center gap-2 text-sm"><span className="loading loading-spinner loading-xs" />{t('info.resolving')}</p>}
+      {loading && <p role="status" className="muted mb-3 flex items-center gap-2"><Spinner />{t('info.resolving')}</p>}
       {details?.description && (
         <>
-          <h4 className="mb-1 text-sm font-semibold">{t('info.description')}</h4>
-          <pre className="mb-4 max-h-56 overflow-y-auto whitespace-pre-wrap rounded-field bg-base-200 p-3 font-sans text-sm">{details.description}</pre>
+          <h4 className="mb-1 font-semibold">{t('info.description')}</h4>
+          <pre className="mb-4 max-h-56 overflow-y-auto whitespace-pre-wrap rounded-ctl bg-raised p-3 font-sans text-[15px]">{details.description}</pre>
         </>
       )}
       {(row.infoHash || details?.magnetUri) && (
-        <div className="flex flex-col gap-2">
-          {row.infoHash && <p className="muted break-release font-mono text-xs">{t('info.infoHash')}: {row.infoHash}</p>}
+        <div className="flex flex-col items-start gap-2">
+          {row.infoHash && <p className="fine break-release setting-mono">{t('info.infoHash')}: {row.infoHash}</p>}
           {details?.magnetUri && (
-            <button type="button" className="btn btn-ghost btn-sm self-start" onClick={() => void copy(details.magnetUri!)}><Copy size={14} />{t('info.copyMagnet')}</button>
+            <button type="button" className="setting-link" onClick={() => void copy(details.magnetUri!)}>{t('info.copyMagnet')}</button>
           )}
         </div>
       )}

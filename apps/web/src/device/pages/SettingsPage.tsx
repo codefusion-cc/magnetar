@@ -103,7 +103,7 @@ function GeneralSection({ settings }: { settings: SettingsDto }) {
   return (
     <>
       <SettingSection title={t('settings.appearance')} hint={t('settings.appearanceHint')}>
-        <Segmented appearance="quiet" label={t('settings.appearance')} value={mode} onChange={(m: ThemeMode, from) => void revealChange(from, () => theme.setMode(m))}
+        <Segmented label={t('settings.appearance')} value={mode} onChange={(m: ThemeMode, from) => void revealChange(from, () => theme.setMode(m))}
           options={(['system', 'light', 'dark'] as const).map(m => ({ value: m, label: t(`settings.theme.${m}`) }))} />
       </SettingSection>
       <SettingSection title={t('settings.language')} htmlFor={languageId} alert={languageFailure}>

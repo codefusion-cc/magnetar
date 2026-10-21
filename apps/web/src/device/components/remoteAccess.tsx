@@ -1,4 +1,3 @@
-import { QrCode, RefreshCw, TimerOff, Unlink } from 'lucide-react'
 import { reservedDeviceName, toDeviceName } from '@magnetar/protocol/device-name'
 import QRCode from 'qrcode'
 import { useEffect, useRef, useState } from 'react'
@@ -164,32 +163,27 @@ export function RemoteAccessSection() {
         </SettingSection>
       </>}
 
-      <Modal open={link !== null} title={t('remote.linkTitle')} icon={<QrCode size={20} />} onClose={closeLink}
+      <Modal open={link !== null} title={t('remote.linkTitle')} onClose={closeLink}
         actions={link?.ended ? <>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={closeLink}>{t('common.close')}</button>
+          <button type="button" className="infall-button quiet" onClick={closeLink}>{t('common.close')}</button>
           {/* Focus moves here, since the link it replaces had it. */}
-          <button type="button" className="btn btn-primary btn-sm" disabled={minting} autoFocus onClick={() => void mintLink(link.label)}>
-            {minting ? <span className="loading loading-spinner loading-xs" /> : <RefreshCw size={14} />}{t('remote.newLink')}
-          </button>
-        </> : <button type="button" className="btn btn-primary btn-sm" onClick={closeLink}>{t('common.done')}</button>}>
+          <button type="button" className="infall-button" disabled={minting} aria-busy={minting} autoFocus onClick={() => void mintLink(link.label)}>{t('remote.newLink')}</button>
+        </> : <button type="button" className="infall-button" onClick={closeLink}>{t('common.done')}</button>}>
         {link && (link.ended ? (
-          <div role="alert" className="alert alert-warning alert-soft text-sm">
-            {link.ended === 'expired' ? <TimerOff size={18} /> : <Unlink size={18} />}
-            {t(link.ended === 'expired' ? 'remote.linkExpired' : 'remote.linkRevoked')}
-          </div>
+          <p role="alert" className="setting-warn">{t(link.ended === 'expired' ? 'remote.linkExpired' : 'remote.linkRevoked')}</p>
         ) : (
           <div className="flex flex-col items-center gap-3 text-center">
-            <p className="text-sm">{t('remote.linkHint')}</p>
-            <img src={link.qr} alt={t('remote.linkTitle')} className="size-64 rounded-box bg-white p-2" />
+            <p>{t('remote.linkHint')}</p>
+            <img src={link.qr} alt={t('remote.linkTitle')} className="size-64 rounded-ctl bg-white p-2" />
             {link.code && (
               <div className="flex flex-col items-center gap-1">
-                <span className="muted text-xs">{t('remote.linkCode')}</span>
+                <span className="fine">{t('remote.linkCode')}</span>
                 <code className="select-all font-mono text-xl font-semibold tracking-wider" aria-label={t('remote.linkCode')}>{link.code}</code>
               </div>
             )}
             <CopyInput small label={t('remote.linkTitle')} value={link.url} copyLabel={t('common.copy')} onCopy={value => void copy(value)} />
             {link.deadline !== undefined && <LinkExpiry deadline={link.deadline} />}
-            <p className="text-xs text-warning">{t('remote.linkWarning')}</p>
+            <p className="fine setting-warn">{t('remote.linkWarning')}</p>
           </div>
         ))}
       </Modal>
@@ -221,5 +215,5 @@ function LinkExpiry({ deadline }: { deadline: number }) {
   const seconds = (deadline - now) / 1000
   // Gone once the time is up: the device deletes the key then, and the dialog says the link expired.
   if (seconds <= 0) return null
-  return <p className="muted text-xs">{t('remote.linkExpires', formatRelative(Math.max(deadline, now + 1000), now))}</p>
+  return <p className="fine">{t('remote.linkExpires', formatRelative(Math.max(deadline, now + 1000), now))}</p>
 }

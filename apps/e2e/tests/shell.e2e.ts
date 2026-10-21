@@ -67,6 +67,19 @@ test('a connection opened during mount is shown as connected once the page has l
   await expect(page.getByRole('alert')).toHaveCount(0)
 })
 
+test('Downloads opened first offers the 1.x import once connected, and Not now keeps it away after a reload', async ({ page, device }) => {
+  device.setReply('legacy.status', { available: true, path: '/old/data.db', imported: false, downloads: 12, seriesTasks: 3 })
+  await page.goto('/')
+  const offer = page.locator('.update-bar').filter({ hasText: 'Bring over your MediaDownloader 1.x data' })
+  await expect(offer).toBeVisible()
+  await offer.getByRole('button', { name: 'Not now' }).click()
+  await expect(offer).toHaveCount(0)
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'Downloads', exact: true })).toBeVisible()
+  await expect(page.locator('.download-row, .downloads-heading').first()).toBeVisible()
+  await expect(offer).toHaveCount(0)
+})
+
 test('the star returns to lit after a dropped connection reconnects', async ({ page, device }) => {
   await page.clock.install()
   await page.goto('/')

@@ -66,7 +66,7 @@ test('air dates use native weekday cases and English day-month order', () => {
 test('series sentences distinguish paused, finished, active, dated and undated episodes', () => {
   const t = translate(en.strings)
   const state = { task: { enabled: true, finished: false, nextEpisode: 7 }, got: 0, total: 1, date: null, checked: 'Not checked yet' }
-  expect(seriesLine(t, { ...state, task: { ...state.task, enabled: false } })).toBe('Paused — switch on to keep checking')
+  expect(seriesLine(t, { ...state, task: { ...state.task, enabled: false } })).toBe('Paused. Switch it on to keep checking')
   expect(seriesLine(t, { ...state, task: { ...state.task, finished: true }, got: 1 })).toBe('You have every episode. Not checked yet.')
   expect(seriesLine(t, { ...state, task: { ...state.task, finished: true } })).toBe('Finished checking for new episodes. Not checked yet.')
   expect(seriesLine(t, { ...state, active: episode(6, null), activeStatus: 'Error' })).toBe('Episode 6 could not be downloaded.')

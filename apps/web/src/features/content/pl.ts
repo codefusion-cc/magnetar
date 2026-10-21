@@ -367,7 +367,7 @@ export const content: FeaturesContent = {
     items: {
       client: { name: 'Rust', text: 'Aplikacja: jeden plik wykonywalny z panelem, bazą danych (SQLite) i silnikiem w środku.' },
       engine: { name: 'librqbit', text: 'Silnik BitTorrent: DHT, trackery, UPnP, szybkie wznawianie i strumieniowanie nieukończonych plików.' },
-      dashboard: { name: 'React i daisyUI', text: 'Panel: ta sama kompilacja na Twoim komputerze i na stronie.' },
+      dashboard: { name: 'React, Tailwind i @codefusion-cc/ui', text: 'Panel: ta sama kompilacja na Twoim komputerze i na stronie.' },
       worker: { name: 'Cloudflare Workers', text: 'Strona: logowanie i urządzenia w D1 oraz osobny Durable Object dla każdego komputera, który przekazuje jego zaszyfrowane połączenia.' },
       packages: { name: 'Pakiety CodeFusion', text: 'Wspólny, przetestowany kod logowania, powiadomień push, identyfikatorów base58, motywu, aktualizacji aplikacji i tej strony.' },
       console: { name: 'CodeFusion Console', text: 'Tu błędy są grupowane według przyczyny, a twórca widzi każde wdrożenie i to, co zmieniło.' },

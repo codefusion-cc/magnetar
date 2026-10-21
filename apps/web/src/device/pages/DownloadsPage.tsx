@@ -81,7 +81,7 @@ export function DownloadsPage() {
     <div className="downloads-summary"><p>{transfer?.engine === 'waitingForNetwork' ? t('downloads.onlyNetwork', deviceName, transfer.networkInterface ?? '') : downloadSummary(t, language, deviceName, running, down)}{' '}
       {transfer?.freeBytes != null && <span className={transfer.freeBytes < 5e9 ? 'download-low-space' : undefined}>{t('downloads.free', bytes(transfer.freeBytes))}</span>} {up > 0 && <span>{t('downloads.uploading', rate(up))}</span>} {settings && <AltSpeedToggle settings={settings} transfer={transfer} />}</p>
     </div>
-    <div className="download-views-row"><Segmented appearance="quiet" label={t('downloads.filter')} value={view} onChange={setView}
+    <div className="download-views-row"><Segmented label={t('downloads.filter')} value={view} onChange={setView}
       options={DOWNLOAD_VIEWS.map(v => ({ value: v, label: t(`downloads.view.${v}`) }))} />
     {downloads.length > 1 && <Select look="quiet" className="ml-auto" label={t('downloads.sort')} value={sort}
       onChange={next => { setSort(next); writeDownloadSort(deviceName, next) }}

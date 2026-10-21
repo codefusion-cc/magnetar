@@ -1,5 +1,6 @@
 import { StrictMode, Suspense, lazy, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
+import { ErrorState } from '@codefusion-cc/ui/react'
 // The look's roles (src/looks/infall.ts) before the page's own styles.
 import 'virtual:codefusion-ui/looks.css'
 import './fonts.css'
@@ -35,7 +36,7 @@ function Root() {
   }, [])
 
   if (error) {
-    return <div className="grid min-h-screen place-items-center p-6"><div role="alert" className="alert alert-error max-w-lg">{error}</div></div>
+    return <div className="grid min-h-screen place-items-center p-6"><ErrorState className="max-w-lg">{error}</ErrorState></div>
   }
   if (!config) return <Loading screen />
   return config.mode === 'local'

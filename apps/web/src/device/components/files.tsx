@@ -1,7 +1,7 @@
 import type { FolderEntryDto, FolderPageDto, FolderRootDto, FolderRootsDto } from '@magnetar/protocol'
+import { Spinner, buttonClass } from '@codefusion-cc/ui/react'
 import {
-  Download, FolderPlus, HardDrive, House, Info, Plus,
-  RefreshCw, X,
+  X,
 } from 'lucide-react'
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { errorMessage } from '../../lib/errors.ts'
@@ -9,6 +9,7 @@ import { appendPage, baseName, crumbs, isWithin, joinPath, separatorOf, type Cru
 import { useFormatBytes, useFormatDate, useLanguage, useT } from '../../lib/i18n.tsx'
 import { RpcError } from '../../lib/rpcClient.ts'
 import { Field } from '../../ui/fields.tsx'
+import { Tag } from '../../ui/Tag.tsx'
 import { ConfirmDialog } from '../../ui/Modal.tsx'
 import { WindowedRows } from '../../ui/WindowedRows.tsx'
 import { Empty } from '../../ui/Empty.tsx'
@@ -103,19 +104,15 @@ function useFolder(path: string | null, foldersOnly: boolean) {
 function Breadcrumbs({ trail, onOpen, onHome, plain = false }: { trail: Crumb[]; onOpen: (path: string) => void; onHome: () => void; plain?: boolean }) {
   const t = useT()
   return (
-    <nav aria-label={t('files.breadcrumb')} className={plain ? 'folder-crumb' : 'breadcrumbs scroll-strip strip-bleed py-0 text-sm'}>
+    <nav aria-label={t('files.breadcrumb')} className="folder-crumb">
       <ul>
-        {!plain && <li>
-          <button type="button" className="link link-hover inline-flex items-center gap-1.5" onClick={onHome}>
-            <House size={14} aria-hidden />{t('files.title')}
-          </button>
-        </li>}
+        {!plain && <li><button type="button" onClick={onHome}>{t('files.title')}</button></li>}
         {trail.map((crumb, i) => (
           <li key={crumb.path}>
-            {plain && i > 0 && <span aria-hidden="true">/</span>}
+            {(!plain || i > 0) && <span aria-hidden="true">/</span>}
             {i === trail.length - 1
-              ? <span aria-current="page" className="max-w-[16rem] truncate font-medium" title={crumb.path}>{crumb.name}</span>
-              : <button type="button" className="link link-hover max-w-[12rem] truncate" title={crumb.path} onClick={() => onOpen(crumb.path)}>{crumb.name}</button>}
+              ? <span aria-current="page" className="max-w-[16rem] truncate font-semibold" title={crumb.path}>{crumb.name}</span>
+              : <button type="button" className="max-w-[12rem] truncate" title={crumb.path} onClick={() => onOpen(crumb.path)}>{crumb.name}</button>}
           </li>
         ))}
       </ul>
@@ -152,14 +149,12 @@ function TextForm({ label, submitLabel, help, placeholder, mono = false, onSubmi
   return (
     <form className="mb-3" onSubmit={e => { e.preventDefault(); void submit() }}
       onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); onCancel() } }}>
-      <Field label={label} help={error ? <span role="alert" className="text-error">{error}</span> : help}>
-        <span className="flex flex-wrap gap-2">
-          <input data-autofocus autoFocus className={`input input-sm min-w-0 flex-1 ${mono ? 'font-mono' : ''}`} value={value} maxLength={4096}
+      <Field label={label} help={error ? <span role="alert" className="text-danger">{error}</span> : help}>
+        <span className="setting-inline">
+          <input data-autofocus autoFocus className={`infall-field${mono ? ' setting-mono' : ''}`} value={value} maxLength={4096}
             placeholder={placeholder} autoComplete="off" aria-invalid={error !== null} onChange={e => setValue(e.target.value)} />
-          <button type="submit" className="btn btn-primary btn-sm" disabled={busy || !value.trim()}>
-            {busy && <span className="loading loading-spinner loading-xs" />}{submitLabel}
-          </button>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}>{t('common.cancel')}</button>
+          <button type="submit" className="infall-button" disabled={busy || !value.trim()} aria-busy={busy}>{submitLabel}</button>
+          <button type="button" className="infall-button quiet" onClick={onCancel}>{t('common.cancel')}</button>
         </span>
       </Field>
     </form>
@@ -254,12 +249,8 @@ export function FolderPanel({ path, roots, foldersOnly = false, onOpen, onHome, 
         {status?.(rootFound)}
       </div>
       <div className={`folder-toolbar flex flex-wrap items-center gap-2 ${header ? 'folder-secondary' : ''}`}>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={reload} disabled={state?.status === 'loading'}>
-          <RefreshCw size={14} className={state?.status === 'loading' ? 'animate-spin' : ''} aria-hidden />{t('files.refresh')}
-        </button>
-        {!header && <button type="button" className="btn btn-ghost btn-sm" aria-expanded={making} disabled={state?.status !== 'ready'} onClick={() => setMaking(m => !m)}>
-          <FolderPlus size={14} aria-hidden />{t('files.newFolder')}
-        </button>}
+        <button type="button" className="infall-small sm" onClick={reload} disabled={state?.status === 'loading'} aria-busy={state?.status === 'loading'}>{t('files.refresh')}</button>
+        {!header && <button type="button" className="infall-small sm" aria-expanded={making} disabled={state?.status !== 'ready'} onClick={() => setMaking(m => !m)}>{t('files.newFolder')}</button>}
         {!header && page && toolbar?.(page)}
       </div>
       {making && page && (
@@ -280,7 +271,7 @@ export function FolderPanel({ path, roots, foldersOnly = false, onOpen, onHome, 
       {state?.status === 'ready' && (
         <>
           {header && trail.length === 1 && <p className="folder-where"><span role="note" aria-label={t('files.folderPath')}>{state.page.path}</span> {toolbar?.(state.page)}</p>}
-          {state.page.truncated && <p className="muted text-xs">{t('files.truncated', state.page.total)}</p>}
+          {state.page.truncated && <p className="fine">{t('files.truncated', state.page.total)}</p>}
           {state.entries.length === 0
             ? <p className="folder-empty">{t(foldersOnly ? 'files.noFolders' : 'files.empty')}</p>
             : compact
@@ -298,7 +289,7 @@ export function FolderPanel({ path, roots, foldersOnly = false, onOpen, onHome, 
                   </>} />}
           {state.entries.length === 0 && header && trail.length > 1 && toolbar?.(state.page)}
           {header && state.entries.length > 0 && <p className="folder-count">{count}</p>}
-          {state.more === 'loading' && <div className="flex justify-center py-3"><span className="loading loading-spinner loading-sm text-primary" /></div>}
+          {state.more === 'loading' && <div className="flex justify-center py-3 text-muted"><Spinner className="size-5" /></div>}
           {state.more === 'failed' && <p className="infall-acts py-3"><button type="button" className="infall-small" onClick={loadMore}>{t('common.retry')}</button></p>}
         </>
       )}
@@ -338,12 +329,11 @@ const EntryRow = memo(function EntryRow({ entry, facts, title, onOpen, fileActio
 })
 
 /** The folders that can be browsed, as cards; on the device itself, a way to add more. */
-export function RootList({ roots, canAdd, onOpen, onChanged, compact = false }: {
+export function RootList({ roots, canAdd, onOpen, onChanged }: {
   roots: FolderRootDto[]
   canAdd: boolean
   onOpen: (path: string) => void
   onChanged: (roots: FolderRootsDto) => void
-  compact?: boolean
 }) {
   const t = useT()
   const formatBytes = useFormatBytes()
@@ -373,26 +363,19 @@ export function RootList({ roots, canAdd, onOpen, onChanged, compact = false }: 
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <ul className={`grid gap-3 ${compact ? '' : 'sm:grid-cols-2'}`} aria-label={t('files.roots')}>
+    <div className="root-list">
+      <ul aria-label={t('files.roots')}>
         {roots.map(root => (
-          <li key={root.path} className="surface flex items-stretch">
-            <button type="button" className="flex min-w-0 flex-1 items-start gap-3 rounded-box p-4 text-left hover:bg-base-200/60" onClick={() => onOpen(root.path)}>
-              {root.kind === 'downloads'
-                ? <Download size={20} className="mt-0.5 shrink-0 text-primary" aria-hidden />
-                : <HardDrive size={20} className="mt-0.5 shrink-0 text-primary" aria-hidden />}
-              <span className="min-w-0 flex-1">
-                <span className="block font-medium">{rootLabel(root, separator, t)}</span>
-                <span className="muted break-release mt-0.5 block font-mono text-xs">{root.path}</span>
-                <span className="mt-1.5 flex flex-wrap gap-2 text-xs">
-                  {root.available
-                    ? root.freeBytes !== null && <span className="muted tabular-nums">{t('transfer.free', formatBytes(root.freeBytes))}</span>
-                    : <span className="badge badge-soft badge-warning badge-sm">{t('files.unavailable')}</span>}
-                </span>
-              </span>
+          <li key={root.path}>
+            <button type="button" onClick={() => onOpen(root.path)}>
+              <span className="font-semibold">{rootLabel(root, separator, t)}</span>
+              <span className="setting-mono break-release text-muted">{root.path}</span>
+              {root.available
+                ? root.freeBytes !== null && <span className="fine tabular-nums">{t('transfer.free', formatBytes(root.freeBytes))}</span>
+                : <span><Tag tone="warn">{t('files.unavailable')}</Tag></span>}
             </button>
             {root.kind === 'added' && canAdd && (
-              <button type="button" className="btn btn-ghost btn-sm btn-square m-2" aria-label={t('files.remove', root.path)} title={t('files.remove', root.path)}
+              <button type="button" className={buttonClass({ tone: 'ghost', size: 'icon' })} aria-label={t('files.remove', root.path)} title={t('files.remove', root.path)}
                 onClick={() => setRemoving(root)}>
                 <X size={16} aria-hidden />
               </button>
@@ -410,12 +393,12 @@ export function RootList({ roots, canAdd, onOpen, onChanged, compact = false }: 
                   onChanged(next)
                 }} />
             : (
-              <div className="flex flex-wrap items-center gap-3">
-                <button type="button" className="btn btn-sm" onClick={() => void add()}><Plus size={14} aria-hidden />{t('files.add')}</button>
-                <span className="muted text-xs">{t('files.addHint')}</span>
+              <div className="infall-acts">
+                <button type="button" className="infall-small" onClick={() => void add()}>{t('files.add')}</button>
+                <span className="fine">{t('files.addHint')}</span>
               </div>
             ))
-        : <p className="muted flex items-start gap-2 text-xs"><Info size={14} className="mt-0.5 shrink-0" aria-hidden />{t('files.addOnDevice', deviceName)}</p>}
+        : <p className="fine">{t('files.addOnDevice', deviceName)}</p>}
       <ConfirmDialog open={removing !== null} title={t('files.removeTitle')} message={t('files.removeMessage', removing ? rootLabel(removing, separator, t) : '')}
         options={[{ label: t('common.cancel'), value: null, tone: 'ghost' }, { label: t('common.remove'), value: removing, tone: 'error' }]}
         onResult={root => void remove(root)} />
@@ -435,9 +418,9 @@ export function DownloadFileActions({ entry, onPlay, onDetails, playing }: {
   return (
     <>
       {entry.media && entry.download.index !== undefined && (
-        <button type="button" className="infall-small" disabled={playing}
+        <button type="button" className="infall-small" disabled={playing} aria-busy={playing}
           aria-label={t('player.play', entry.name)} title={t('player.play', entry.name)} onClick={() => onPlay(entry)}>
-          {playing ? <span className="loading loading-spinner loading-xs" /> : t('details.play')}
+          {t('details.play')}
         </button>
       )}
       <button type="button" className="infall-small" aria-label={t('files.details', entry.name)} title={t('files.details', entry.name)}

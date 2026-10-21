@@ -86,7 +86,7 @@ export function MenuButton({ label, button, items, placement = 'down', onOpen, c
       </button>
       {open && (
         <ul id={id} ref={list} role="menu" aria-label={label} onKeyDown={onListKey}
-          className={`menu absolute z-50 w-72 [&_[role=menuitem]]:min-h-11 max-w-[calc(100vw-2rem)] rounded-box border border-base-300 bg-base-100 p-2 shadow-lg ${
+          className={`infall-menu ${
             placement === 'up' ? 'bottom-full left-0 mb-2' : 'left-0 top-full mt-2'}`}>
           {items(() => close())}
         </ul>

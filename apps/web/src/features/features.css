@@ -1,14 +1,14 @@
-/* The features page in Magnetar's daisyUI theme (index.css): light and dark at once. The structure and the cf-fp-*
-   classes are @codefusion-cc/features-page's; this is the page's width, rhythm and the rows of features. */
+/* The features page in the Infall look's roles (src/looks/infall.ts): light and dark at once. The structure and the
+   cf-fp-* classes are @codefusion-cc/features-page's; this is the page's width, rhythm and the rows of features. */
 
 .features-page {
-  --cf-fp-surface: var(--color-base-100);
-  --cf-fp-ink: var(--color-base-content);
-  --cf-fp-line: var(--color-base-300);
-  --cf-fp-focus: var(--color-primary);
+  --cf-fp-surface: var(--cf-surface);
+  --cf-fp-ink: var(--cf-ink);
+  --cf-fp-line: var(--cf-line);
+  --cf-fp-focus: var(--cf-focus);
   min-height: 100dvh;
-  background: var(--color-base-100);
-  color: var(--color-base-content);
+  background: var(--cf-surface);
+  color: var(--cf-ink);
   line-height: 1.6;
 }
 
@@ -23,7 +23,7 @@
 }
 
 /* One focus ring for every link and control of the page, in the theme's colour. */
-.features-page :focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.features-page :focus-visible { outline: 2px solid var(--cf-focus); outline-offset: 2px; }
 .fp-nav a:focus-visible { outline-offset: -2px; }
 
 /* First stop for the keyboard: past the header's language, theme and account controls. */
@@ -33,10 +33,10 @@
   top: 0.5rem;
   z-index: 60;
   padding: 0.5rem 0.875rem;
-  border-radius: var(--radius-field);
-  background: var(--color-base-100);
+  border-radius: var(--cf-radius-ctl);
+  background: var(--cf-surface);
   font-weight: 600;
-  box-shadow: 0 0 0 1px var(--color-base-300);
+  box-shadow: 0 0 0 1px var(--cf-line);
   transform: translateY(-300%);
 }
 .fp-skip:focus { transform: none; }
@@ -45,7 +45,7 @@
   position: sticky;
   top: 0;
   z-index: 40;
-  background: var(--color-base-100);
+  background: var(--cf-surface);
 }
 
 /* The opening: a heading, a paragraph and two buttons, left-aligned. */
@@ -67,6 +67,11 @@
   .fp-intro-shot { display: block; }
 }
 .fp-actions { margin-top: 2rem; display: flex; flex-wrap: wrap; gap: 0.75rem; }
+/* The way in: its words beside the icon, the icon alone on a phone. */
+.fp-account { gap: 8px; }
+@media (max-width: 639px) {
+  .fp-account { width: 38px; padding: 0; }
+}
 
 .fp-lead { margin-top: 0.75rem; max-width: 42rem; color: var(--cf-muted); text-wrap: pretty; }
 .fp-h2 {
@@ -86,8 +91,8 @@
   position: sticky;
   top: 3.5rem;
   z-index: 30;
-  background: var(--color-base-100);
-  border-block: 1px solid var(--color-base-300);
+  background: var(--cf-surface);
+  border-block: 1px solid var(--cf-line);
 }
 .fp-nav ul {
   display: flex;
@@ -112,10 +117,10 @@
   white-space: nowrap;
   color: var(--cf-muted);
 }
-.fp-nav a:hover { color: var(--color-base-content); }
+.fp-nav a:hover { color: var(--cf-ink); }
 .fp-nav a[aria-current='location'] {
-  border-bottom-color: var(--color-primary);
-  color: var(--color-base-content);
+  border-bottom-color: var(--cf-accent);
+  color: var(--cf-ink);
 }
 
 /* The index: the groups side by side, a feature to a line. */
@@ -126,11 +131,11 @@
 .fp-index h3 { font-size: 1.0625rem; font-weight: 600; }
 .fp-index ul { margin-top: 0.5rem; }
 .fp-index a { display: block; padding-block: 0.375rem; color: var(--cf-muted); }
-.fp-index a:hover { color: var(--color-base-content); text-decoration: underline; text-underline-offset: 3px; }
+.fp-index a:hover { color: var(--cf-ink); text-decoration: underline; text-underline-offset: 3px; }
 
 /* A feature: the text, and beside it on a wide screen its screenshots, which stay in view while the text is read. */
 .fp-rows { margin-top: 1.5rem; }
-.fp-row { padding-block: 2.25rem; border-top: 1px solid var(--color-base-300); }
+.fp-row { padding-block: 2.25rem; border-top: 1px solid var(--cf-line); }
 .fp-row > :not(.fp-aside) { max-width: 40rem; }
 .fp-title { font-size: 1.375rem; font-weight: 650; letter-spacing: -0.02em; text-wrap: balance; }
 .fp-title a:hover { text-decoration: underline; text-underline-offset: 4px; }
@@ -140,7 +145,7 @@
 .fp-points li + li { margin-top: 0.375rem; }
 .fp-points li::marker { color: var(--cf-muted); }
 .fp-more { margin-top: 0.75rem; }
-.fp-more summary { display: inline-block; font-weight: 600; color: var(--color-primary); cursor: pointer; }
+.fp-more summary { display: inline-block; font-weight: 600; color: var(--cf-accent); cursor: pointer; }
 .fp-more summary:hover { text-decoration: underline; text-underline-offset: 3px; }
 .fp-aside { margin-top: 1.5rem; min-width: 0; }
 @media (min-width: 64rem) {
@@ -160,8 +165,8 @@
 
 /* Screenshots: a hairline, so a dark screen on a dark page still has an edge. */
 .features-page .cf-fp-frame {
-  border: 1px solid var(--color-base-300);
-  border-radius: var(--radius-box);
+  border: 1px solid var(--cf-line);
+  border-radius: var(--cf-radius-card);
   box-shadow: 0 1px 2px color-mix(in oklab, black 8%, transparent);
 }
 
@@ -170,7 +175,7 @@
 @media (min-width: 48rem) {
   .fp-entries { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-.fp-entry { padding-block: 1rem; border-top: 1px solid var(--color-base-300); align-content: start; }
+.fp-entry { padding-block: 1rem; border-top: 1px solid var(--cf-line); align-content: start; }
 .fp-entry-title { font-weight: 600; }
 .fp-entry .fp-text { margin-top: 0.25rem; }
 

@@ -1,5 +1,5 @@
 import type { DownloadDto, SeriesTaskDto, ShowInfoDto, WatchInput } from '@magnetar/protocol'
-import { ChevronDown, ExternalLink, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ChevronDown, ExternalLink, Pencil, Trash2 } from 'lucide-react'
 import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router'
 import { useFormatRelative, useLanguage, useT } from '../../lib/i18n.tsx'
@@ -66,7 +66,7 @@ export function SeriesPage() {
       <header className="downloads-heading watch-heading"><h1>{t('watch.pageTitle')}</h1>
         {(tab === 'series' && !seriesRead.loading && (series.length > 0 || seriesRead.failed)) && <div className="infall-acts">{add}{waitForRelease}</div>}
       </header>
-      <div className="watch-tabs"><Segmented appearance="quiet" label={t('watch.pageTitle')} value={tab} onChange={next => navigate(href(next))}
+      <div className="watch-tabs"><Segmented label={t('watch.pageTitle')} value={tab} onChange={next => navigate(href(next))}
         options={[{ value: 'series', label: t('series.title') }, { value: 'releases', label: t('watch.tab') }]} /></div>
       {tab === 'releases' ? <WatchesSection start={handed} onStarted={clearHanded} /> : seriesRead.loading ? <Loading text={t('series.reading')} rows={3} />
         : seriesRead.failed ? <Empty appearance="page" role="alert" state="far" title={t('series.readFailed')} text={t('series.readFailedHint', deviceName)} onRetry={seriesRead.retry} />
@@ -155,7 +155,7 @@ const SeriesCard = memo(function SeriesCard({ task, downloads, onEdit, now }: {
       <div className="show-body"><h2>{task.name || t('series.unnamed')}</h2><p>{line}</p><p className="rule">{rule}</p>
         <details className="series-tools" onToggle={e => setShowMetadata(e.currentTarget.open)}><summary>{t('common.edit')}</summary><div className="infall-acts">
           <p className="series-rule-details">{[task.titleFilter, task.provider, t('series.everyN', intervalLabel(t, task.checkIntervalMinutes)), task.lastCheckedAt ? t('series.checkedAgo', formatRelative(task.lastCheckedAt)) : t('series.notCheckedYet')].filter(Boolean).join(', ')}</p>
-          {downloads.some(d => d.status === 'Error') && <p className="text-warning">{t('series.failedHint', downloads.filter(d => d.status === 'Error').length)}</p>}
+          {downloads.some(d => d.status === 'Error') && <p className="setting-warn">{t('series.failedHint', downloads.filter(d => d.status === 'Error').length)}</p>}
           {showMetadata && <ShowMetadata task={task} />}
           {!task.finished && <Switch label={t('series.enabled')} checked={task.enabled} onChange={enabled => void run(() => connection.call('series.update', { id: task.id, patch: { enabled } }), 'settings.saveFailed')} />}
           <button className="infall-small" onClick={() => onEdit(task)}><Pencil size={14} />{t('common.edit')}</button>
@@ -254,9 +254,8 @@ function SeriesDialog({ task, onClose }: { task: SeriesTaskDto | 'new' | null; o
   return (
     <Modal open={task !== null} title={existing ? t('series.editTitle') : t('series.add')} onClose={onClose} wide
       actions={<>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>{t('common.cancel')}</button>
-        <button type="button" className="btn btn-primary btn-sm" disabled={invalid || saving} onClick={() => void save()}>
-          {saving ? <span className="loading loading-spinner loading-xs" /> : existing ? null : <Plus size={14} />}
+        <button type="button" className="infall-button quiet" onClick={onClose}>{t('common.cancel')}</button>
+        <button type="button" className="infall-button" disabled={invalid || saving} aria-busy={saving} onClick={() => void save()}>
           {existing ? t('common.save') : t('series.add')}
         </button>
       </>}>
@@ -286,10 +285,10 @@ function SeriesDialog({ task, onClose }: { task: SeriesTaskDto | 'new' | null; o
             <TextField label={t('series.endEpisode')} type="number" min={1} value={form.endEpisode} onChange={set('endEpisode')} />
           </div>
           {end !== null && end < start
-            ? <p className="text-sm text-error">{t('series.endBeforeStart')}</p>
-            : <p className="muted text-xs">{t('series.episodesHelp')}</p>}
+            ? <p className="setting-alert">{t('series.endBeforeStart')}</p>
+            : <p className="fine">{t('series.episodesHelp')}</p>}
           {!existing && (
-            <p className="rounded-field bg-info/10 px-3 py-2 text-sm text-info">
+            <p className="fine">
               {form.startFrom === 'episode' ? t('series.backfillHint', start) : t(`series.startFromHint.${form.startFrom}`)}
             </p>
           )}
@@ -319,7 +318,7 @@ function SeriesDialog({ task, onClose }: { task: SeriesTaskDto | 'new' | null; o
 function FormSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <fieldset className="flex flex-col gap-3">
-      <legend className="muted mb-3 text-xs font-semibold uppercase tracking-wider">{title}</legend>
+      <legend className="mb-3 text-[17px] font-semibold">{title}</legend>
       {children}
     </fieldset>
   )

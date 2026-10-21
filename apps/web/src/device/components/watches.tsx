@@ -1,5 +1,5 @@
 import type { WatchDto, WatchInput } from '@magnetar/protocol'
-import { BellRing, RotateCcw, Trash2 } from 'lucide-react'
+import { RotateCcw, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { useFormatBytes, useFormatRelative, useT } from '../../lib/i18n.tsx'
@@ -164,11 +164,11 @@ function WatchDialog({ watch, draft, onClose }: { watch: WatchDto | 'new' | null
   const intervals = INTERVALS.includes(form.checkIntervalMinutes) ? INTERVALS : [...INTERVALS, form.checkIntervalMinutes].sort((a, b) => a - b)
 
   return (
-    <Modal open={watch !== null} title={existing ? t('watch.editTitle') : t('watch.add')} icon={<BellRing size={20} />} onClose={onClose} wide
+    <Modal open={watch !== null} title={existing ? t('watch.editTitle') : t('watch.add')} onClose={onClose} wide
       actions={<>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>{t('common.cancel')}</button>
-        <button type="button" className="btn btn-primary btn-sm" disabled={invalid || saving} onClick={() => void save()}>
-          {saving && <span className="loading loading-spinner loading-xs" />}{existing ? t('common.save') : t('watch.add')}
+        <button type="button" className="infall-button quiet" onClick={onClose}>{t('common.cancel')}</button>
+        <button type="button" className="infall-button" disabled={invalid || saving} aria-busy={saving} onClick={() => void save()}>
+          {existing ? t('common.save') : t('watch.add')}
         </button>
       </>}>
       <div className="flex flex-col gap-4">

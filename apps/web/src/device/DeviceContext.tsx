@@ -61,7 +61,7 @@ interface DeviceState {
  * Applies a progress update: changed rows are replaced, every other row keeps its object, so views
  * memoized per row skip the ones that did not change.
  */
-export function mergeRows(list: DownloadDto[], rows: DownloadDto[]): DownloadDto[] {
+function mergeRows(list: DownloadDto[], rows: DownloadDto[]): DownloadDto[] {
   if (rows.length === 0) return list
   const updates = new Map(rows.map(r => [r.id, r]))
   let changed = false

@@ -120,8 +120,8 @@ function FeaturesView({ language, content }: { language: string; content: Featur
               <h1>{content.hero.title}</h1>
               <p className="fp-lead">{content.hero.lead}</p>
               <p className="fp-actions">
-                <a href="#overview" className="btn btn-primary btn-lg">{content.hero.primary}</a>
-                <a href="#get-app" className="btn btn-lg">{content.hero.secondary}</a>
+                <a href="#overview" className="infall-button big">{content.hero.primary}</a>
+                <a href="#get-app" className="infall-button quiet big">{content.hero.secondary}</a>
               </p>
             </div>
             {/* The app itself, beside the opening on a wide screen; its alt text is with the feature that shows it. */}
@@ -147,7 +147,7 @@ function FeaturesView({ language, content }: { language: string; content: Featur
 
             <section id="built-on" aria-labelledby="built-on-title" className="fp-section">
               <h2 id="built-on-title" className="fp-h2">{content.builtOn.title}</h2>
-              <p className="fp-lead">{content.builtOn.lead} <a className="link" href={REPOSITORY}>{REPOSITORY.replace('https://', '')}</a></p>
+              <p className="fp-lead">{content.builtOn.lead} <a className="underline underline-offset-4" href={REPOSITORY}>{REPOSITORY.replace('https://', '')}</a></p>
               <FeatureList features={builtOn} level={3} classNames={ENTRIES} />
             </section>
 
@@ -172,13 +172,13 @@ function Header({ language, content }: { language: string; content: FeaturesCont
   return (
     <header className="fp-header">
       <div className="fp-wrap flex h-14 items-center gap-2">
-        <Link to="/" className="flex min-h-10 flex-1 items-center gap-2.5 rounded-field" aria-label={content.header.home}>
+        <Link to="/" className="flex min-h-10 flex-1 items-center gap-2.5 rounded-ctl" aria-label={content.header.home}>
           <BrandMark />
           <span className="font-display text-[15px]">Magnetar</span>
         </Link>
         <Select look="small" label={content.header.language} value={language} onChange={next => navigate(`/features/${next}`, { replace: true })}
           options={LANGUAGES.map(l => ({ value: l.code, label: l.name, lang: l.code }))} />
-        <Link to={account.to} className="btn btn-primary btn-sm max-sm:btn-square" aria-label={account.label}>
+        <Link to={account.to} className="infall-button fp-account" aria-label={account.label}>
           {account.signedIn ? <ArrowRight size={16} aria-hidden /> : <LogIn size={16} aria-hidden />}
           <span className="max-sm:hidden">{account.label}</span>
         </Link>
@@ -195,9 +195,7 @@ function Closing({ content }: { content: FeaturesContent }) {
       <h2 id="get-app-title" className="fp-h2">{content.closing.title}</h2>
       <p className="fp-lead">{content.closing.lead}</p>
       <div className="fp-download"><DownloadApp /></div>
-      <Link to={account.to} className="btn mt-6">
-        {account.signedIn ? account.label : content.closing.signIn}<ArrowRight size={16} aria-hidden />
-      </Link>
+      <Link to={account.to} className="infall-button quiet big mt-6">{account.signedIn ? account.label : content.closing.signIn}</Link>
     </section>
   )
 }

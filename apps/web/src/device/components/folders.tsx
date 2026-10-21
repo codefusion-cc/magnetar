@@ -1,4 +1,3 @@
-import { Download, FolderOpen } from 'lucide-react'
 import { lazy, Suspense, useEffect, useId, useRef, useState } from 'react'
 import { useFormatBytes, useT } from '../../lib/i18n.tsx'
 import { updates } from '../../lib/updates.ts'
@@ -49,30 +48,28 @@ export function FolderBrowser({ open, start, onClose, onSelect, save }: {
     primary.current?.focus()
   }
   return (
-    <Modal open={open} title={t(save ? 'dialog.downloadTo' : 'dialog.chooseFolder')} icon={save ? <Download size={20} /> : <FolderOpen size={20} />} onClose={onClose} wide
+    <Modal open={open} title={t(save ? 'dialog.downloadTo' : 'dialog.chooseFolder')} onClose={onClose} wide
       actions={<>
         {save?.canAlways && (
-          <label className="flex min-h-10 w-full cursor-pointer items-center gap-3 text-sm sm:min-h-0 sm:w-auto sm:flex-1">
-            <input type="checkbox" className="checkbox checkbox-sm checkbox-primary" checked={always} disabled={save.busy} onChange={e => setAlways(e.target.checked)} />
-            {t('folderBrowser.always')}
+          <label className="setting-check w-full sm:w-auto sm:flex-1">
+            <input type="checkbox" checked={always} disabled={save.busy} onChange={e => setAlways(e.target.checked)} />
+            <span>{t('folderBrowser.always')}</span>
           </label>
         )}
-        <div className="flex w-full gap-2 sm:ml-auto sm:w-auto">
-          <button type="button" className="btn btn-ghost btn-sm" disabled={save?.busy} onClick={onClose}>{t('common.cancel')}</button>
-          <button type="button" ref={primary} className="btn btn-primary btn-sm flex-1 sm:flex-none" disabled={!chosen || save?.busy} onClick={() => chosen && onSelect(chosen, always)}>
-            {save?.busy && <span className="loading loading-spinner loading-xs" />}
-            {save && !save.busy && <Download size={14} />}
+        <div className="infall-acts w-full sm:ml-auto sm:w-auto">
+          <button type="button" className="infall-button quiet" disabled={save?.busy} onClick={onClose}>{t('common.cancel')}</button>
+          <button type="button" ref={primary} className="infall-button flex-1 sm:flex-none" disabled={!chosen || save?.busy} aria-busy={save?.busy} onClick={() => chosen && onSelect(chosen, always)}>
             {t(save ? 'folderBrowser.downloadHere' : 'folderBrowser.selectFolder')}
           </button>
         </div>
       </>}>
       {save?.subject && (
-        <p className="mb-3 flex items-baseline gap-2 text-sm">
-          <span className="min-w-0 flex-1 truncate font-medium" title={save.subject.name}>{save.subject.name}</span>
+        <p className="mb-3 flex items-baseline gap-2">
+          <span className="min-w-0 flex-1 truncate font-semibold" title={save.subject.name}>{save.subject.name}</span>
           {save.subject.bytes !== null && <span className="muted shrink-0 tabular-nums">{formatBytes(save.subject.bytes)}</span>}
         </p>
       )}
-      {save?.error && <p role="alert" className="mb-3 whitespace-pre-line text-sm text-error">{save.error}</p>}
+      {save?.error && <p role="alert" className="setting-alert mb-3 whitespace-pre-line">{save.error}</p>}
       {open && <Suspense fallback={<Loading />}><Chooser start={start} path={chosen} onPath={setChosen} recent={save?.recent} fallback={save?.fallback} needBytes={save?.subject?.bytes} onReady={ready} /></Suspense>}
     </Modal>
   )
@@ -126,15 +123,15 @@ export function FolderField({ label, value, placeholder, help, onChange, hideLab
   )
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className={hideLabel ? 'sr-only' : 'text-sm font-medium'}>{label}</label>
-      <div className="join w-full">
-        <input id={id} className="input join-item w-full min-w-0 font-mono text-sm" value={draft} placeholder={placeholder ?? label}
+    <div className="infall-labelled">
+      <label htmlFor={id} className={hideLabel ? 'sr-only' : undefined}>{label}</label>
+      <div className="setting-inline">
+        <input id={id} className="infall-field setting-mono" value={draft} placeholder={placeholder ?? label}
           onChange={e => setDraft(e.target.value)} onBlur={() => draft !== value && onChange(draft)}
           onKeyDown={blurOnEnter} />
-        <button type="button" className="btn join-item" aria-label={t('common.browse')} onClick={() => void browse()}><FolderOpen size={16} /><span className="hidden sm:inline">{t('common.browse')}</span></button>
+        <button type="button" className="infall-small" onClick={() => void browse()}>{t('common.browse')}</button>
       </div>
-      {help && <p className="muted text-xs">{help}</p>}
+      {help && <p className="fine">{help}</p>}
       {browser}
     </div>
   )

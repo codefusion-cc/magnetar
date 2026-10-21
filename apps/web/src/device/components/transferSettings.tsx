@@ -24,7 +24,7 @@ export function SeedingSetting({ settings }: { settings: SettingsDto }) {
   const help = { StopSeeding: 'settings.stopSeedingHelp', KeepSeeding: 'settings.keepSeedingHelp', SeedToRatio: 'settings.seedRatioHelp' }[action]
   return (
     <SettingSection title={t('settings.postDownload')} hint={t(help, ratio)} alert={failure}>
-      <Segmented appearance="quiet" label={t('settings.postDownload')} value={action} onChange={choose}
+      <Segmented label={t('settings.postDownload')} value={action} onChange={choose}
         options={[
           { value: 'StopSeeding', label: t('settings.stopSeeding') },
           { value: 'KeepSeeding', label: t('settings.keepSeeding') },
@@ -131,7 +131,7 @@ export function SlowerLimits({ settings }: { settings: SettingsDto }) {
     : settings.altScheduleFrom === settings.altScheduleTo ? t('settings.altAllDay') : t('settings.altWindow')
   return (
     <SettingSection title={t('settings.altLimits')} hint={hint} alert={failure}>
-      <Segmented appearance="quiet" label={t('settings.altWhen')} value={mode} onChange={chooseMode}
+      <Segmented label={t('settings.altWhen')} value={mode} onChange={chooseMode}
         options={[
           { value: 'off', label: t('settings.altOff') },
           { value: 'scheduled', label: t('settings.altScheduled') },

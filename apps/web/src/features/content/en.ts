@@ -367,7 +367,7 @@ export const en: FeaturesContent = {
     items: {
       client: { name: 'Rust', text: 'The app: one executable with the dashboard, the database (SQLite) and the engine inside.' },
       engine: { name: 'librqbit', text: 'The BitTorrent engine: DHT, trackers, UPnP, fast resume and streaming of unfinished files.' },
-      dashboard: { name: 'React and daisyUI', text: 'The dashboard, the same build on your computer and on the website.' },
+      dashboard: { name: 'React, Tailwind and @codefusion-cc/ui', text: 'The dashboard, the same build on your computer and on the website.' },
       worker: { name: 'Cloudflare Workers', text: 'The website: sign-in and devices in D1, and a Durable Object per computer that relays its encrypted connections.' },
       packages: { name: 'CodeFusion packages', text: 'Shared, tested code for sign-in, push, base58 ids, the theme, app updates and this page.' },
       console: { name: 'CodeFusion Console', text: 'Where errors are grouped by cause, and where the developer sees each deploy and what it changed.' },

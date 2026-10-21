@@ -44,7 +44,7 @@ export function FilesPage() {
     )
   }
   const header = (actions: ReactNode) => <><header className="downloads-heading"><h1>{t('files.title')}</h1>{actions}</header>
-    {roots && <div className="file-places"><Segmented appearance="quiet" label={t('files.roots')}
+    {roots && <div className="file-places"><Segmented label={t('files.roots')}
       value={roots.roots.find(r => path !== null && isWithin(path, r.path, separatorOf(r.path)))?.path ?? ''}
       onChange={open} options={roots.roots.map(root => ({ value: root.path, label: baseName(root.path, separatorOf(root.path)) }))} /></div>}</>
 
@@ -106,8 +106,8 @@ function Folder({ path, roots, downloadFolder, onOpen, onHome, header }: {
     return isDownloadFolder
       ? <span className="file-destination">{t('files.newDownloadsHere')}</span>
       : (
-        <button type="button" className="infall-button quiet file-use-folder" disabled={saving} onClick={() => void useAsDownloadFolder(page)}>
-          {saving && <span className="loading loading-spinner loading-xs" />}{t('files.useAsDownloadFolder')}
+        <button type="button" className="infall-button quiet file-use-folder" disabled={saving} aria-busy={saving} onClick={() => void useAsDownloadFolder(page)}>
+          {t('files.useAsDownloadFolder')}
         </button>
       )
   }
