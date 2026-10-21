@@ -37,6 +37,8 @@ export async function serveDevice(page: Page, { name = 'Test computer', language
   let downloads: DownloadDto[] = design ? infallDownloads(design) : []
   let nextId = downloads.length + 1
   const sockets = new Set<WebSocketRoute>()
+  /** Whether the relay says the computer is connected; local pages have no relay and ignore it. */
+  let online = true
   const sessions = new Map<WebSocketRoute, E2ESession>()
   const rawKey = new Uint8Array(32).fill(7)
   const key = await importBrowserKey(rawKey)
@@ -83,7 +85,7 @@ export async function serveDevice(page: Page, { name = 'Test computer', language
   await page.routeWebSocket(remote ? '**/api/devices/test/connect' : '**/ws', socket => {
     sockets.add(socket)
     socket.onClose(() => { sockets.delete(socket); sessions.delete(socket) })
-    if (remote) socket.send(JSON.stringify({ t: 'device', online: design !== 'loading' }))
+    if (remote) socket.send(JSON.stringify({ t: 'device', online }))
     socket.onMessage(async raw => {
       if (raw === 'ping') return
       if (remote && typeof raw !== 'string') {
@@ -202,6 +204,11 @@ export async function serveDevice(page: Page, { name = 'Test computer', language
     setDownloads: (next: DownloadDto[]) => { downloads = next },
     downloads: () => downloads,
     settings: () => settings,
+    /** The relay's word that the computer left or came back, as it tells every open page. */
+    setOnline: (next: boolean) => {
+      online = next
+      for (const socket of sockets) socket.send(JSON.stringify({ t: 'device', online }))
+    },
     disconnect: () => {
       for (const socket of sockets) socket.close()
       sockets.clear()

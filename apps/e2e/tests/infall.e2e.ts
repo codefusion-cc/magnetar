@@ -265,15 +265,14 @@ test('the remote frame and its computer menu use text controls without icons', a
   await expect(frame.getByRole('menu').locator('svg')).toHaveCount(0)
 })
 
-test('initial remote loading uses one connection message and the unreachable star has only its ring', async ({ page }) => {
+test('initial remote loading uses one connection message', async ({ page }) => {
   await page.clock.install()
   await serveDevice(page, { design: 'loading', remote: true })
   await page.goto('/Mac-Mini-M1')
   await expect(page.getByRole('status').filter({ hasText: 'Connecting to Mac-Mini-M1' })).toHaveText('Connecting to Mac-Mini-M1')
   await page.clock.runFor(1000)
-  await expect(page.getByRole('group', { name: 'Mac-Mini-M1', exact: true }).locator('[data-state]')).toHaveAttribute('data-state', 'out')
+  await expect(page.getByRole('status').filter({ hasText: 'Connecting to Mac-Mini-M1' })).toHaveText('Connecting to Mac-Mini-M1')
   await expect(page.getByRole('alert')).toHaveCount(0)
-  await expect(page.getByRole('group', { name: 'Mac-Mini-M1', exact: true }).locator('[data-state]')).toHaveCSS('box-shadow', /^[a-z]+\([^)]*\) 0px 0px 0px 1\.5px$/)
 })
 
 

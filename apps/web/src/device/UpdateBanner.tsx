@@ -1,4 +1,3 @@
-import { ArrowUpCircle, Sparkles, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import { useFormatDate, useT } from '../lib/i18n.tsx'
@@ -25,17 +24,18 @@ function readDismissed(key: string): string | null {
 
 /**
  * Says when the app behind this dashboard is out of date, updates it with one click, and follows the update to its
- * end: installed, not installed (with the reason, to try again), or an app that did not come back. The app checks GitHub
- * every 6 hours itself; on the website, the Worker's view of the newest release also counts, so an app whose last
- * check failed (or that predates checking) is still caught. Hidden per version, and on Settings → About, which
- * says the same with the changelog under it.
+ * end: installed, not installed (with the reason, to try again), or an app that did not come back. While the app
+ * installs and restarts, the Updating screen (`AwayScreen`) takes the page instead, and while the computer is offline
+ * there is nothing to update. The app checks GitHub every 6 hours itself; on the website, the Worker's view of the
+ * newest release also counts, so an app whose last check failed (or that predates checking) is still caught. Later
+ * hides it per version; Settings → About says the same with the changelog under it.
  */
 export function UpdateBanner() {
   const t = useT()
   const toast = useToast()
   const run = useRun()
   const formatDate = useFormatDate()
-  const { connection, updates, info, deviceName, basePath, installPhase, installedVersion, installUpdate, forgetInstall } = useDevice()
+  const { connection, connectionState, updates, info, deviceName, basePath, installPhase, installedVersion, installUpdate, forgetInstall } = useDevice()
   const remote = connection.kind === 'remote'
   const latest = latestRelease.useLatest(remote)
   const { pathname } = useLocation()
@@ -61,9 +61,9 @@ export function UpdateBanner() {
   const following = waiting || trouble !== null
   if (pathname.startsWith(`${basePath}/settings/about`) && updates) return null
   if (!following && (!running || !offered || dismissed === offered)) return null
+  if (waiting || (!trouble && connectionState.status === 'device-offline')) return null
   const text = trouble
-    ?? (waiting ? (remote ? t('update.installingRemote', deviceName) : t('update.installingLocal'))
-    : remote ? t('update.bannerRemote', deviceName, running ?? '', offered ?? '') : t('update.bannerLocal', offered ?? '', running ?? ''))
+    ?? (remote ? t('update.bannerRemote', deviceName, running ?? '', offered ?? '') : t('update.bannerLocal', offered ?? '', running ?? ''))
   const releaseUrl = httpsOnly(updates?.available?.releaseUrl ?? latest?.pageUrl)
   // The app said it can't install itself (a copy outside Applications, Linux without a key): download instead.
   const download = manual ?? (updates?.available && !updates.canSelfInstall ? releaseUrl : null)
@@ -79,7 +79,7 @@ export function UpdateBanner() {
     }
   }
   const update = async () => {
-    if (connection.state.status !== 'open') return toast(t(remote ? 'remote.deviceOffline' : 'connection.reconnecting'), 'info')
+    if (connection.state.status !== 'open') return toast(connection.state.status === 'device-offline' ? t('remote.offlineTitle', deviceName) : t('connection.reconnecting'), 'info')
     setBusy(true)
     try {
       // The website heard of the release before the app did: let the app look, then install what it found.
@@ -98,29 +98,18 @@ export function UpdateBanner() {
   }
 
   return (
-    <div className="px-4 pt-4 sm:px-6 lg:px-10">
-      <div role="status" className={`alert alert-soft ${trouble ? 'alert-warning' : 'alert-info'} alert-vertical mx-auto max-w-5xl sm:alert-horizontal`}>
-        <ArrowUpCircle size={18} className="hidden sm:block" />
-        <span className="text-left">
-          {text}
-        </span>
-        <div className="flex flex-wrap items-center gap-2">
-          {!following && <Link to={`${basePath}/settings/about`} className="btn btn-ghost btn-sm"><Sparkles size={14} />{t('update.whatsNew')}</Link>}
-          {download ? (
-            <a className="btn btn-primary btn-sm" href={download} target="_blank" rel="noreferrer noopener">{t('update.download')}</a>
-          ) : (
-            <button type="button" className="btn btn-primary btn-sm" disabled={busy || waiting} onClick={() => void update()}>
-              {(busy || waiting) && <span className="loading loading-spinner loading-xs" />}
-              {waiting ? t('settings.installing') : trouble ? t('update.retry') : t('update.now')}
-            </button>
-          )}
-          {!waiting && (
-            <button type="button" className="btn btn-ghost btn-sm btn-square" aria-label={t(following ? 'common.close' : 'update.dismiss')}
-              title={t(following ? 'common.close' : 'update.dismiss')} onClick={dismiss}>
-              <X size={16} />
-            </button>
-          )}
-        </div>
+    <div role="status" className={`update-bar${trouble ? ' trouble' : ''}`}>
+      <p>{text}</p>
+      <div className="infall-acts">
+        {!following && <Link to={`${basePath}/settings/about`} className="infall-small sm">{t('update.whatsNew')}</Link>}
+        {download ? (
+          <a className="infall-button sm" href={download} target="_blank" rel="noreferrer noopener">{t('update.download')}</a>
+        ) : (
+          <button type="button" className="infall-button sm" disabled={busy} aria-busy={busy || undefined} onClick={() => void update()}>
+            {trouble ? t('update.retry') : t('update.now')}
+          </button>
+        )}
+        <button type="button" className="infall-small sm" onClick={dismiss}>{t(following ? 'common.close' : 'update.later')}</button>
       </div>
     </div>
   )

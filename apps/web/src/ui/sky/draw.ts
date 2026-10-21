@@ -2,7 +2,8 @@ import type { SceneDraw, SceneFrame } from '@codefusion-cc/scene'
 
 export const skyColors = ['core', 'white', 'edge', 'field', 'glow', 'far', 'far-glow', 'void', 'cold', 'red', 'warm', 'hot', 'ice', 'held'].map(k => `--mg-sky-${k}`)
 type Palette = Record<string, string>
-export type StarMode = 'on' | 'wake' | 'off' | 'far'
+/** `quake`: the lit star sending rings out, while the computer updates. */
+export type StarMode = 'on' | 'wake' | 'off' | 'far' | 'quake'
 export interface Lane { x: number; y: number; w: number; u: number; st: string }
 export interface Source { x: number; y: number; n: number }
 const TAU = Math.PI * 2
@@ -48,6 +49,10 @@ function star(c: CanvasRenderingContext2D, p: Palette, x: number, y: number, R: 
   c.save(); c.globalCompositeOperation = 'lighter'
   const wake = mode === 'wake' ? .45 + .4 * Math.sin(t * 2.2) ** 2 : 1
   if (!off) { glow(c, x, y, R * 9 * (1 + .08 * Math.sin(spin)), color(p, 'glow'), .3 * wake); glow(c, x, y, R * 4.2, color(p, 'edge'), .6 * wake) }
+  if (mode === 'quake') for (let k = 0; k < 3; k++) {
+    const ph = (t / 2.4 + k / 3) % 1
+    c.strokeStyle = alpha(color(p, 'field'), (1 - ph) * .6); c.lineWidth = 1.5; c.beginPath(); c.arc(x, y, R * (1.3 + ph * 8), 0, TAU); c.stroke()
+  }
   for (const [L, n] of [[R * 4.2, 6], [R * 7.5, 8]] as const) for (let j = 0; j < n; j++) {
     const { points, depth } = fieldLoop(L, j * TAU / n + spin)
     c.strokeStyle = alpha(color(p, 'field'), (off ? .06 + .1 * (depth + 1) / 2 : .08 + .22 * (depth + 1) / 2) * wake)

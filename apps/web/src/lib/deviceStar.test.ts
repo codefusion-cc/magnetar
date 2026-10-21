@@ -1,22 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import { deviceStar, type StarState } from './deviceStar.ts'
 import type { ConnectionState } from './rpcClient.ts'
-import type { InstallPhase } from './updateInstall.ts'
 
-const phases = ['idle', 'installing', 'restarting', 'failed', 'lost'] as const satisfies readonly InstallPhase[]
-const cases: { state: ConnectionState; lights: readonly StarState[] }[] = [
-  { state: { status: 'open' }, lights: ['lit', 'lit', 'lit', 'lit', 'lit'] },
-  { state: { status: 'connecting' }, lights: ['far', 'far', 'far', 'far', 'far'] },
-  { state: { status: 'reconnecting' }, lights: ['far', 'far', 'far', 'far', 'far'] },
-  { state: { status: 'device-offline' }, lights: ['out', 'far', 'far', 'out', 'out'] },
-  { state: { status: 'rejected', reason: 'remote.rejectedKey' }, lights: ['out', 'far', 'far', 'out', 'out'] },
-  { state: { status: 'closed' }, lights: ['out', 'far', 'far', 'out', 'out'] },
+const cases: { state: ConnectionState; light: StarState }[] = [
+  { state: { status: 'open' }, light: 'lit' },
+  { state: { status: 'connecting' }, light: 'far' },
+  { state: { status: 'reconnecting' }, light: 'far' },
+  // An app away to update is not reachable either: the header shows it hollow, as the Updating screen is drawn.
+  { state: { status: 'device-offline' }, light: 'out' },
+  { state: { status: 'rejected', reason: 'remote.rejectedKey' }, light: 'out' },
+  { state: { status: 'closed' }, light: 'out' },
 ]
 
 describe('the computer’s star', () => {
-  for (const { state, lights } of cases) {
-    it.each(phases.map((phase, i) => ({ phase, light: lights[i] })))(`${state.status} while $phase is $light`, ({ phase, light }) => {
-      expect(deviceStar(state, phase)).toBe(light)
-    })
-  }
+  it.each(cases)('$state.status is $light', ({ state, light }) => {
+    expect(deviceStar(state)).toBe(light)
+  })
 })

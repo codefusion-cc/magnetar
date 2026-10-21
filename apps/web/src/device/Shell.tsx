@@ -3,13 +3,13 @@ import { Link, matchPath, Outlet, useLocation } from 'react-router'
 import { isActive, isFinished } from '../lib/downloadViews.ts'
 import { deviceStar } from '../lib/deviceStar.ts'
 import { Star } from '../ui/Star.tsx'
-import { expectsAway } from '../lib/updateInstall.ts'
 import { useT } from '../lib/i18n.tsx'
 import { useDevice, useDownloads, useDownloadRead, useSearchLink } from './DeviceContext.tsx'
 import { BrandMark } from '../ui/BrandMark.tsx'
 import { MenuButton } from '../ui/Menu.tsx'
 import { ThemeToggle } from '../ui/ThemeToggle.tsx'
 import { UpdateBanner } from './UpdateBanner.tsx'
+import { AwayScreen, useAway, type Away } from './AwayScreen.tsx'
 
 /** Wraps the device's name in a way to reach the account's other devices; `placement` is where it opens. */
 export type DeviceMenu = (label: ReactNode, placement: 'up' | 'down') => ReactNode
@@ -27,9 +27,11 @@ export function Shell({ deviceMenu }: { deviceMenu?: DeviceMenu }) {
   const active = useDownloads().filter(d => isActive(d) && !isFinished(d)).length
   const searchLink = useSearchLink()
   const { pathname } = useLocation()
+  // While the computer is away the page shows nothing of it, the count of its downloads included.
+  const away = useAway()
 
   const nav = [
-    { to: basePath || '/', routes: [basePath || '/', `${basePath}/downloads/:id`], label: t('nav.downloads'), count: active },
+    { to: basePath || '/', routes: [basePath || '/', `${basePath}/downloads/:id`], label: t('nav.downloads'), count: away ? 0 : active },
     { to: searchLink, routes: [`${basePath}/search/*`], label: t('nav.search') },
     { to: `${basePath}/series`, routes: [`${basePath}/series/:tab?`], label: t('nav.series') },
     { to: `${basePath}/files`, routes: [`${basePath}/files`], label: t('nav.files') },
@@ -56,10 +58,10 @@ export function Shell({ deviceMenu }: { deviceMenu?: DeviceMenu }) {
           <ThemeToggle />
         </div>
       </header>
-      <ConnectionBanner />
-      <UpdateBanner />
-      <main className="shell-column w-full min-w-0 flex-1 shell-main">
-        <Outlet />
+      <ConnectionBanner away={away} />
+      <main tabIndex={-1} className="shell-column w-full min-w-0 flex-1 shell-main">
+        <UpdateBanner />
+        {away ? <AwayScreen key={away} away={away} /> : <Outlet />}
       </main>
     </div>
   )
@@ -100,11 +102,10 @@ function localDeviceMenu(cloudUrl: string, t: ReturnType<typeof useT>): DeviceMe
 /** Which device this is and whether it is reachable; with a menu, also the way to the others. */
 function DeviceStatus({ menu }: { menu?: DeviceMenu }) {
   const t = useT()
-  const { deviceName, connection, connectionState, installPhase } = useDevice()
-  const light = deviceStar(connectionState, installPhase)
+  const { deviceName, connection, connectionState } = useDevice()
+  const light = deviceStar(connectionState)
   const where = connection.kind === 'remote' ? t('remote.viaRelay') : t('shell.thisComputer')
   const status = connectionState.status === 'open' ? where
-    : expectsAway(installPhase) ? t('settings.installing')
     : connectionState.status === 'rejected' ? t(connectionState.reason)
     : light === 'out' ? t('shell.notReachable')
     : t('connection.reconnecting')
@@ -120,9 +121,10 @@ function DeviceStatus({ menu }: { menu?: DeviceMenu }) {
   return menu ? menu(label, 'down') : <div className="min-w-0 flex-1">{label}</div>
 }
 
-function ConnectionBanner() {
+/** A connection that is not open, said once it lasts; an offline computer and an update's restart have their screens. */
+function ConnectionBanner({ away }: { away: Away | null }) {
   const t = useT()
-  const { connectionState, installPhase, info, basePath } = useDevice()
+  const { connectionState, info, basePath } = useDevice()
   const read = useDownloadRead()
   const { pathname } = useLocation()
   const initialDownloads = read.loading && !info && connectionState.status !== 'rejected' && pathname === (basePath || '/')
@@ -133,11 +135,9 @@ function ConnectionBanner() {
     const timer = setTimeout(() => setVisible(true), connectionState.status === 'connecting' ? 1500 : 400)
     return () => clearTimeout(timer)
   }, [connectionState])
-  // An app that restarts to update is away on purpose: the update's own notice says so, until it has waited too long.
-  if (initialDownloads || !visible || connectionState.status === 'open' || connectionState.status === 'closed' || expectsAway(installPhase)) return null
+  if (initialDownloads || !visible || away || ['open', 'closed', 'device-offline'].includes(connectionState.status)) return null
 
-  const text = connectionState.status === 'device-offline' ? t('remote.deviceOffline')
-    : connectionState.status === 'rejected' ? t(connectionState.reason)
+  const text = connectionState.status === 'rejected' ? t(connectionState.reason)
     : connectionState.status === 'reconnecting' ? t('connection.reconnecting')
     : t('connection.connecting')
   return (
