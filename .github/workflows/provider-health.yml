@@ -1,13 +1,21 @@
 name: Provider health
 
-# Parsers are tested against captured pages; this catches a site changing its markup or blocking us.
+# Parsers are tested against captured pages; this catches a site changing its markup or blocking us. Each source that
+# fails gets one issue, kept current while it fails and closed the day it answers again
+# (packages/release/provider-issues.ts). A run that cannot tell, because the test did not build or GitHub refused the
+# issue, fails, and GitHub mails the failed scheduled run.
 on:
   schedule:
-    - cron: '0 6 * * 1'
+    - cron: '0 6 * * *'
   workflow_dispatch:
 
 permissions:
   contents: read
+  issues: write
+
+concurrency:
+  group: provider-health
+  cancel-in-progress: false
 
 jobs:
   live:
@@ -16,4 +24,17 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: MAGNETAR_LIVE_TESTS=1 cargo test --locked --test providers live_providers
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - id: live
+        continue-on-error: true
+        run: MAGNETAR_LIVE_TESTS=1 MAGNETAR_PROVIDER_REPORT="$RUNNER_TEMP/providers.json" cargo test --locked --test providers live_providers
+      - name: Open or close an issue per source
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node packages/release/provider-issues.ts "$RUNNER_TEMP/providers.json"
+      - if: steps.live.outcome == 'failure'
+        run: |
+          echo "::error::A search source failed; its issue says which and why"
+          exit 1

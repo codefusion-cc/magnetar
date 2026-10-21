@@ -247,7 +247,9 @@ async fn live_providers() {
     }
     let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
     let http = magnetar::config::http_client().unwrap();
-    let mut failures = Vec::new();
+    // Every source's outcome, which the daily check turns into one GitHub issue per failing source
+    // (packages/release/provider-issues.ts).
+    let mut report = Vec::new();
     for provider in magnetar::search::providers::all() {
         // EZTV only pages through recent TV releases, so it needs a query that is always airing.
         let query = match provider.name() {
@@ -257,17 +259,20 @@ async fn live_providers() {
         };
         let cancel = tokio_util::sync::CancellationToken::new();
         let outcome = tokio::time::timeout(std::time::Duration::from_secs(45), provider.search(&http, query, &cancel)).await;
-        match outcome {
-            Ok(Ok(results)) if !results.is_empty() => {
-                for r in &results {
-                    assert!(r.title.trim().chars().count() > 3);
-                    assert!(is_real_info_hash(&r.info_hash) || r.info_hash.contains('-'));
-                }
-            }
-            Ok(Ok(_)) => failures.push(format!("{}: no results", provider.name())),
-            Ok(Err(error)) => failures.push(format!("{}: {error:#}", provider.name())),
-            Err(_) => failures.push(format!("{}: timed out", provider.name())),
-        }
+        let error = match outcome {
+            Ok(Ok(results)) if results.is_empty() => Some("no results".to_owned()),
+            Ok(Ok(results)) => results
+                .iter()
+                .find(|r| r.title.trim().chars().count() <= 3 || !(is_real_info_hash(&r.info_hash) || r.info_hash.contains('-')))
+                .map(|r| format!("a row it can't use: {:?} ({:?})", r.title, r.info_hash)),
+            Ok(Err(error)) => Some(format!("{error:#}")),
+            Err(_) => Some("timed out".to_owned()),
+        };
+        report.push(serde_json::json!({ "source": provider.name(), "error": error }));
     }
+    if let Ok(path) = std::env::var("MAGNETAR_PROVIDER_REPORT") {
+        std::fs::write(path, serde_json::to_string(&report).unwrap()).unwrap();
+    }
+    let failures: Vec<_> = report.iter().filter(|check| !check["error"].is_null()).collect();
     assert!(failures.is_empty(), "{failures:?}");
 }
