@@ -67,11 +67,11 @@ describe('plan', () => {
   it('does not release a commit the latest tag already contains', () => {
     expect(plan({ tags, containedInLatest: true, changed: ['apps/client/src/rpc.rs'] }).release).toBe(false)
   })
-  it('releases nothing until the first tag is pushed by hand', () => {
-    expect(plan({ tags: [], changed: ['apps/client/src/rpc.rs'] })).toEqual({ release: false, tag: '', reason: 'no release tag yet: the first one is pushed by hand' })
+  it('releases nothing until the first one is run by hand', () => {
+    expect(plan({ tags: [], changed: ['apps/client/src/rpc.rs'] })).toEqual({ release: false, tag: '', reason: 'no release tag yet: the first one is run by hand' })
     expect(plan({ tags: [], explicitTag: 'v0.1.0' })).toMatchObject({ release: true, tag: 'v0.1.0' })
   })
-  it('publishes a tag pushed by hand as it is', () => {
+  it('publishes a version given by hand as it is', () => {
     expect(plan({ tags, explicitTag: 'v1.3.0', changed: [] })).toMatchObject({ release: true, tag: 'v1.3.0' })
   })
   it('holds an app change while the hold file exists, and says why', () => {
@@ -79,10 +79,10 @@ describe('plan', () => {
     expect(held).toEqual({ release: false, tag: '', reason: 'held by .github/release-hold: Infall redesign' })
     expect(plan({ tags, changed: ['apps/web/src/a.ts'], held: '' }).reason).toBe('held by .github/release-hold: no reason given')
   })
-  it('lets a tag pushed by hand through a hold', () => {
+  it('lets a version given by hand through a hold', () => {
     expect(plan({ tags, explicitTag: 'v1.3.0', changed: ['apps/web/src/a.ts'], held: 'x' })).toMatchObject({ release: true, tag: 'v1.3.0' })
   })
-  it('never holds the first release, a tag pushed by hand', () => {
+  it('never holds the first release, one given by hand', () => {
     expect(plan({ tags: [], explicitTag: 'v0.1.0', held: 'x' })).toMatchObject({ release: true, tag: 'v0.1.0' })
   })
 })

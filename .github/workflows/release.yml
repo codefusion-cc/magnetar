@@ -3,13 +3,16 @@ name: Release
 # Every merge to main that changes the app is released as the next patch version (ci.yml calls this workflow once
 # its checks pass; packages/release/release-version.ts picks the version and skips docs-, test- and CI-only merges, and every
 # merge while .github/release-hold exists).
-# A minor or major release is a tag pushed by hand once CI is green on main: git tag v1.3.0 && git push origin v1.3.0.
-# The next automatic patch continues from it. A tag with a pre-release (v1.3.0-rc.1) publishes a pre-release, which
-# installed apps don't take, and never sets the version of the patches after it. Installed apps update within 6 hours.
+# A minor or major release is run by hand on main once CI is green there (Actions, Release, Run workflow, version
+# 1.3.0); the next automatic patch continues from it. A version with a pre-release (1.3.0-rc.1) publishes a
+# pre-release, which installed apps don't take, and never sets the version of the patches after it. Installed apps
+# update within 6 hours. Only main signs (the release-signing environment), so a run from any other branch fails.
 on:
-  push:
-    # Magnetar Preview's builds are pre-releases of their own (preview-app.yml), never released from here.
-    tags: ['v*', '!v*-preview.*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release, as 1.3.0
+        required: true
   workflow_call:
 
 permissions:
@@ -40,9 +43,16 @@ jobs:
           node-version: 24
       - id: plan
         env:
-          # Set by a tag pushed by hand; a call from ci.yml runs on a branch, where the version is computed.
-          PUSHED_TAG: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
-        run: node packages/release/release-version.ts plan --sha "$GITHUB_SHA" ${PUSHED_TAG:+--tag "$PUSHED_TAG"}
+          # Given when run by hand; a call from ci.yml computes the version.
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [ -n "$VERSION" ] && ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$'; then
+            echo "::error::$VERSION is no version (1.3.0 or 1.3.0-rc.1)"; exit 1
+          fi
+          if printf '%s' "$VERSION" | grep -q -- '-preview\.'; then
+            echo "::error::Magnetar Preview's builds are released by preview-app.yml"; exit 1
+          fi
+          node packages/release/release-version.ts plan --sha "$GITHUB_SHA" ${VERSION:+--tag "v$VERSION"}
 
   build:
     name: Build ${{ matrix.target }}
@@ -104,33 +114,20 @@ jobs:
           name: ${{ matrix.target }}
           path: out/*
 
-  publish:
+  # Signed apart from the build and the publishing, as Magnetar Preview is: the job that reads the key runs nothing but
+  # the repository's own code and Node (no installs, no third-party build scripts), only from main (a pull request's
+  # own workflow can't reach release-signing), and before the tag, so a failed signature leaves no tag and the next
+  # merge retries the same version.
+  sign:
+    name: Sign
     needs: [plan, build]
     runs-on: ubuntu-latest
-    # The signing key is readable only from main (a pull request's own workflow can't reach it). A tag pushed by hand
-    # publishes only once release-signing also lets v* tags deploy.
     environment: release-signing
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-          cache: pnpm
-      # Only for the release notes' command, before any step has a token.
-      - run: pnpm install --frozen-lockfile
-      # The tag is made once the builds succeeded, so a failed release leaves no tag and the next merge retries the
-      # same version. A tag pushed by hand exists already. (A push with GITHUB_TOKEN starts no other workflow.)
-      - name: Tag the commit
-        env:
-          TAG: ${{ needs.plan.outputs.tag }}
-        run: |
-          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null; then
-            echo "$TAG exists"
-          else
-            git tag "$TAG" "$GITHUB_SHA"
-            git push origin "refs/tags/$TAG"
-          fi
       - uses: actions/download-artifact@v4
         with:
           path: assets
@@ -141,6 +138,46 @@ jobs:
         run: |
           cd assets && sha256sum Magnetar-* > SHA256SUMS.txt && cd ..
           node packages/release/sign-release.ts assets
+      - uses: actions/upload-artifact@v4
+        with:
+          name: signature
+          path: |
+            assets/SHA256SUMS.txt
+            assets/SHA256SUMS.txt.sig
+          if-no-files-found: error
+
+  publish:
+    needs: [plan, sign]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      # Only for the release notes' command, before any step has a token.
+      - run: pnpm install --frozen-lockfile
+      # The tag is made once the builds and the signature succeeded. A run by hand may name a tag that exists already:
+      # only on this very commit is it released. (A push with GITHUB_TOKEN starts no other workflow.)
+      - name: Tag the commit
+        env:
+          TAG: ${{ needs.plan.outputs.tag }}
+        run: |
+          tagged="$(git ls-remote --tags origin "refs/tags/$TAG" "refs/tags/$TAG^{}" | tail -1 | cut -f1)"
+          if [ -z "$tagged" ]; then
+            git tag "$TAG" "$GITHUB_SHA"
+            git push origin "refs/tags/$TAG"
+          elif [ "$tagged" = "$GITHUB_SHA" ]; then
+            echo "$TAG exists"
+          else
+            echo "::error::$TAG is on $tagged, not $GITHUB_SHA"; exit 1
+          fi
+      # The builds and the signed manifest.
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
       # What the release brings, from the pull requests merged since the release before, grouped by their branch's
       # type (feat/ New, fix/ Fixes, perf/ Faster…). The app's changelog and its update notice show these notes.
       # A GitHub hiccup here must not lose the release built above: GitHub's own notes stand in.

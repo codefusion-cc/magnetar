@@ -168,10 +168,17 @@ node packages/release/release-key.ts --preview
 
 It puts the private key on the clipboard, never the terminal or a file. Paste it as the secret it names,
 `RELEASE_SIGNING_KEY` in the `release-signing` environment or `PREVIEW_SIGNING_KEY` in `preview-signing`, then press
-Enter: it writes the public key file to commit and clears the clipboard. Only `main` deploys to either environment, so
-a pull request's own workflow never reads a signing key. Keep no other copy: a new pair means installs of the builds
-before it don't install the next update by themselves (they open the release page instead), so each of them is
-downloaded once by hand.
+Enter. Once GitHub shows that secret saved, it writes the public key file to commit; any other key, or the key pasted
+into the terminal, stops it with nothing written. Either way it clears the clipboard. Only `main` deploys to either
+environment, and the Sign jobs install nothing, so a pull request's own workflow never reads a signing key
+(`packages/release/signing.test.ts` holds every workflow to this). The secret belongs to the environment only: a
+repository secret of the same name would be readable everywhere, so delete it if one exists (Settings, Secrets and
+variables, Actions).
+
+Keep no other copy: a new pair means installs of the builds before it don't install the next update by themselves
+(they open the release page instead), so each of them is downloaded once by hand. Merge the new public key only once
+the secret is set: a release signs before it tags, so a missing or wrong key fails the run without using up the
+version.
 
 ## Code signing
 

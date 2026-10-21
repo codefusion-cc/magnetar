@@ -10,8 +10,8 @@
  * monorepo, where the app is the folder `apps/magnetar` (`--folder`): only changes under it count, and its hold file is
  * `<folder>/.github/release-hold`.
  *
- * The version is the latest plain vX.Y.Z tag plus one patch; minor and major releases, and the first one, are tags
- * pushed by hand. No file holds the version: the tag is the version.
+ * The version is the latest plain vX.Y.Z tag plus one patch; minor and major releases, and the first one, are the
+ * Release workflow run by hand with their version. No file holds the version: the tag is the version.
  * Pre-release tags (v2.0.0-rc.1) are ignored. A merge that changes only docs, tests or CI files is not released, nor is
  * one while `.github/release-hold` exists: work that ships in parts (a redesign) collects on main and is released by the
  * merge that deletes the file. Its text says why it holds.
@@ -46,7 +46,7 @@ export function latestVersion(tags: readonly string[], prefix = 'v'): Version | 
   return latest
 }
 
-/** The next patch release, "1.2.3" after v1.2.2; null with no release yet, whose first tag is pushed by hand. */
+/** The next patch release, "1.2.3" after v1.2.2; null with no release yet, whose first is run by hand. */
 export function nextVersion(tags: readonly string[], prefix = 'v'): string | null {
   const latest = latestVersion(tags, prefix)
   return latest ? format([latest[0], latest[1], latest[2] + 1]) : null
@@ -110,9 +110,9 @@ export function plan(input: {
   /** The commit that added the hold, and how many merges since the latest release it holds back. */
   hold?: { since: string; waiting: number }
 }, { prefix, folder }: Tagging = HERE): Plan {
-  if (input.explicitTag) return { release: true, tag: input.explicitTag, reason: 'tag pushed by hand' }
+  if (input.explicitTag) return { release: true, tag: input.explicitTag, reason: 'version given by hand' }
   const latest = latestVersion(input.tags, prefix)
-  if (!latest) return { release: false, tag: '', reason: 'no release tag yet: the first one is pushed by hand' }
+  if (!latest) return { release: false, tag: '', reason: 'no release tag yet: the first one is run by hand' }
   const latestTag = `${prefix}${format(latest)}`
   if (input.containedInLatest) return { release: false, tag: '', reason: `already part of ${latestTag}` }
   if (input.held != null) {
@@ -165,7 +165,7 @@ if (process.argv[1] === import.meta.filename) {
   if (positionals[0] === 'preview') {
     const tags = git('tag', '--list', `${tagging.prefix}*`).split('\n').filter(Boolean)
     const version = previewVersion(tags, Number(git('rev-list', '--count', '--first-parent', sha)), tagging.prefix)
-    if (!version) throw new Error('No release tag yet: the first one is pushed by hand')
+    if (!version) throw new Error('No release tag yet: the first one is run by hand')
     console.log(version)
     process.exit(0)
   }

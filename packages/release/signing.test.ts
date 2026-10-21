@@ -3,36 +3,60 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } fro
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { parse } from 'yaml'
 import { generateKeyPair } from './release-key.ts'
 
 // Magnetar and Magnetar Preview each sign their updates with a key of their own, readable only from main, and each
 // trusts only its own: a preview build's key can never sign an update the released app installs.
 const repo = join(import.meta.dirname, '../..')
 const read = (path: string) => readFileSync(join(repo, path), 'utf8').replaceAll('\r\n', '\n')
-const workflow = read('.github/workflows/preview-app.yml')
-const publish = workflow.slice(workflow.indexOf('\n  publish:'))
 
+type Job = { environment?: string | { name?: string }; needs?: string | string[]; uses?: string; secrets?: unknown; steps?: { run?: string; env?: Record<string, string> }[] }
+type Workflow = { on?: unknown; jobs?: Record<string, Job> }
 const SIGNING_KEYS: Record<string, string> = { RELEASE_SIGNING_KEY: 'release-signing', PREVIEW_SIGNING_KEY: 'preview-signing' }
-const workflows = readdirSync(join(repo, '.github/workflows')).filter((name) => name.endsWith('.yml'))
-/** A workflow's jobs, each from its name to the next one's. */
-const jobsOf = (text: string) => text.slice(text.indexOf('\njobs:\n')).split(/\n(?=  [\w-]+:\n)/).slice(1)
-const secretsOf = (text: string) => [...text.matchAll(/secrets(?:\.(\w+)|\[\s*['"](\w+)['"]\s*\])/g)].map((m) => m[1] ?? m[2] ?? '')
+const SIGNING_ENVIRONMENTS = new Set(Object.values(SIGNING_KEYS))
+const workflows = readdirSync(join(repo, '.github/workflows')).filter((name) => /\.ya?ml$/.test(name))
+const load = (name: string) => parse(read(`.github/workflows/${name}`)) as Workflow
+const environmentOf = (job: Job) => (typeof job.environment === 'string' ? job.environment : job.environment?.name)
+/** The secrets an expression names; GitHub matches secret names in any case. */
+const secretsOf = (text: string) => [...text.matchAll(/secrets\s*(?:\.\s*(\w+)|\[\s*['"](\w+)['"]\s*\])/gi)].map((m) => (m[1] ?? m[2] ?? '').toUpperCase())
+/** Reads that name no secret, so could be any: all of them, or one whose name is computed. */
+const opaqueReads = (text: string) => [...text.matchAll(/toJSON\(\s*secrets\s*\)|secrets\s*\[(?!\s*['"]\w+['"]\s*\])/gi)].map((m) => m[0])
+/** Only what runs on main's own workflow: a pull request's code or event can't start these. */
+const MAIN_ONLY_TRIGGERS = new Set(['workflow_call', 'workflow_dispatch'])
+const triggersOf = (on: unknown) => (typeof on === 'string' ? [on] : Array.isArray(on) ? on : Object.keys(on ?? {}))
 
 describe('signing keys', () => {
   it.each(workflows)('%s reads a signing key only in its main-only environment', (name) => {
-    for (const job of jobsOf(read(`.github/workflows/${name}`))) {
-      for (const secret of secretsOf(job).filter((secret) => secret in SIGNING_KEYS)) {
-        expect(job, `${name}: ${secret}`).toMatch(new RegExp(`\n    environment: ${SIGNING_KEYS[secret]}\n`))
+    const jobs = Object.entries(load(name).jobs ?? {})
+    expect(jobs.length, name).toBeGreaterThan(0)
+    for (const [id, job] of jobs) {
+      const text = JSON.stringify(job)
+      expect(opaqueReads(text), `${name} ${id}`).toEqual([])
+      for (const secret of secretsOf(text).filter((secret) => secret in SIGNING_KEYS)) {
+        expect(environmentOf(job), `${name} ${id}: ${secret}`).toBe(SIGNING_KEYS[secret])
       }
+      // Another repository's workflow handed every secret could read a key outside these rules.
+      if (job.secrets === 'inherit') expect(job.uses, `${name} ${id}`).toMatch(/^\.\//)
     }
   })
 
-  it('releases are signed in release-signing, checked against release-public-key.txt', () => {
-    const release = read('.github/workflows/release.yml')
-    const job = jobsOf(release).find((job) => job.startsWith('  publish:'))!
-    expect(job).toMatch(/\n    environment: release-signing\n/)
-    expect(job).toContain('RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}')
-    expect(job).toContain('node packages/release/sign-release.ts assets\n')
+  it.each(workflows)('%s signs only when main starts it', (name) => {
+    const workflow = load(name)
+    const signing = Object.entries(workflow.jobs ?? {}).filter(([, job]) => SIGNING_ENVIRONMENTS.has(environmentOf(job) ?? ''))
+    if (signing.length) expect(triggersOf(workflow.on).filter((trigger) => !MAIN_ONLY_TRIGGERS.has(trigger))).toEqual([])
+  })
+
+  it('releases are signed in release-signing, before the tag, by a job that installs nothing', () => {
+    const jobs = load('release.yml').jobs!
+    expect(environmentOf(jobs.sign!)).toBe('release-signing')
+    const steps = jobs.sign!.steps!
+    expect(steps.find((step) => step.run?.includes('node packages/release/sign-release.ts assets\n'))?.env).toEqual({
+      RELEASE_SIGNING_KEY: '${{ secrets.RELEASE_SIGNING_KEY }}',
+    })
+    expect(steps.some((step) => /pnpm|npm |npx/.test(step.run ?? ''))).toBe(false)
+    expect(jobs.publish!.needs).toContain('sign')
+    expect(environmentOf(jobs.publish!)).toBeUndefined()
   })
 
   it('release-key.ts needs a terminal, and changes nothing without one', () => {
@@ -51,19 +75,20 @@ describe('signing keys', () => {
 })
 
 describe('Magnetar Preview signing', () => {
-  it('publishes from the main-only preview-signing environment with PREVIEW_SIGNING_KEY', () => {
-    expect(publish).toMatch(/\n    environment: preview-signing\n/)
-    expect(publish).toContain('RELEASE_SIGNING_KEY: ${{ secrets.PREVIEW_SIGNING_KEY }}')
+  const workflow = load('preview-app.yml')
+  const publish = workflow.jobs!.publish!
+
+  it('publishes from preview-signing with PREVIEW_SIGNING_KEY, checked against preview-public-key.txt', () => {
+    expect(environmentOf(publish)).toBe('preview-signing')
+    const sign = publish.steps!.find((step) => step.run?.includes('sign-release.ts'))!
+    expect(sign.run).toContain('node packages/release/sign-release.ts assets --public-key apps/client/preview-public-key.txt')
+    expect(sign.env).toEqual({ RELEASE_SIGNING_KEY: '${{ secrets.PREVIEW_SIGNING_KEY }}' })
   })
 
   it('never reads the release signing key', () => {
-    const secrets = secretsOf(workflow)
+    const secrets = secretsOf(JSON.stringify(workflow))
     expect(secrets).toContain('PREVIEW_SIGNING_KEY')
     expect(secrets).not.toContain('RELEASE_SIGNING_KEY')
-  })
-
-  it('checks the signature against preview-public-key.txt before publishing', () => {
-    expect(publish).toContain('node packages/release/sign-release.ts assets --public-key apps/client/preview-public-key.txt')
   })
 
   it('trusts a key of its own, not the release key', () => {
@@ -71,7 +96,6 @@ describe('Magnetar Preview signing', () => {
     expect(Buffer.from(preview, 'base64url')).toHaveLength(32)
     expect(preview).not.toBe(read('apps/client/release-public-key.txt').trim())
   })
-
 })
 
 describe('a generated key pair', () => {
