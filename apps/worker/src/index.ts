@@ -1,7 +1,7 @@
 import { handleGoogleSignIn } from '@codefusion-cc/google-sign-in'
 import { consoleAdmin, createConsoleRoutes } from '@codefusion-cc/console/worker'
 import { clientNetwork, errorResponse, json, jsonError, rateLimit, readJson, serveSinglePageApp } from '@codefusion-cc/workers-http'
-import type { AppConfig, FailureReport } from '@magnetar/protocol/cloud'
+import { PREVIEW_CLOUD_URL, type AppConfig, type FailureReport } from '@magnetar/protocol/cloud'
 import { CONSOLE_PAGES } from '@magnetar/protocol/console-pages'
 import { handleAuth } from './auth.ts'
 import { consoleResources } from './console/admin.ts'
@@ -56,6 +56,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
       googleClientId: env.GOOGLE_CLIENT_ID || undefined,
       googleCallbackOrigin: env.GOOGLE_CALLBACK_ORIGIN || undefined,
       devLogin: devLoginEnabled(env) || undefined,
+      previewApp: env.APP_ENV === 'preview' ? { connects: new URL(request.url).origin === PREVIEW_CLOUD_URL } : undefined,
     } satisfies AppConfig)
   }
   if (path === '/api/telemetry/failure' && request.method === 'POST') return reportFailure(request, env)

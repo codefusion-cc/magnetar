@@ -3,9 +3,23 @@ import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { changesShippedApp, latestVersion, nextVersion, parseTag, plan } from './release-version.ts'
+import { changesShippedApp, latestVersion, nextVersion, parseTag, plan, previewVersion } from './release-version.ts'
 
 const MONOREPO = { prefix: 'magnetar-v', folder: 'apps/magnetar' }
+
+describe('previewVersion', () => {
+  it('is the next release with the build number, before that release and after the last one', () => {
+    expect(previewVersion(['v1.2.7', 'v1.2.8'], 412)).toBe('1.2.9-preview.412')
+    expect(previewVersion(['v1.2.8', 'v1.2.9-preview.411', 'v1.3.0-rc.1'], 412)).toBe('1.2.9-preview.412')
+    expect(previewVersion(['magnetar-v2.0.0'], 1, 'magnetar-v')).toBe('2.0.1-preview.1')
+  })
+  it('has none before the first release', () => {
+    expect(previewVersion([], 5)).toBeNull()
+  })
+  it('refuses a build number that is not a positive whole number', () => {
+    for (const build of [0, -1, 1.5, Number.NaN, Number.MAX_SAFE_INTEGER + 1]) expect(() => previewVersion(['v1.0.0'], build)).toThrow(/Invalid build/)
+  })
+})
 
 describe('nextVersion', () => {
   it('adds one patch to the latest tag', () => {

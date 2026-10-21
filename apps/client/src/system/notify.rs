@@ -55,7 +55,7 @@ fn guarded<T>(what: &str, work: impl FnOnce() -> T) -> Option<T> {
 }
 
 fn notice_id(kind: &str) -> String {
-    format!("cc.codefusion.magnetar.{kind}")
+    format!("{}.{kind}", crate::config::BUNDLE_ID)
 }
 
 /// Runs the handler of the notice `id` for a choice the system reported as an action id: the
@@ -439,11 +439,11 @@ mod platform {
 
     use super::Notice;
 
-    const APP_ID: &str = "CodeFusion.Magnetar";
+    const APP_ID: &str = if crate::config::PREVIEW { "CodeFusion.MagnetarPreview" } else { "CodeFusion.Magnetar" };
 
     /// Registers the app id once; false when Windows refused, and toasts can't show.
     static REGISTERED: LazyLock<bool> = LazyLock::new(|| {
-        let name: Vec<u16> = "Magnetar".encode_utf16().chain([0]).collect();
+        let name: Vec<u16> = crate::config::APP_NAME.encode_utf16().chain([0]).collect();
         // SAFETY: the value is a NUL-terminated UTF-16 string of the length given.
         let status = unsafe {
             RegSetKeyValueW(

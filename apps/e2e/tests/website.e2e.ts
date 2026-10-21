@@ -1,6 +1,6 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Browser, type Page } from '@playwright/test'
 import { expectVisibleTabStops } from '@codefusion-cc/testing/playwright'
-import { LINK_CODE, serveWebsite } from '../fixtures/website.ts'
+import { LINK_CODE, PREVIEW_BUILD, serveWebsite } from '../fixtures/website.ts'
 
 test.use({ timezoneId: 'Europe/Warsaw' })
 
@@ -124,13 +124,6 @@ test('each computer shows whether this browser can open it now, and how it is', 
   // Another computer needs the app first: the download sits beside how to add one.
   await expect(page.getByText('To add a computer, install Magnetar on it, then go to Settings, Remote access, Connect to your account.')).toBeVisible()
   await expect(page.getByRole('link', { name: /^Download (for (macOS|Windows|Linux)|Magnetar)$/ })).toBeVisible()
-  // This computer opens its Magnetar at Connect; the page cannot see whether it did, so it says what to expect.
-  const connect = page.getByRole('link', { name: 'Connect this computer', exact: true })
-  await expect(connect).toHaveAttribute('href', 'magnetar://connect')
-  await expect(page.getByText('Magnetar opens at Settings, Remote access.', { exact: false })).toHaveCount(0)
-  await page.evaluate(() => addEventListener('click', event => event.preventDefault()))
-  await connect.click()
-  await expect(page.getByRole('status').filter({ hasText: 'Magnetar opens at Settings, Remote access. If nothing opens, download it first.' })).toBeVisible()
   await row(page, 'MacBook-Pro').getByRole('link', { name: 'Link: MacBook-Pro' }).click()
   await expect(page.getByRole('heading', { name: 'This browser is not linked to MacBook-Pro' })).toBeVisible()
 })
@@ -226,13 +219,114 @@ test('while the list is on its way the page says it is looking, and an account w
   await expect(page.getByRole('heading', { name: 'No computer on this account yet' })).toBeVisible()
   await expect(page.getByText('Open Magnetar on the computer and go to Settings, Remote access, Connect to your account.')).toBeVisible()
   await expect(page.getByRole('link', { name: /^Download for / })).toBeVisible()
+})
+
+/** The release that first opens `magnetar://connect`. */
+const CONNECT_RELEASE = { version: '1.2.9', publishedAt: null, pageUrl: 'https://github.com/codefusion-cc/magnetar/releases/tag/v1.2.9', assets: [] }
+
+/** A browser on `system`, telling the page no more than its user agent (no client hints, which name the real machine). */
+async function visitorOn(browser: Browser, system: 'mac' | 'windows' | 'iphone') {
+  const userAgent = {
+    mac: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36',
+    windows: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36',
+    iphone: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
+  }[system]
+  const context = await browser.newContext({ userAgent, baseURL: test.info().project.use.baseURL, ...(system === 'iphone' ? { viewport: { width: 390, height: 844 } } : {}) })
+  await context.addInitScript(() => Object.defineProperty(Navigator.prototype, 'userAgentData', { get: () => undefined }))
+  return { context, page: await context.newPage() }
+}
+
+test('Connect this computer waits for a release that opens it, then opens Magnetar at Connect', async ({ page }) => {
+  // 1.2.2 has no magnetar:// link: a Connect there would open nothing.
+  await serveWebsite(page)
+  await page.goto('/')
+  await expect(page.getByRole('link', { name: /^Download (for (macOS|Windows|Linux)|Magnetar)$/ })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Connect this computer' })).toHaveCount(0)
+
+  await page.unrouteAll({ behavior: 'ignoreErrors' })
+  await serveWebsite(page, { release: CONNECT_RELEASE })
+  await page.reload()
+  // This computer opens its Magnetar at Connect; the page cannot see whether it did, so it says what to expect.
+  const connect = page.getByRole('link', { name: 'Connect this computer', exact: true })
+  await expect(connect).toHaveAttribute('href', 'magnetar://connect')
+  await expect(page.getByText('opens at Settings, Remote access.', { exact: false })).toHaveCount(0)
+  await page.evaluate(() => addEventListener('click', event => event.preventDefault()))
+  await connect.click()
+  await expect(page.getByRole('status').filter({ hasText: 'Magnetar opens at Settings, Remote access. If nothing opens, download its newest version first.' })).toBeVisible()
+
+  // An account without computers offers it too.
+  await page.unrouteAll({ behavior: 'ignoreErrors' })
+  await serveWebsite(page, { devices: [], release: CONNECT_RELEASE })
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'No computer on this account yet' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Connect this computer', exact: true })).toHaveAttribute('href', 'magnetar://connect')
 })
 
+test('the preview website offers Magnetar Preview on an Apple silicon Mac, and building it from source elsewhere', async ({ browser }) => {
+  const previewApp = { connects: true }
+  const mac = await visitorOn(browser, 'mac')
+  await serveWebsite(mac.page, { release: PREVIEW_BUILD, previewApp })
+  await mac.page.goto('/')
+  await expect(mac.page.getByRole('link', { name: 'Download Magnetar Preview', exact: true })).toHaveAttribute('href', PREVIEW_BUILD.assets[0]!.url)
+  const connect = mac.page.getByRole('link', { name: 'Connect this computer', exact: true })
+  await expect(connect).toHaveAttribute('href', 'magnetar-preview://connect')
+  await mac.page.evaluate(() => addEventListener('click', event => event.preventDefault()))
+  await connect.click()
+  await expect(mac.page.getByRole('status').filter({ hasText: 'Magnetar Preview opens at Settings, Remote access.' })).toBeVisible()
+  // Someone signed out gets it from the first page, with what it is.
+  await mac.page.unrouteAll({ behavior: 'ignoreErrors' })
+  await serveWebsite(mac.page, { signedIn: false, release: PREVIEW_BUILD, previewApp })
+  await mac.page.reload()
+  await expect(mac.page.getByRole('link', { name: 'Download Magnetar Preview', exact: true })).toBeVisible()
+  await expect(mac.page.getByText('The newest build, before it is released.', { exact: false })).toBeVisible()
+  // A Mac browser may hide an Intel Mac: the source is under the download.
+  await mac.page.goto('/about')
+  await expect(mac.page.getByRole('link', { name: /^Download Magnetar Preview/ })).toHaveAttribute('href', PREVIEW_BUILD.assets[0]!.url)
+  await mac.page.getByText('Other systems', { exact: true }).click()
+  await expect(mac.page.getByRole('link', { name: 'Build it from source', exact: true })).toHaveAttribute('href', 'https://github.com/codefusion-cc/magnetar#magnetar-preview')
+  await mac.context.close()
+
+  // No build for Windows: the source, and no Connect that nothing would answer.
+  const windows = await visitorOn(browser, 'windows')
+  await serveWebsite(windows.page, { release: PREVIEW_BUILD, previewApp })
+  await windows.page.goto('/')
+  await expect(windows.page.getByRole('link', { name: 'Build it from source', exact: true })).toHaveAttribute('href', 'https://github.com/codefusion-cc/magnetar#magnetar-preview')
+  await expect(windows.page.getByRole('link', { name: /Download/ })).toHaveCount(0)
+  await expect(windows.page.getByRole('link', { name: 'Connect this computer' })).toHaveCount(0)
+  await windows.context.close()
+
+  // A phone is sent to a computer, with the build's page for later.
+  const phone = await visitorOn(browser, 'iphone')
+  await serveWebsite(phone.page, { signedIn: false, release: PREVIEW_BUILD, previewApp })
+  await phone.page.goto('/')
+  await expect(phone.page.getByRole('link', { name: 'Download Magnetar Preview', exact: true })).toHaveAttribute('href', PREVIEW_BUILD.pageUrl)
+  await expect(phone.page.getByText('The app runs on a Mac, Windows or Linux computer.', { exact: false })).toBeVisible()
+  await expect(phone.page.getByRole('link', { name: 'Build it from source' })).toHaveCount(0)
+  await phone.context.close()
+})
+
+test('the preview website never offers Magnetar in place of Magnetar Preview, and a branch Preview never connects it', async ({ browser }) => {
+  // Before the first build, or while GitHub cannot be read: the source, not the released app that talks to the website itself.
+  const mac = await visitorOn(browser, 'mac')
+  await serveWebsite(mac.page, { devices: [], release: null, previewApp: { connects: true } })
+  await mac.page.goto('/')
+  await expect(mac.page.getByRole('link', { name: 'Build it from source', exact: true })).toHaveAttribute('href', 'https://github.com/codefusion-cc/magnetar#magnetar-preview')
+  await expect(mac.page.getByText('No build to download right now.', { exact: true })).toBeVisible()
+  await expect(mac.page.getByRole('link', { name: /Download/ })).toHaveCount(0)
+  await expect(mac.page.getByRole('link', { name: 'Connect this computer' })).toHaveCount(0)
+
+  // A branch Preview offers the build, but Magnetar Preview talks only to the preview website.
+  await mac.page.unrouteAll({ behavior: 'ignoreErrors' })
+  await serveWebsite(mac.page, { release: PREVIEW_BUILD, previewApp: { connects: false } })
+  await mac.page.reload()
+  await expect(mac.page.getByRole('link', { name: 'Download Magnetar Preview', exact: true })).toBeVisible()
+  await expect(mac.page.getByRole('link', { name: 'Connect this computer' })).toHaveCount(0)
+  await mac.context.close()
+})
+
 test('on a phone, where the app does not run, the page offers no Connect this computer', async ({ browser }) => {
-  const context = await browser.newContext({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1', viewport: { width: 390, height: 844 }, baseURL: test.info().project.use.baseURL })
-  const page = await context.newPage()
-  await serveWebsite(page)
+  const { context, page } = await visitorOn(browser, 'iphone')
+  await serveWebsite(page, { release: CONNECT_RELEASE })
   await page.goto('/')
   await expect(page.getByRole('link', { name: 'Download Magnetar', exact: true })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Connect this computer' })).toHaveCount(0)

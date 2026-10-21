@@ -4,6 +4,7 @@
  *
  *   node packages/release/release-version.ts plan [--sha <commit>] [--tag <v1.3.0>] [--prefix v] [--folder <path>]
  *   node packages/release/release-version.ts display [--sha <commit>] [--prefix v] [--folder <path>]
+ *   node packages/release/release-version.ts preview [--sha <commit>] [--prefix v]
  *
  * Tags are `<prefix>X.Y.Z`: `v1.2.3` here, where installed apps read them, and `magnetar-v1.2.3` in the codefusion
  * monorepo, where the app is the folder `apps/magnetar` (`--folder`): only changes under it count, and its hold file is
@@ -14,6 +15,10 @@
  * Pre-release tags (v2.0.0-rc.1) are ignored. A merge that changes only docs, tests or CI files is not released, nor is
  * one while `.github/release-hold` exists: work that ships in parts (a redesign) collects on main and is released by the
  * merge that deletes the file. Its text says why it holds.
+ *
+ * `preview` names Magnetar Preview's build of a commit on main (.github/workflows/preview-app.yml), whether or not a hold
+ * keeps it from a release: the next release's version with `-preview.<the commit's number on main>`, so each merge's
+ * build is newer than the one before and older than the release that ships it (1.2.9-preview.412 before 1.2.9).
  */
 import { execFileSync } from 'node:child_process'
 import { appendFileSync } from 'node:fs'
@@ -45,6 +50,13 @@ export function latestVersion(tags: readonly string[], prefix = 'v'): Version | 
 export function nextVersion(tags: readonly string[], prefix = 'v'): string | null {
   const latest = latestVersion(tags, prefix)
   return latest ? format([latest[0], latest[1], latest[2] + 1]) : null
+}
+
+/** Magnetar Preview's version for the `build`th commit on main; null before the first release. */
+export function previewVersion(tags: readonly string[], build: number, prefix = 'v'): string | null {
+  if (!Number.isSafeInteger(build) || build < 1) throw new Error(`Invalid build number ${build}`)
+  const next = nextVersion(tags, prefix)
+  return next && `${next}-preview.${build}`
 }
 
 /** Files that never reach a user of the app or the website: documentation, tests, CI and repository housekeeping. */
@@ -150,6 +162,13 @@ if (process.argv[1] === import.meta.filename) {
   })
   const tagging = { prefix: values.prefix, folder: values.folder }
   const sha = values.sha ?? git('rev-parse', 'HEAD')
+  if (positionals[0] === 'preview') {
+    const tags = git('tag', '--list', `${tagging.prefix}*`).split('\n').filter(Boolean)
+    const version = previewVersion(tags, Number(git('rev-list', '--count', '--first-parent', sha)), tagging.prefix)
+    if (!version) throw new Error('No release tag yet: the first one is pushed by hand')
+    console.log(version)
+    process.exit(0)
+  }
   const result = fromRepository(sha, tagging, values.tag)
   const version = (tag: string) => tag.slice(tagging.prefix.length)
   if (positionals[0] === 'plan') {
@@ -162,6 +181,6 @@ if (process.argv[1] === import.meta.filename) {
     // The version the website shows: the one this commit is or is about to be released as.
     console.log(result.release ? version(result.tag) : result.latest ? version(result.latest) : '')
   } else {
-    throw new Error('Usage: release-version.ts plan|display [--sha <commit>] [--tag <tag>] [--prefix v] [--folder <path>]')
+    throw new Error('Usage: release-version.ts plan|display|preview [--sha <commit>] [--tag <tag>] [--prefix v] [--folder <path>]')
   }
 }

@@ -1,0 +1,112 @@
+name: Preview app
+
+# Magnetar Preview: every merge to main, built for Apple silicon Macs once its checks pass (ci.yml calls this), whether
+# or not .github/release-hold keeps it from a release. It talks to the preview Worker, where the preview website offers
+# it (apps/worker/src/releases.ts), and runs beside the released app with its own name, data and links (config.rs
+# `PREVIEW`). Published as the pre-release v<next release>-preview.<commit number>, which released apps never take
+# and the changelogs leave out; only the newest one is kept. Other systems build from source.
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build
+    runs-on: macos-14
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The version counts main's commits and continues from the release tags.
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: aarch64-apple-darwin-preview
+      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/import-developer-id
+        with:
+          certificate: ${{ secrets.MACOS_CERTIFICATE }}
+          password: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+      - id: version
+        run: echo "version=$(node packages/release/release-version.ts preview --sha "$GITHUB_SHA")" >> "$GITHUB_OUTPUT"
+      - name: Build
+        env:
+          AWS_LC_SYS_PREBUILT_NASM: '1'
+          MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: pnpm --filter @magnetar/client run build --target aarch64-apple-darwin --version "$VERSION" --preview
+      - uses: actions/upload-artifact@v4
+        with:
+          name: preview-app
+          path: apps/client/dist/*.zip
+          if-no-files-found: error
+
+  # Signed apart from the build, as a release is: the release key never shares a machine with the crates, build
+  # scripts and actions above, and this job runs nothing but the repository's own code and Node.
+  publish:
+    name: Sign and publish
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@v4
+        with:
+          name: preview-app
+          path: assets
+      # The same signed manifest as a release's, so the preview app installs its updates the way the app does.
+      - name: Checksums and signature
+        env:
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+        run: |
+          cd assets && sha256sum Magnetar-* > SHA256SUMS.txt && cd ..
+          node packages/release/sign-release.ts assets
+      # Builds run one at a time, but a later merge whose checks finished first may have published already: an older
+      # build then leaves it standing. A run that was cut short left its release unfinished (files missing, or a
+      # draft), so running it again completes that release. Once the new build is out, the older ones go.
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          tag="v$VERSION"
+          build="${VERSION##*.}"
+          listed="$(gh release list --limit 100 --json tagName --jq '.[].tagName')"
+          previews="$(printf '%s\n' "$listed" | grep -E -- '-preview\.[0-9]+$' || true)"
+          newest="$(printf '%s\n' "$previews" | sed -nE 's/.*-preview\.([0-9]+)$/\1/p' | sort -n | tail -1)"
+          if [ -n "$newest" ] && [ "$newest" -gt "$build" ]; then
+            echo "Preview build $newest is newer than $build; leaving it."
+            exit 0
+          fi
+          subject="$(git log -1 --format=%s "$GITHUB_SHA")"
+          body="$(git log -1 --format=%b "$GITHUB_SHA" | head -1)"
+          printf 'Magnetar Preview, built from main at %s: %s\n\nFor trying changes on preview.magnetar.codefusion.cc before they are released. Magnetar itself never updates to it.\n' \
+            "${GITHUB_SHA::7}" "${body:-$subject}" > notes.md
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" assets/* --clobber
+            gh release edit "$tag" --draft=false --prerelease --latest=false
+          else
+            gh release create "$tag" assets/* --target "$GITHUB_SHA" --prerelease --latest=false --title "Magnetar Preview $VERSION" --notes-file notes.md
+          fi
+          printf '%s\n' "$previews" | while read -r old; do
+            if [ -n "$old" ] && [ "${old##*.}" -lt "$build" ]; then gh release delete "$old" --cleanup-tag --yes; fi
+          done

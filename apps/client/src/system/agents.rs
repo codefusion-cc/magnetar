@@ -12,7 +12,7 @@ use serde_json::{Map, Value, json};
 use crate::error::{ApiError, ApiResult};
 
 /// The name the server is registered under in every agent.
-pub const SERVER_NAME: &str = "magnetar";
+pub const SERVER_NAME: &str = if crate::config::PREVIEW { "magnetar-preview" } else { "magnetar" };
 const TIMEOUT: Duration = Duration::from_secs(30);
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]

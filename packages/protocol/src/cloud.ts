@@ -1,6 +1,8 @@
 /** Shapes of the Worker's HTTP API at magnetar.codefusion.cc. */
 
 export const DEFAULT_CLOUD_URL = 'https://magnetar.codefusion.cc'
+/** The preview website, the one Magnetar Preview talks to (`PREVIEW_CLOUD_URL` in the app's config.rs). */
+export const PREVIEW_CLOUD_URL = 'https://preview.magnetar.codefusion.cc'
 
 /** `/app-config.json`: tells the one dashboard build whether the app or the website serves it. */
 export interface AppConfig {
@@ -10,6 +12,12 @@ export interface AppConfig {
   googleCallbackOrigin?: string
   /** Development-only passwordless sign-in, never enabled in production. */
   devLogin?: boolean
+  /**
+   * The preview website and its branch Previews, which offer Magnetar Preview in place of Magnetar. `connects` only on
+   * the one Magnetar Preview talks to (`PREVIEW_CLOUD_URL`): from a branch Preview, Connect this computer would link
+   * the computer to another website's account.
+   */
+  previewApp?: { connects: boolean }
 }
 
 export interface AccountDto {
@@ -95,7 +103,10 @@ export interface ReleaseAssetDto {
 
 export type { ReleaseDto, ReleasesDto, ReleasesProblem } from './model.ts'
 
-/** `/api/releases/latest`: the app's newest release, for the website's download buttons. */
+/**
+ * `/api/releases/latest`: the app's newest release, for the website's download buttons; on the preview website
+ * (`AppConfig.previewApp`), the newest build of Magnetar Preview, which only Apple silicon Macs get.
+ */
 export interface LatestReleaseDto {
   version: string
   publishedAt: string | null

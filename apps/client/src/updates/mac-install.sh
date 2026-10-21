@@ -1,7 +1,8 @@
 #!/bin/bash
 # Swaps the installed .app bundle. `prepare` copies and verifies the replacement while the app
-# still runs; `install` waits for the app to exit, renames old -> backup and new -> installed, and
-# restores the backup if anything fails. Arguments are passed verbatim, never interpolated.
+# still runs and checks it is signed as the bundle identifier given (`prepare <bundle> <new app> <work> <identifier>`);
+# `install` waits for the app to exit, renames old -> backup and new -> installed, and restores the backup if anything
+# fails (`install <bundle> "" <work> <pid>`). Arguments are passed verbatim, never interpolated.
 set -euo pipefail
 mode="$1"; bundle="$2"; source_app="$3"; work="$4"
 replacement="$work/Replacement.app"
@@ -11,7 +12,9 @@ exec >> "$work/install.log" 2>&1
 if [ "$mode" = prepare ]; then
     /usr/bin/ditto "$source_app" "$replacement"
     /usr/bin/codesign --verify --deep --strict "$replacement"
-    /usr/bin/codesign --verify -R '=identifier "cc.codefusion.magnetar"' "$replacement"
+    identifier="$5"
+    [[ "$identifier" =~ ^[A-Za-z0-9.-]+$ ]] || exit 1
+    /usr/bin/codesign --verify -R "=identifier \"$identifier\"" "$replacement"
     # Ad-hoc releases have no Apple trust ticket; the release signature was verified before this
     # script ran. Keep Gatekeeper enforcement for an installation signed with a certificate.
     installed_signature="$(/usr/bin/codesign --display --verbose=2 "$bundle" 2>&1)"

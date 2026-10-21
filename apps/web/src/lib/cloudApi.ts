@@ -2,11 +2,17 @@ import type { AccountDto, AppConfig, CloudDeviceDto, LatestReleaseDto, PairAppro
 
 export type { AppConfig }
 
+let loadedConfig: AppConfig | null = null
+
 export async function loadAppConfig(): Promise<AppConfig> {
   const response = await fetch('/app-config.json', { cache: 'no-store' })
   if (!response.ok) throw new Error(`Could not load the app configuration (HTTP ${response.status})`)
-  return (await response.json()) as AppConfig
+  loadedConfig = (await response.json()) as AppConfig
+  return loadedConfig
 }
+
+/** What `loadAppConfig` read, which every page waits for: null before it has. */
+export const appConfig = () => loadedConfig
 
 export class CloudError extends Error {
   constructor(readonly status: number, message: string) {

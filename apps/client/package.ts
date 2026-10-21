@@ -1,10 +1,13 @@
 /**
  * Builds the single-file Magnetar executable for one platform, with the dashboard embedded.
  *
- *   node package.ts [--target aarch64-apple-darwin] [--version 1.0.0] [--skip-web] [--profile ci]
+ *   node package.ts [--target aarch64-apple-darwin] [--version 1.0.0] [--skip-web] [--profile ci] [--preview]
  *
  * `--profile` picks the Cargo profile: `release` (the default, what ships) or `ci` (fast, unoptimized
  * linking, for CI's smoke test).
+ *
+ * `--preview` builds Magnetar Preview (config.rs `PREVIEW`), the build of main the preview website offers: Magnetar
+ * Preview.app, with its own bundle identifier and `magnetar-preview://` links, beside the released app.
  *
  * Output in dist/: `Magnetar-<version>-<platform>-<arch>` (.exe on Windows). On macOS it
  * is also wrapped in Magnetar.app and zipped, which is the release asset: signed with the
@@ -39,6 +42,7 @@ const { values } = parseArgs({
     version: { type: 'string' },
     'skip-web': { type: 'boolean', default: false },
     profile: { type: 'string', default: 'release' },
+    preview: { type: 'boolean', default: false },
   },
 })
 
@@ -46,7 +50,7 @@ const root = import.meta.dirname
 const repo = join(root, '..', '..')
 const dist = join(root, 'dist')
 // The tag is the version: the release this commit is or is heading for, unless the release workflow names it.
-const version = values.version ?? execFileSync('node', [join(repo, 'scripts', 'release-version.ts'), 'display'], { cwd: repo, encoding: 'utf8' }).trim()
+const version = values.version ?? execFileSync('node', [join(repo, 'packages', 'release', 'release-version.ts'), 'display'], { cwd: repo, encoding: 'utf8' }).trim()
 if (!/^\d+\.\d+\.\d+(-[\w.]+)?$/.test(version)) throw new Error(`Invalid version ${version}`)
 
 const hostTarget = execFileSync('rustc', ['-vV'], { encoding: 'utf8' }).match(/^host: (.+)$/m)?.[1]
@@ -56,6 +60,10 @@ const platform = target.includes('apple-darwin') ? 'macos' : target.includes('wi
 const arch = target.startsWith('aarch64') ? 'arm64' : 'x64'
 const exe = platform === 'windows' ? '.exe' : ''
 const name = `Magnetar-${version}-${platform}-${arch}`
+const preview = values.preview!
+const appName = preview ? 'Magnetar Preview' : 'Magnetar'
+const bundleId = preview ? 'cc.codefusion.magnetar.preview' : 'cc.codefusion.magnetar'
+const linkScheme = preview ? 'magnetar-preview' : 'magnetar'
 
 if (!values['skip-web']) {
   // Through a shell: pnpm is pnpm.cmd on Windows.
@@ -69,7 +77,7 @@ if (!process.env.MAGNETAR_RELEASE_PUBLIC_KEY && !existsSync(join(root, 'release-
 const profile = values.profile!
 run('cargo', ['build', '--profile', profile, '--locked', '--target', target, '-p', 'magnetar'], {
   cwd: repo,
-  env: { ...process.env, MAGNETAR_VERSION: version, MAGNETAR_COMMIT: commit() },
+  env: { ...process.env, MAGNETAR_VERSION: version, MAGNETAR_COMMIT: commit(), ...(preview ? { MAGNETAR_PREVIEW: '1' } : {}) },
 })
 
 mkdirSync(dist, { recursive: true })
@@ -92,9 +100,9 @@ function commit(): string {
   }
 }
 
-/** Magnetar.app: a menu-bar agent (no Dock icon), ad-hoc signed, zipped with ditto. */
+/** Magnetar.app (Magnetar Preview.app): a menu-bar agent (no Dock icon), ad-hoc signed, zipped with ditto. */
 function packageMacApp(): void {
-  const app = join(dist, 'Magnetar.app')
+  const app = join(dist, `${appName}.app`)
   rmSync(app, { recursive: true, force: true })
   mkdirSync(join(app, 'Contents', 'MacOS'), { recursive: true })
   mkdirSync(join(app, 'Contents', 'Resources'), { recursive: true })
@@ -106,9 +114,9 @@ function packageMacApp(): void {
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleName</key><string>Magnetar</string>
-  <key>CFBundleDisplayName</key><string>Magnetar</string>
-  <key>CFBundleIdentifier</key><string>cc.codefusion.magnetar</string>
+  <key>CFBundleName</key><string>${appName}</string>
+  <key>CFBundleDisplayName</key><string>${appName}</string>
+  <key>CFBundleIdentifier</key><string>${bundleId}</string>
   <key>CFBundleVersion</key><string>${plainVersion}</string>
   <key>CFBundleShortVersionString</key><string>${plainVersion}</string>
   <key>CFBundlePackageType</key><string>APPL</string>
@@ -125,7 +133,7 @@ function packageMacApp(): void {
     </dict>
     <dict>
       <key>CFBundleURLName</key><string>Magnetar link</string>
-      <key>CFBundleURLSchemes</key><array><string>magnetar</string></array>
+      <key>CFBundleURLSchemes</key><array><string>${linkScheme}</string></array>
     </dict>
   </array>
   <key>CFBundleDocumentTypes</key>
@@ -161,9 +169,9 @@ function packageMacApp(): void {
   // imported), otherwise ad-hoc: Gatekeeper then asks the user to confirm the first launch.
   const identity = process.env.MACOS_SIGNING_IDENTITY
   if (identity) {
-    run('/usr/bin/codesign', ['--force', '--options', 'runtime', '--timestamp', '--sign', identity, '--identifier', 'cc.codefusion.magnetar', app])
+    run('/usr/bin/codesign', ['--force', '--options', 'runtime', '--timestamp', '--sign', identity, '--identifier', bundleId, app])
   } else {
-    run('/usr/bin/codesign', ['--force', '--sign', '-', '--identifier', 'cc.codefusion.magnetar', '--timestamp=none', app])
+    run('/usr/bin/codesign', ['--force', '--sign', '-', '--identifier', bundleId, '--timestamp=none', app])
   }
   run('/usr/bin/codesign', ['--verify', '--deep', '--strict', '--verbose=2', app])
   const zip = join(dist, `${name}.zip`)

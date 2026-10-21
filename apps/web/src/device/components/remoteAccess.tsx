@@ -73,7 +73,9 @@ export function RemoteAccessSection() {
   const local = connection.kind === 'local'
   // The name is the device's address on the website, so it is spelled as one: shown as typed, sent as spelled.
   const spelled = name.trim() ? toDeviceName(name) : ''
-  const address = `${remote.cloudUrl.replace(/^https?:\/\//, '')}/${spelled}`
+  // The website this app is reached at, as people type it: magnetar.codefusion.cc, the preview one for Magnetar Preview.
+  const site = remote.cloudUrl.replace(/^https?:\/\//, '').replace(/\/$/, '')
+  const address = `${site}/${spelled}`
   // A word the website keeps for its own pages: say why the address differs from the name typed.
   const reserved = reservedDeviceName(name)
   const pair = async () => {
@@ -118,7 +120,7 @@ export function RemoteAccessSection() {
     <>
       {!remote.paired ? (
         <SettingSection title={t('remote.title')} alert={remote.lastError ?? undefined}>
-          <p>{t('remote.hint')}</p>
+          <p>{t('remote.hint', site)}</p>
           {local && (remote.pendingPairing ? <>
             <p className="setting-waiting" role="status">{t('remote.waiting')}</p>
             <SettingActions>
@@ -135,7 +137,7 @@ export function RemoteAccessSection() {
         <SettingSection title={t('remote.reachable')} alert={remote.lastError ?? undefined}
           hint={remote.connected ? undefined : t('remote.reconnecting')}>
           <p>{t('remote.reachableHint', remote.accountEmail ?? '')}</p>
-          <SettingValue><a href={`${remote.cloudUrl.replace(/\/$/, '')}/${remote.deviceName}`} target="_blank" rel="noopener noreferrer">{`${remote.cloudUrl.replace(/^https?:\/\//, '').replace(/\/$/, '')}/${remote.deviceName}`}</a></SettingValue>
+          <SettingValue><a href={`${remote.cloudUrl.replace(/\/$/, '')}/${remote.deviceName}`} target="_blank" rel="noopener noreferrer">{`${site}/${remote.deviceName}`}</a></SettingValue>
         </SettingSection>
         <SettingSection title={t('remote.deviceName')} htmlFor="magnetar-device-name" hint={spelled !== remote.deviceName ? nameHint || undefined : undefined}>
           {nameForm(t('remote.rename'), () => { if (spelled && spelled !== remote.deviceName) void run(() => connection.call('remote.rename', { deviceName: spelled })) },

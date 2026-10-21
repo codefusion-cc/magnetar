@@ -15,7 +15,7 @@ use tray_icon::menu::{CheckMenuItem, IsMenuItem, Menu, MenuEvent, MenuId, MenuIt
 use tray_icon::{Icon, TrayIcon, TrayIconBuilder, TrayIconEvent};
 
 use crate::app::App;
-use crate::config::build_label;
+use crate::config::{APP_NAME, build_label};
 use crate::protocol::bytes::{format_bytes, format_rate};
 use crate::protocol::{
     AltSpeedMode, DownloadDto, DownloadStatus, EngineState, LoginStartupStatus, SettingsPatch, TransferStatusDto, UpdateStatusDto,
@@ -126,7 +126,7 @@ impl MenuContent {
         Self {
             rows: rows(s),
             title: if down > 0 { rate(down) } else { String::new() },
-            tooltip: if headline == "Idle" { "Magnetar".into() } else { format!("Magnetar — {headline}") },
+            tooltip: if headline == "Idle" { APP_NAME.into() } else { format!("{APP_NAME} — {headline}") },
         }
     }
 }
@@ -365,7 +365,7 @@ fn rows(s: &Snapshot) -> Vec<Row> {
     // Updates.
     let updates = &s.updates;
     rows.push(Row::Separator);
-    let build = format!("Magnetar {}", build_label());
+    let build = format!("{APP_NAME} {}", build_label());
     if updates.installing {
         rows.push(Row::Label(build));
         rows.push(Row::Label("Installing update…".into()));
@@ -389,7 +389,7 @@ fn rows(s: &Snapshot) -> Vec<Row> {
         });
     }
     rows.push(item("What's New…", Command::OpenSettings(Some("about"))));
-    rows.push(item("Quit Magnetar", Command::Quit));
+    rows.push(item(format!("Quit {APP_NAME}"), Command::Quit));
     rows
 }
 
@@ -650,7 +650,7 @@ pub fn run(app: Arc<App>, dashboard_url: String, runtime: tokio::runtime::Handle
                 Ok(TrayIconBuilder::new()
                     .with_icon(icon)
                     .with_icon_as_template(cfg!(target_os = "macos"))
-                    .with_tooltip("Magnetar")
+                    .with_tooltip(APP_NAME)
                     .with_menu_on_left_click(cfg!(target_os = "macos"))
                     .build()?)
             });

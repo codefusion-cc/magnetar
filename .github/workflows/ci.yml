@@ -107,6 +107,20 @@ jobs:
     uses: ./.github/workflows/release.yml
     secrets: inherit
 
+  # Magnetar Preview, main's build for Apple silicon Macs that the preview website offers (preview-app.yml). A build
+  # under way finishes; of several merges waiting behind it, only the newest is built.
+  preview-app:
+    name: Preview app
+    needs: [check, e2e]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    concurrency:
+      group: preview-app
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    uses: ./.github/workflows/preview-app.yml
+    secrets: inherit
+
   # Every merge to main goes to the preview Worker at preview.magnetar.codefusion.cc once every check above passed, and to
   # production at magnetar.codefusion.cc once the owner approves (deploy-worker.yml: migrations first, each with its
   # own database, relay and secrets). CodeFusion Console reads what runs from each one's version.json, and the
