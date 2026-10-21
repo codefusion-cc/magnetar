@@ -49,7 +49,7 @@ fn main() -> anyhow::Result<()> {
     magnetar::log::init(Some(paths.logs.clone()), *IS_DEV);
     tracing::info!("Magnetar {} starting (data: {})", build_label(), paths.data_dir.display());
 
-    // Opened for a magnet link or a .torrent file (Windows and Linux pass it as an argument).
+    // Opened for a magnet link, a .torrent file or magnetar://connect (Windows and Linux pass it as an argument).
     let opened = OpenTarget::from_args(std::env::args());
     let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
     let handle = runtime.handle().clone();
@@ -78,6 +78,12 @@ fn main() -> anyhow::Result<()> {
     let _ = app.updates.dashboard_url.set(dashboard_url.clone());
     app.agent.publish(&dashboard_url);
     lock.publish(&dashboard_url);
+    // The website's "Connect this computer" opens magnetar://connect; registering is cheap and keeps it pointing at this copy.
+    std::thread::spawn(|| {
+        if let Err(error) = magnetar::system::handlers::register_link() {
+            tracing::warn!("Could not register magnetar:// links: {error:#}");
+        }
+    });
     if let Some(opened) = &opened {
         open_in_browser(&opened.dashboard_link(&dashboard_url));
     }

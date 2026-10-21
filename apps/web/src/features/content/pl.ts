@@ -198,6 +198,7 @@ export const content: FeaturesContent = {
           gain: 'Bez przepisywania kodów: aplikacja otwiera stronę, Ty zatwierdzasz, a komputer trafia na Twoje konto.',
           text: 'Przycisk „Połącz z kontem” w sekcji Ustawienia → Dostęp zdalny otwiera stronę z linkiem parowania. Zaloguj się, zatwierdź, a aplikacja odbierze swój klucz. Wybrana nazwa urządzenia staje się jego adresem.',
           points: [
+            'Albo zacznij na stronie: „Połącz ten komputer” pod listą komputerów otwiera tu aplikację przy tym przycisku',
             'Link parowania działa przez dziesięć minut, a klucz jest przekazywany tylko raz',
             'Do 20 komputerów na konto',
             'Strona przechowuje tylko hash tokenu każdego komputera',

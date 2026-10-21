@@ -36,7 +36,9 @@ test('someone signed in lands on their computers at /, not on the first page', a
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Your computers', level: 1 })).toBeVisible()
   await expect(page.getByRole('heading', { name: /Search and download/ })).toHaveCount(0)
-  await expect(page.getByRole('banner')).toContainText('alex@example.com')
+  // The account is where signing out says which one it is, not a line of its own in the top row.
+  await expect(page.getByRole('banner')).not.toContainText('alex@example.com')
+  await expect(page.getByRole('banner').getByRole('button', { name: 'Sign out', exact: true })).toHaveAttribute('title', 'Signed in as alex@example.com')
 })
 
 test('after signing in, next goes only to a path on this site', async ({ page }) => {
@@ -122,6 +124,13 @@ test('each computer shows whether this browser can open it now, and how it is', 
   // Another computer needs the app first: the download sits beside how to add one.
   await expect(page.getByText('To add a computer, install Magnetar on it, then go to Settings, Remote access, Connect to your account.')).toBeVisible()
   await expect(page.getByRole('link', { name: /^Download (for (macOS|Windows|Linux)|Magnetar)$/ })).toBeVisible()
+  // This computer opens its Magnetar at Connect; the page cannot see whether it did, so it says what to expect.
+  const connect = page.getByRole('link', { name: 'Connect this computer', exact: true })
+  await expect(connect).toHaveAttribute('href', 'magnetar://connect')
+  await expect(page.getByText('Magnetar opens at Settings, Remote access.', { exact: false })).toHaveCount(0)
+  await page.evaluate(() => addEventListener('click', event => event.preventDefault()))
+  await connect.click()
+  await expect(page.getByRole('status').filter({ hasText: 'Magnetar opens at Settings, Remote access. If nothing opens, download it first.' })).toBeVisible()
   await row(page, 'MacBook-Pro').getByRole('link', { name: 'Link: MacBook-Pro' }).click()
   await expect(page.getByRole('heading', { name: 'This browser is not linked to MacBook-Pro' })).toBeVisible()
 })
@@ -217,6 +226,17 @@ test('while the list is on its way the page says it is looking, and an account w
   await expect(page.getByRole('heading', { name: 'No computer on this account yet' })).toBeVisible()
   await expect(page.getByText('Open Magnetar on the computer and go to Settings, Remote access, Connect to your account.')).toBeVisible()
   await expect(page.getByRole('link', { name: /^Download for / })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Connect this computer', exact: true })).toHaveAttribute('href', 'magnetar://connect')
+})
+
+test('on a phone, where the app does not run, the page offers no Connect this computer', async ({ browser }) => {
+  const context = await browser.newContext({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1', viewport: { width: 390, height: 844 }, baseURL: test.info().project.use.baseURL })
+  const page = await context.newPage()
+  await serveWebsite(page)
+  await page.goto('/')
+  await expect(page.getByRole('link', { name: 'Download Magnetar', exact: true })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Connect this computer' })).toHaveCount(0)
+  await context.close()
 })
 
 test.describe('linking this browser by code', () => {

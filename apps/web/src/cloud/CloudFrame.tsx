@@ -35,8 +35,7 @@ export function CloudFrame({ children, narrow = false }: { children: ReactNode; 
         <span className="site-grow" />
         {install && <button type="button" className="setting-link" onClick={install} title={t('install.hint')}>{t('install.button')}</button>}
         {account ? <>
-          <span className="site-who" title={account.email}>{account.email}</span>
-          <button type="button" className="setting-link" disabled={leaving} aria-busy={leaving} onClick={() => void leave()}>{t('cloud.signOut')}</button>
+          <button type="button" className="setting-link" title={t('cloud.signedInAs', account.email)} disabled={leaving} aria-busy={leaving} onClick={() => void leave()}>{t('cloud.signOut')}</button>
         </> : <>
           <Link to="/features" className="setting-link">{t('footer.features')}</Link>
           {pathname !== '/login' && <Link to="/login" className="setting-link">{t('cloud.signInLink')}</Link>}

@@ -1,6 +1,7 @@
 import { reservedDeviceName, toDeviceName } from '@magnetar/protocol/device-name'
 import QRCode from 'qrcode'
 import { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { useFormatRelative, useT } from '../../lib/i18n.tsx'
 import { CopyInput } from '../../ui/fields.tsx'
 import { SettingActions, SettingSection, SettingValue } from '../../ui/settings.tsx'
@@ -41,6 +42,8 @@ export function RemoteAccessSection() {
   const request = useRef(0)
   const [label, setLabel] = useState('')
   const [confirm, setConfirm] = useState<'unpair' | { revoke: string } | null>(null)
+  // Opened from the website's Connect this computer (magnetar://connect): Connect waits under the cursor.
+  const connectAsked = useSearchParams()[0].has('connect')
   useEffect(() => setName(remote?.deviceName ?? ''), [remote?.deviceName])
 
   const closeLink = () => {
@@ -102,11 +105,11 @@ export function RemoteAccessSection() {
   }
 
   const linkLabelId = 'magnetar-link-label'
-  const nameForm = (submit: string, onSubmit: () => void, disabled = false) => (
+  const nameForm = (submit: string, onSubmit: () => void, disabled = false, focus = false) => (
     <form className="setting-inline" onSubmit={e => { e.preventDefault(); onSubmit() }}>
       <input id="magnetar-device-name" maxLength={60} autoComplete="off" spellCheck={false} value={name} onChange={e => setName(e.target.value)}
         aria-describedby={spelled ? 'magnetar-device-address' : undefined} />
-      <button type="submit" className="infall-button quiet sm" disabled={disabled}>{submit}</button>
+      <button type="submit" className="infall-button quiet sm" disabled={disabled} autoFocus={focus}>{submit}</button>
     </form>
   )
   const nameHint = spelled && <span id="magnetar-device-address" className={reserved ? 'setting-warn' : undefined}>{reserved ? t('remote.reservedName', reserved, address) : t('remote.address', address)}</span>
@@ -124,7 +127,7 @@ export function RemoteAccessSection() {
             </SettingActions>
           </> : <>
             <div className="setting-field"><label htmlFor="magnetar-device-name">{t('remote.deviceName')}</label></div>
-            {nameForm(t('remote.connect'), () => void pair())}
+            {nameForm(t('remote.connect'), () => void pair(), false, connectAsked)}
             {nameHint && <p className="fine">{nameHint}</p>}
           </>)}
         </SettingSection>

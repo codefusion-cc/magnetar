@@ -4,6 +4,10 @@
 //!
 //! macOS declares both in the app's Info.plist and asks Launch Services to make it the default;
 //! Windows registers per-user classes; Linux installs a desktop entry and sets it with xdg-mime.
+//!
+//! The app's own `magnetar://connect` link, which the website's "Connect this computer" opens,
+//! needs no choice: macOS declares it in the Info.plist, and the installed app registers it on
+//! Windows and Linux each time it starts ([`register_link`]).
 
 use std::path::{Path, PathBuf};
 
@@ -21,12 +25,18 @@ pub enum HandlerStatus {
     NotDefault,
 }
 
-/// What the app was asked to open: a magnet link, or a .torrent file.
+/// What the app was asked to open: a magnet link, a .torrent file, or the website's link to connect it.
 #[derive(Debug, PartialEq, Eq)]
 pub enum OpenTarget {
     Magnet(String),
     TorrentFile(PathBuf),
+    /// `magnetar://connect`: Settings, Remote access, with Connect to your account ready to press.
+    /// It only opens the page, so a site that sends someone here cannot connect anything by itself.
+    Connect,
 }
+
+/// The scheme of the app's own links.
+const LINK_SCHEME: &str = "magnetar";
 
 impl OpenTarget {
     /// A command-line argument, or a URL macOS hands over.
@@ -37,8 +47,16 @@ impl OpenTarget {
         if argument.get(..8).is_some_and(|scheme| scheme.eq_ignore_ascii_case("magnet:?")) {
             return Some(Self::Magnet(argument.to_owned()));
         }
-        let path = match url::Url::parse(argument) {
-            Ok(url) if url.scheme() == "file" => url.to_file_path().ok()?,
+        let url = url::Url::parse(argument).ok();
+        if let Some(url) = &url
+            && url.scheme() == LINK_SCHEME
+        {
+            let connect =
+                url.host_str().is_some_and(|host| host.eq_ignore_ascii_case("connect")) && matches!(url.path(), "" | "/");
+            return connect.then_some(Self::Connect);
+        }
+        let path = match url {
+            Some(url) if url.scheme() == "file" => url.to_file_path().ok()?,
             _ => PathBuf::from(argument),
         };
         let is_torrent = path.extension().is_some_and(|e| e.eq_ignore_ascii_case("torrent"));
@@ -50,9 +68,10 @@ impl OpenTarget {
         args.into_iter().skip(1).find_map(|a| Self::parse(&a))
     }
 
-    /// The dashboard, opened on the add dialog for this.
+    /// The dashboard, opened on the add dialog for this, or on Remote access to connect.
     pub fn dashboard_link(&self, dashboard_url: &str) -> String {
         match self {
+            Self::Connect => format!("{dashboard_url}/settings/remote?connect"),
             Self::Magnet(magnet) => format!("{dashboard_url}/?add={}", encode_uri_component(magnet)),
             Self::TorrentFile(path) => format!("{dashboard_url}/?torrent={}", encode_uri_component(&path.to_string_lossy())),
         }
@@ -73,6 +92,11 @@ pub fn register() -> ApiResult<HandlerStatus> {
     }
     platform::register()?;
     Ok(status())
+}
+
+/// Makes `magnetar://` links open this app. Only the installed app does; macOS reads it from the Info.plist.
+pub fn register_link() -> anyhow::Result<()> {
+    platform::register_link()
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -163,6 +187,11 @@ mod platform {
         }
         Ok(())
     }
+
+    /// Launch Services reads `magnetar://` from the Info.plist when the app is installed.
+    pub fn register_link() -> anyhow::Result<()> {
+        Ok(())
+    }
 }
 
 #[cfg(windows)]
@@ -211,6 +240,22 @@ mod platform {
         }
         Ok(())
     }
+
+    pub fn register_link() -> anyhow::Result<()> {
+        let Some(exe) = installed_exe() else { return Ok(()) };
+        let class = format!(r"{CLASSES}\{}", super::LINK_SCHEME);
+        let steps: [Vec<String>; 3] = [
+            vec![class.clone(), "/ve".into(), "/d".into(), "URL:Magnetar".into()],
+            vec![class.clone(), "/v".into(), "URL Protocol".into(), "/d".into(), String::new()],
+            vec![format!(r"{class}\shell\open\command"), "/ve".into(), "/d".into(), command(&exe)],
+        ];
+        for step in steps {
+            let args: Vec<&str> =
+                std::iter::once("add").chain(step.iter().map(String::as_str)).chain(std::iter::once("/f")).collect();
+            reg(&args).map_err(|e| anyhow::anyhow!("could not register magnetar:// links: {e}"))?;
+        }
+        Ok(())
+    }
 }
 
 #[cfg(not(any(target_os = "macos", windows)))]
@@ -253,6 +298,24 @@ mod platform {
                 return Err(ApiError::bad("Could not set the default with xdg-mime. Is xdg-utils installed?"));
             }
         }
+        let _ = hidden_command("update-desktop-database").arg(&folder).status();
+        Ok(())
+    }
+
+    /// A desktop entry of its own, so it never offers the app for magnet links the user has not given it.
+    pub fn register_link() -> anyhow::Result<()> {
+        const LINK_FILE: &str = "magnetar-link.desktop";
+        let Some(exe) = installed_exe() else { return Ok(()) };
+        let mime = format!("x-scheme-handler/{}", super::LINK_SCHEME);
+        let entry = format!(
+            "[Desktop Entry]\nType=Application\nName=Magnetar\nExec={} %u\nTerminal=false\nNoDisplay=true\nMimeType={mime};\n",
+            super::exec_argument(&exe.display().to_string())
+        );
+        let folder = applications();
+        std::fs::create_dir_all(&folder)?;
+        std::fs::write(folder.join(LINK_FILE), entry)?;
+        let done = hidden_command("xdg-mime").args(["default", LINK_FILE, mime.as_str()]).status();
+        anyhow::ensure!(done.is_ok_and(|s| s.success()), "xdg-mime could not set {mime}; is xdg-utils installed?");
         let _ = hidden_command("update-desktop-database").arg(&folder).status();
         Ok(())
     }
@@ -309,6 +372,25 @@ mod tests {
         }
         let args = ["/Applications/x".to_owned(), "-psn_0_1".to_owned(), magnet.to_owned()];
         assert_eq!(OpenTarget::from_args(args), Some(OpenTarget::Magnet(magnet.into())), "the program name is skipped");
+    }
+
+    #[test]
+    fn the_websites_connect_link_is_the_only_magnetar_link() {
+        // Browsers add a slash, Windows may change the case; macOS hands the URL over as typed.
+        for link in ["magnetar://connect", "magnetar://connect/", "MAGNETAR://Connect", "magnetar://connect?from=site"] {
+            assert_eq!(OpenTarget::parse(link), Some(OpenTarget::Connect), "{link}");
+        }
+        for nothing in
+            ["magnetar:", "magnetar://", "magnetar://pair", "magnetar://connect/now", "magnetar:connect", "https://connect"]
+        {
+            assert_eq!(OpenTarget::parse(nothing), None, "{nothing}");
+        }
+        let args = ["C:\\Magnetar.exe".to_owned(), "magnetar://connect/".to_owned()];
+        assert_eq!(OpenTarget::from_args(args), Some(OpenTarget::Connect), "Windows and Linux pass it as an argument");
+        assert_eq!(
+            OpenTarget::Connect.dashboard_link("http://localhost:47820"),
+            "http://localhost:47820/settings/remote?connect"
+        );
     }
 
     #[test]

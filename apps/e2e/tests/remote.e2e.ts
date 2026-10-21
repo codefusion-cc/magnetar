@@ -215,3 +215,13 @@ test('leaving the page with the link dialog open forgets the link', async ({ pag
   await expect(dialog(page, 'Link another browser')).toBeHidden()
   await expect(linkedToast(page)).toHaveCount(0)
 })
+
+test('opened by the website’s Connect this computer, Remote access has Connect to your account ready for Enter', async ({ page }) => {
+  // magnetar://connect opens this address (OpenTarget::Connect); the app here is on no account, so it offers to connect.
+  await page.goto('/settings/remote?connect')
+  await expect(page.getByRole('button', { name: 'Connect to your account', exact: true })).toBeFocused()
+
+  await page.goto('/settings/remote')
+  await expect(page.getByRole('button', { name: 'Connect to your account', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Connect to your account', exact: true })).not.toBeFocused()
+})

@@ -665,7 +665,7 @@ pub fn run(app: Arc<App>, dashboard_url: String, runtime: tokio::runtime::Handle
                 }
             }
         }
-        // macOS hands over magnet links and .torrent files as URLs, at launch and while running.
+        // macOS hands over magnet links, .torrent files and magnetar://connect as URLs, at launch and while running.
         if let Event::Opened { urls } = &event {
             for url in urls {
                 if let Some(target) = OpenTarget::parse(url.as_str()) {
