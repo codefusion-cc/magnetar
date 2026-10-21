@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import type { CloudDeviceDto, LatestReleaseDto } from '@magnetar/protocol/cloud'
+import type { AppConfig, CloudDeviceDto, LatestReleaseDto } from '@magnetar/protocol/cloud'
 import { acceptBrowserHandshake, decodeHandshake, encodeHandshake, FRAME_HANDSHAKE, importBrowserKey } from '@magnetar/protocol/e2e'
 import { linkCodeKey } from '@magnetar/protocol/link-code'
 import { seedDeviceKeys } from './keys.ts'
@@ -24,7 +24,7 @@ const RELEASE: LatestReleaseDto = {
 
 /** What the preview website offers: Magnetar Preview's newest build, for Apple silicon Macs only. */
 export const PREVIEW_BUILD: LatestReleaseDto = {
-  version: '1.2.9-preview.41', preview: true, publishedAt: '2026-10-21T10:00:00Z',
+  version: '1.2.9-preview.41', publishedAt: '2026-10-21T10:00:00Z',
   pageUrl: 'https://github.com/codefusion-cc/magnetar/releases/tag/v1.2.9-preview.41',
   assets: [{ name: 'Magnetar-1.2.9-preview.41-macos-arm64.zip', platform: 'macos', arch: 'arm64', size: 8_400_000, url: 'https://example.org/Magnetar-1.2.9-preview.41-macos-arm64.zip' }],
 }
@@ -33,10 +33,12 @@ export const PREVIEW_BUILD: LatestReleaseDto = {
  * The website at its network edge: who is signed in, the account's computers (or a list that fails or never comes),
  * the newest release, and the relay for linking a browser by code. Every page and the browser's key store stay real.
  */
-export async function serveWebsite(page: Page, { signedIn = true, devices = COMPUTERS, linked = ['mini', 'pc'], devicesFail = 0, holdDevices = false, release = RELEASE }: {
+export async function serveWebsite(page: Page, { signedIn = true, devices = COMPUTERS, linked = ['mini', 'pc'], devicesFail = 0, holdDevices = false, release = RELEASE, previewApp }: {
   signedIn?: boolean
-  /** The newest release (1.2.2, older than Connect this computer), or what the preview website offers. */
-  release?: LatestReleaseDto
+  /** The newest release (1.2.2, older than Connect this computer), what the preview website offers, or none yet. */
+  release?: LatestReleaseDto | null
+  /** The preview website (`connects`) or a branch Preview. */
+  previewApp?: AppConfig['previewApp']
   devices?: CloudDeviceDto[]
   /** Computers this browser already holds a key for. */
   linked?: string[]
@@ -50,8 +52,8 @@ export async function serveWebsite(page: Page, { signedIn = true, devices = COMP
   let failing = devicesFail
   /** From now on every read of the list answers with this status (503: the website is down; 401: signed out). */
   let failWith: number | null = null
-  await page.route('**/app-config.json', route => route.fulfill({ json: { mode: 'cloud', googleClientId: 'test-client', devAuth: false } }))
-  await page.route('**/api/releases/latest', route => route.fulfill({ json: release }))
+  await page.route('**/app-config.json', route => route.fulfill({ json: { mode: 'cloud', googleClientId: 'test-client', previewApp } }))
+  await page.route('**/api/releases/latest', route => release ? route.fulfill({ json: release }) : route.fulfill({ status: 404, json: { error: 'No release yet' } }))
   await page.route('**/api/me', route => signedIn
     ? route.fulfill({ json: { id: 'account', email: 'alex@example.com', name: 'Alex', picture: null } })
     : route.fulfill({ status: 401, json: { error: 'Not signed in' } }))

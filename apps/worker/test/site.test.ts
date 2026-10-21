@@ -4,6 +4,7 @@ import { testAssets } from '@codefusion-cc/workers-http/testing'
 import { describe, expect, test } from 'vitest'
 import worker from '../src/index.ts'
 import type { Env } from '../src/env.ts'
+import type { AppConfig } from '@magnetar/protocol/cloud'
 import { SESSION_COOKIE } from '../src/auth.ts'
 import { call, cookieValue, ORIGIN, signIn } from './client.ts'
 
@@ -81,6 +82,17 @@ describe('the website API', () => {
     expect(await live.json()).toEqual({ mode: 'cloud', googleClientId: 'test-client.apps.googleusercontent.com' })
     const unconfigured = await fetchWith({ ...production, GOOGLE_CLIENT_ID: '' }, new Request('https://magnetar.codefusion.cc/app-config.json'))
     expect(await unconfigured.json()).toEqual({ mode: 'cloud' })
+  })
+
+  test('app-config tells the preview website and its Previews to offer Magnetar Preview, and only the preview website to connect it', async () => {
+    const preview = { ...production, APP_ENV: 'preview' }
+    const home = await fetchWith(preview, new Request('https://preview.magnetar.codefusion.cc/app-config.json'))
+    expect((await home.json() as AppConfig).previewApp).toEqual({ connects: true })
+    const branch = await fetchWith({ ...preview, GOOGLE_CALLBACK_ORIGIN: 'https://preview.magnetar.codefusion.cc' }, new Request('https://feat-x.preview.magnetar.codefusion.cc/app-config.json'))
+    expect((await branch.json() as AppConfig).previewApp).toEqual({ connects: false })
+    // A look-alike host is no preview website.
+    const lookalike = await fetchWith(preview, new Request('https://preview.magnetar.codefusion.cc.example.org/app-config.json'))
+    expect((await lookalike.json() as AppConfig).previewApp).toEqual({ connects: false })
   })
 
   test('dev sign-in does not exist in production', async () => {

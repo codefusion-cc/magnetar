@@ -4,6 +4,7 @@ import { formatBytes } from '@magnetar/protocol/bytes'
 import { useEffect, useState, type ReactNode } from 'react'
 import { formatters, useLanguage, useT } from '../lib/i18n.tsx'
 import { Loading } from '../ui/Loading.tsx'
+import { appConfig } from '../lib/cloudApi.ts'
 import { latestRelease } from '../lib/releases.ts'
 import { RELEASES_PAGE } from '../lib/updates.ts'
 import { PLATFORM_NAMES } from './computerLine.ts'
@@ -51,13 +52,16 @@ function pick(assets: ReleaseAssetDto[], platform: ReleasePlatform, arch: Releas
   return matching.find(a => a.name.endsWith('.zip')) ?? matching[0]
 }
 
-/** The visitor's system and the newest release's file for it. */
+/**
+ * The visitor's system and the newest release's file for it. On the preview website (`preview`) the release is
+ * Magnetar Preview's newest build, or null before the first one.
+ */
 function useAppDownload() {
   const release = latestRelease.useLatest()
   const [visitor, setVisitor] = useState<Visitor>({ platform: null, arch: null })
   useEffect(() => void detectVisitor().then(setVisitor), [])
   const main = release && visitor.platform && visitor.arch ? pick(release.assets, visitor.platform, visitor.arch) : undefined
-  return { release, platform: visitor.platform, main }
+  return { release, platform: visitor.platform, main, preview: appConfig()?.previewApp }
 }
 
 /**
@@ -67,14 +71,16 @@ function useAppDownload() {
 export function useGetApp(className: string): { button: ReactNode; note: string } {
   const t = useT()
   const language = useLanguage()
-  const { release, platform, main } = useAppDownload()
+  const { release, platform, main, preview } = useAppDownload()
   const others = (['macos', 'windows', 'linux'] as const).filter(p => p !== platform).map(p => PLATFORM_NAMES[p])
-  if (release?.preview) {
+  if (preview) {
     return {
       button: main
         ? <a className={className} href={main.url}>{t('get.preview')}</a>
-        : <a className={className} href={BUILD_FROM_SOURCE} target="_blank" rel="noreferrer noopener">{t('get.fromSource')}</a>,
-      note: t('get.previewNote'),
+        : release && !platform
+          ? <a className={className} href={release.pageUrl} target="_blank" rel="noreferrer noopener">{t('get.preview')}</a>
+          : <a className={className} href={BUILD_FROM_SOURCE} target="_blank" rel="noreferrer noopener">{t('get.fromSource')}</a>,
+      note: !platform ? t('get.onComputer') : release ? t('get.previewNote') : t('get.noPreview'),
     }
   }
   return {
@@ -91,25 +97,37 @@ export function useGetApp(className: string): { button: ReactNode; note: string 
  */
 export function DownloadApp() {
   const t = useT()
-  const { release, platform, main } = useAppDownload()
+  const { release, platform, main, preview } = useAppDownload()
   const others = release ? (['macos', 'windows', 'linux'] as const).flatMap(platform => (['arm64', 'x64'] as const).map(arch => ({ platform, arch, asset: pick(release.assets, platform, arch) })))
     .filter(o => o.asset && o.asset !== main) : []
 
   if (release === undefined) return <Loading />
-  if (release?.preview) {
+  if (preview) {
+    // Only Apple silicon Macs get a build; Safari and Firefox on an Intel Mac pass for one, so the source stays a click away.
     return (
       <div className="get-app">
-        {main ? (
+        {main && release ? (
           <a className="infall-button" href={main.url}>
             <span className="get-app-label">
               <span>{t('get.preview')}</span>
               <small>{ARCH_NAMES.macos.arm64}, v{release.version}, {formatBytes(main.size)}</small>
             </span>
           </a>
+        ) : release && !platform ? (
+          <a className="infall-button" href={release.pageUrl} target="_blank" rel="noreferrer noopener">{t('get.preview')}</a>
         ) : (
           <a className="infall-button" href={BUILD_FROM_SOURCE} target="_blank" rel="noreferrer noopener">{t('get.fromSource')}</a>
         )}
-        <p className="fine">{main ? t('get.first.preview') : t('get.previewNote')}</p>
+        <p className="fine">{main ? t('get.first.preview') : !platform ? t('get.onComputer') : release ? t('get.previewNote') : t('get.noPreview')}</p>
+        {main && release && (
+          <details className="get-app-others">
+            <summary>{t('get.others')}</summary>
+            <ul>
+              <li><a href={BUILD_FROM_SOURCE} target="_blank" rel="noreferrer noopener">{t('get.fromSource')}</a></li>
+              <li><a href={release.pageUrl} target="_blank" rel="noreferrer noopener">{t('get.releaseNotes')}</a></li>
+            </ul>
+          </details>
+        )}
       </div>
     )
   }
@@ -151,20 +169,20 @@ export function DownloadApp() {
  * The website cannot tell whether the app is there, so after the click it says what should happen and what to
  * do if nothing does. On the preview website it opens Magnetar Preview (`magnetar-preview://connect`). Shown only
  * where an app to download opens it: not on a phone, not before a release does, and on the preview website only
- * where it offers Magnetar Preview.
+ * where it offers Magnetar Preview, never on a branch Preview, which Magnetar Preview does not talk to.
  */
 export function ConnectThisComputer({ className }: { className: string }) {
   const t = useT()
-  const { release, platform, main } = useAppDownload()
+  const { release, platform, main, preview } = useAppDownload()
   const [asked, setAsked] = useState(false)
-  const opens = release && (release.preview ? main !== undefined : !isOutdated(release.version, CONNECT_SINCE))
+  const opens = release && (preview ? preview.connects && main !== undefined : !isOutdated(release.version, CONNECT_SINCE))
   if (!platform || !opens) return null
   return (
     <>
-      <a className={className} href={release.preview ? 'magnetar-preview://connect' : 'magnetar://connect'} onClick={() => setAsked(true)}>
+      <a className={className} href={preview ? 'magnetar-preview://connect' : 'magnetar://connect'} onClick={() => setAsked(true)}>
         {t('connect.button')}
       </a>
-      <p className="fine connect-note" role="status">{asked ? t('connect.opening', release.preview ? 'Magnetar Preview' : 'Magnetar') : ''}</p>
+      <p className="fine connect-note" role="status">{asked ? t('connect.opening', preview ? 'Magnetar Preview' : 'Magnetar') : ''}</p>
     </>
   )
 }

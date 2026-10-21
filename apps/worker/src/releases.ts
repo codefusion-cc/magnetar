@@ -18,7 +18,6 @@ export const isPreviewBuild = (version: string) => parseVersion(version)?.prerel
 export function toLatestRelease(release: Release): LatestReleaseDto {
   return {
     version: release.version,
-    ...(isPreviewBuild(release.version) ? { preview: true as const } : {}),
     publishedAt: release.publishedAt,
     pageUrl: release.url,
     assets: release.assets.flatMap(asset => {

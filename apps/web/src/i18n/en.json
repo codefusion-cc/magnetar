@@ -490,6 +490,7 @@
     "get.preview": "Download Magnetar Preview",
     "get.fromSource": "Build it from source",
     "get.previewNote": "The newest build, before it is released. Ready for Apple silicon Macs; on other computers, build it from source.",
+    "get.noPreview": "No build to download right now.",
     "get.first.preview": "Unzip it and move Magnetar Preview to Applications. It runs beside Magnetar, with its own downloads and settings.",
     "get.others": "Other systems",
     "get.releaseNotes": "What's new, and every file",

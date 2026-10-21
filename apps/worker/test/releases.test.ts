@@ -121,10 +121,10 @@ describe('the downloads (/api/releases/latest)', () => {
       release('v1.3.0-rc.1', { prerelease: true }),
     ]))
     const preview = await (await ask('/api/releases/latest', send, { APP_ENV: 'preview' }))!.json() as LatestReleaseDto
-    expect([preview.version, preview.preview, preview.assets.map(a => [a.name, a.platform, a.arch])])
-      .toEqual(['1.2.9-preview.41', true, [['Magnetar-1.2.9-preview.41-macos-arm64.zip', 'macos', 'arm64']]])
+    expect([preview.version, preview.assets.map(a => [a.name, a.platform, a.arch])])
+      .toEqual(['1.2.9-preview.41', [['Magnetar-1.2.9-preview.41-macos-arm64.zip', 'macos', 'arm64']]])
     const production = await (await ask('/api/releases/latest', send, { APP_ENV: 'production' }))!.json() as LatestReleaseDto
-    expect([production.version, 'preview' in production]).toEqual(['1.2.8', false])
+    expect(production.version).toBe('1.2.8')
     // Before the first build the preview website has nothing to offer, as before the first release.
     expect((await ask('/api/releases/latest', github(() => Response.json([release('v1.2.8')])).send, { APP_ENV: 'preview' }))!.status).toBe(404)
   })

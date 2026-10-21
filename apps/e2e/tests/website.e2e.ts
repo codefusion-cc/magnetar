@@ -263,8 +263,9 @@ test('Connect this computer waits for a release that opens it, then opens Magnet
 })
 
 test('the preview website offers Magnetar Preview on an Apple silicon Mac, and building it from source elsewhere', async ({ browser }) => {
+  const previewApp = { connects: true }
   const mac = await visitorOn(browser, 'mac')
-  await serveWebsite(mac.page, { release: PREVIEW_BUILD })
+  await serveWebsite(mac.page, { release: PREVIEW_BUILD, previewApp })
   await mac.page.goto('/')
   await expect(mac.page.getByRole('link', { name: 'Download Magnetar Preview', exact: true })).toHaveAttribute('href', PREVIEW_BUILD.assets[0]!.url)
   const connect = mac.page.getByRole('link', { name: 'Connect this computer', exact: true })
@@ -274,20 +275,53 @@ test('the preview website offers Magnetar Preview on an Apple silicon Mac, and b
   await expect(mac.page.getByRole('status').filter({ hasText: 'Magnetar Preview opens at Settings, Remote access.' })).toBeVisible()
   // Someone signed out gets it from the first page, with what it is.
   await mac.page.unrouteAll({ behavior: 'ignoreErrors' })
-  await serveWebsite(mac.page, { signedIn: false, release: PREVIEW_BUILD })
+  await serveWebsite(mac.page, { signedIn: false, release: PREVIEW_BUILD, previewApp })
   await mac.page.reload()
   await expect(mac.page.getByRole('link', { name: 'Download Magnetar Preview', exact: true })).toBeVisible()
   await expect(mac.page.getByText('The newest build, before it is released.', { exact: false })).toBeVisible()
+  // A Mac browser may hide an Intel Mac: the source is under the download.
+  await mac.page.goto('/about')
+  await expect(mac.page.getByRole('link', { name: /^Download Magnetar Preview/ })).toHaveAttribute('href', PREVIEW_BUILD.assets[0]!.url)
+  await mac.page.getByText('Other systems', { exact: true }).click()
+  await expect(mac.page.getByRole('link', { name: 'Build it from source', exact: true })).toHaveAttribute('href', 'https://github.com/codefusion-cc/magnetar#magnetar-preview')
   await mac.context.close()
 
   // No build for Windows: the source, and no Connect that nothing would answer.
   const windows = await visitorOn(browser, 'windows')
-  await serveWebsite(windows.page, { release: PREVIEW_BUILD })
+  await serveWebsite(windows.page, { release: PREVIEW_BUILD, previewApp })
   await windows.page.goto('/')
   await expect(windows.page.getByRole('link', { name: 'Build it from source', exact: true })).toHaveAttribute('href', 'https://github.com/codefusion-cc/magnetar#magnetar-preview')
   await expect(windows.page.getByRole('link', { name: /Download/ })).toHaveCount(0)
   await expect(windows.page.getByRole('link', { name: 'Connect this computer' })).toHaveCount(0)
   await windows.context.close()
+
+  // A phone is sent to a computer, with the build's page for later.
+  const phone = await visitorOn(browser, 'iphone')
+  await serveWebsite(phone.page, { signedIn: false, release: PREVIEW_BUILD, previewApp })
+  await phone.page.goto('/')
+  await expect(phone.page.getByRole('link', { name: 'Download Magnetar Preview', exact: true })).toHaveAttribute('href', PREVIEW_BUILD.pageUrl)
+  await expect(phone.page.getByText('The app runs on a Mac, Windows or Linux computer.', { exact: false })).toBeVisible()
+  await expect(phone.page.getByRole('link', { name: 'Build it from source' })).toHaveCount(0)
+  await phone.context.close()
+})
+
+test('the preview website never offers Magnetar in place of Magnetar Preview, and a branch Preview never connects it', async ({ browser }) => {
+  // Before the first build, or while GitHub cannot be read: the source, not the released app that talks to the website itself.
+  const mac = await visitorOn(browser, 'mac')
+  await serveWebsite(mac.page, { devices: [], release: null, previewApp: { connects: true } })
+  await mac.page.goto('/')
+  await expect(mac.page.getByRole('link', { name: 'Build it from source', exact: true })).toHaveAttribute('href', 'https://github.com/codefusion-cc/magnetar#magnetar-preview')
+  await expect(mac.page.getByText('No build to download right now.', { exact: true })).toBeVisible()
+  await expect(mac.page.getByRole('link', { name: /Download/ })).toHaveCount(0)
+  await expect(mac.page.getByRole('link', { name: 'Connect this computer' })).toHaveCount(0)
+
+  // A branch Preview offers the build, but Magnetar Preview talks only to the preview website.
+  await mac.page.unrouteAll({ behavior: 'ignoreErrors' })
+  await serveWebsite(mac.page, { release: PREVIEW_BUILD, previewApp: { connects: false } })
+  await mac.page.reload()
+  await expect(mac.page.getByRole('link', { name: 'Download Magnetar Preview', exact: true })).toBeVisible()
+  await expect(mac.page.getByRole('link', { name: 'Connect this computer' })).toHaveCount(0)
+  await mac.context.close()
 })
 
 test('on a phone, where the app does not run, the page offers no Connect this computer', async ({ browser }) => {
