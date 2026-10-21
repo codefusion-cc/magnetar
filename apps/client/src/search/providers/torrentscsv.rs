@@ -47,6 +47,7 @@ pub fn parse(json: &str) -> anyhow::Result<Vec<TorrentSearchResult>> {
                 size_bytes: to_number(&row["size_bytes"]).max(0.0) as u64,
                 seeders: to_int(&row["seeders"]),
                 leechers: to_int(&row["leechers"]),
+                // When its index took the torrent in, often weeks after the upload: a merge prefers another source's date.
                 published_at: from_unix_seconds(&row["created_unix"]),
                 ..TorrentSearchResult::new(name, NAME)
             })
