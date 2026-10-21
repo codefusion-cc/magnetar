@@ -26,23 +26,33 @@ function glow(c: CanvasRenderingContext2D, x: number, y: number, r: number, col:
 const dot = (c: CanvasRenderingContext2D, x: number, y: number, r: number) => { c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill() }
 type Vec = [number, number, number]
 const cross = (a: Vec, b: Vec): Vec => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
+// The field's axis leans left and towards the viewer; U and V span the plane its loops turn in.
+const AXIS: Vec = [Math.sin(-.42) * Math.cos(.5), -Math.cos(-.42) * Math.cos(.5), Math.sin(.5)]
+const NORMAL = cross(AXIS, [0, 0, 1]), U = NORMAL.map(v => v / Math.hypot(...NORMAL)) as Vec, V = cross(AXIS, U)
+
+/**
+ * One loop of the star's field, r = L sin²θ, turned `a` round the axis: its points around the star's centre, and how near
+ * the viewer it lies (`depth`, -1 to 1). The pictures' star and the brand mark draw the same loops.
+ */
+export function fieldLoop(L: number, a: number, steps = 28) {
+  const D = U.map((v, i) => v * Math.cos(a) + V[i]! * Math.sin(a)) as Vec
+  const points = Array.from({ length: steps + 1 }, (_, k) => {
+    const th = k / steps * Math.PI, r = L * Math.sin(th) ** 2, z = r * Math.cos(th), q = r * Math.sin(th)
+    return [AXIS[0] * z + D[0] * q, AXIS[1] * z + D[1] * q] as const
+  })
+  return { points, depth: D[2] }
+}
 function star(c: CanvasRenderingContext2D, p: Palette, x: number, y: number, R: number, t: number, mode: StarMode = 'on') {
   const off = mode === 'off', spin = t * TAU / 7
   if (mode === 'far') { glow(c, x, y, R * 6, color(p, 'far-glow'), .5); c.fillStyle = color(p, 'far'); dot(c, x, y, R * .6); return }
   c.save(); c.globalCompositeOperation = 'lighter'
   const wake = mode === 'wake' ? .45 + .4 * Math.sin(t * 2.2) ** 2 : 1
   if (!off) { glow(c, x, y, R * 9 * (1 + .08 * Math.sin(spin)), color(p, 'glow'), .3 * wake); glow(c, x, y, R * 4.2, color(p, 'edge'), .6 * wake) }
-  const al = -.42, inc = .5, A: Vec = [Math.sin(al) * Math.cos(inc), -Math.cos(al) * Math.cos(inc), Math.sin(inc)]
-  const C = cross(A, [0, 0, 1]), len = Math.hypot(...C), U = C.map(v => v / len) as Vec, V = cross(A, U)
   for (const [L, n] of [[R * 4.2, 6], [R * 7.5, 8]] as const) for (let j = 0; j < n; j++) {
-    const a = j * TAU / n + spin, ca = Math.cos(a), sa = Math.sin(a), D = U.map((v, i) => v * ca + V[i]! * sa) as Vec
-    c.strokeStyle = alpha(color(p, 'field'), (off ? .06 + .1 * (D[2] + 1) / 2 : .08 + .22 * (D[2] + 1) / 2) * wake)
+    const { points, depth } = fieldLoop(L, j * TAU / n + spin)
+    c.strokeStyle = alpha(color(p, 'field'), (off ? .06 + .1 * (depth + 1) / 2 : .08 + .22 * (depth + 1) / 2) * wake)
     c.lineWidth = 1; c.beginPath()
-    for (let k = 0; k <= 28; k++) {
-      const th = k / 28 * Math.PI, r = L * Math.sin(th) ** 2, z = r * Math.cos(th), q = r * Math.sin(th)
-      const px = x + A[0] * z + D[0] * q, py = y + A[1] * z + D[1] * q
-      if (k) c.lineTo(px, py); else c.moveTo(px, py)
-    }
+    points.forEach(([px, py], k) => { if (k) c.lineTo(x + px, y + py); else c.moveTo(x + px, y + py) })
     c.stroke()
   }
   c.restore()
@@ -94,7 +104,8 @@ export function drawLanes({ ctx: c, width: w, height: h, t, colors: p }: SceneFr
 }
 
 export function drawFan({ ctx: c, width: w, height: h, t, colors: p }: SceneFrame, rows: readonly Source[], aim?: readonly [number, number]) {
-  const R = w < 520 ? 9 : 14, sx = aim?.[0] ?? w - R * 4.5, sy = aim?.[1] ?? h / 2
+  // With nothing to aim at, the star keeps its outer rings (7.5 R) inside the picture.
+  const R = w < 520 ? 9 : 14, sx = aim?.[0] ?? w - R * 8, sy = aim?.[1] ?? h / 2
   for (const r of rows) {
     const at = (s: number) => {
       const u = 1 - s

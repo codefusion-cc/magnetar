@@ -79,6 +79,14 @@ describe('sky scenes', () => {
     expect(done.log.some(line => line.startsWith('bezierCurveTo'))).toBe(false)
   })
 
+  it.each([390, 900, 1062])('before a search, the star\'s rings fit inside a %ipx wide fan', width => {
+    const { frame: f, log } = frame({ width, height: 380 })
+    drawFan(f, [{ x: 200, y: 20, n: 0 }, { x: 200, y: 47, n: 0 }])
+    const xs = log.filter(line => /^(moveTo|lineTo) /.test(line)).map(line => (JSON.parse(line.split(' ').slice(1).join(' ')) as number[])[0]!)
+    expect(xs.length).toBeGreaterThan(100)
+    expect(Math.max(...xs)).toBeLessThanOrEqual(width)
+  })
+
   it('on a phone each lane curves straight up into the star beside the summary', () => {
     const phone = frame({ width: 390 })
     drawLanes(phone.frame, [rows[0]!], { summary: 10 })
