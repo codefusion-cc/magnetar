@@ -272,3 +272,19 @@ for (const language of ['en', 'pl', 'de', 'fr', 'es', 'it', 'pt', 'ru']) {
     }
   })
 }
+
+for (const signedIn of [false, true]) {
+  test(`${signedIn ? 'signed in' : 'signed out'}, the switch ends the website's top row and the footer no longer has one`, async ({ page }) => {
+    await serveWebsite(page, { signedIn })
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await page.goto('/')
+    const html = page.locator('html'), header = page.getByRole('banner')
+    await expect(html).toHaveAttribute('data-theme', 'magnetar-dark')
+    const controls = header.locator('a, button')
+    await expect(controls.last()).toHaveAccessibleName('Switch to light mode')
+    await expect(page.getByRole('contentinfo').getByText(/^Switch to/)).toHaveCount(0)
+    await controls.last().click()
+    await expect(html).toHaveAttribute('data-theme', 'magnetar-light')
+    await expect(controls.last()).toHaveAccessibleName('Switch to dark mode')
+  })
+}

@@ -1,4 +1,4 @@
-import { expect, test as base } from '@playwright/test'
+import { expect, test as base, type Page } from '@playwright/test'
 import { serveDevice } from '../fixtures/device.ts'
 import { expectNoInvisibleClickTargets, expectVisibleTabStops } from '@codefusion-cc/testing/playwright'
 
@@ -92,3 +92,57 @@ test('the screen loader announces its words and honours reduced motion', async (
   const box = (await loading.boundingBox())!
   expect(box.height).toBeGreaterThanOrEqual(page.viewportSize()!.height)
 })
+
+test('the switch at the end of the top row flips light and dark, keeps the choice after a reload, and Settings can follow the system again', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await page.goto('/')
+  const html = page.locator('html'), header = page.getByRole('banner')
+  await expect(html).toHaveAttribute('data-theme', 'magnetar-dark')
+  const toLight = header.getByRole('button', { name: 'Switch to light mode', exact: true })
+  const device = header.getByRole('group', { name: 'Test computer' })
+  expect((await toLight.boundingBox())!.x).toBeGreaterThan((await device.boundingBox())!.x)
+
+  await toLight.click()
+  await expect(html).toHaveAttribute('data-theme', 'magnetar-light')
+  const toDark = header.getByRole('button', { name: 'Switch to dark mode', exact: true })
+  await expect(toDark).toBeFocused()
+  await page.reload()
+  await expect(html).toHaveAttribute('data-theme', 'magnetar-light')
+
+  // Back to dark, which the system shows: the switch hands the page back to the system rather than holding it dark.
+  await toDark.focus()
+  await page.keyboard.press('Enter')
+  await expect(html).toHaveAttribute('data-theme', 'magnetar-dark')
+  await page.getByRole('navigation', { name: 'Menu', exact: true }).getByRole('link', { name: 'Settings' }).click()
+  await expect(page.getByRole('radio', { name: 'System', exact: true })).toBeChecked()
+  await page.emulateMedia({ colorScheme: 'light' })
+  await expect(html).toHaveAttribute('data-theme', 'magnetar-light')
+  await page.getByRole('radio', { name: 'Dark', exact: true }).click()
+  await expect(html).toHaveAttribute('data-theme', 'magnetar-dark')
+  await expect(header.getByRole('button', { name: 'Switch to light mode', exact: true })).toBeVisible()
+})
+
+/** Counts the view transitions the page starts: the theme's circle is one. */
+const countTransitions = (page: Page) => page.addInitScript(() => {
+  const start = document.startViewTransition.bind(document)
+  Object.assign(window, { transitions: 0 })
+  document.startViewTransition = (...args: Parameters<typeof start>) => {
+    (window as unknown as { transitions: number }).transitions++
+    return start(...args)
+  }
+})
+const transitions = (page: Page) => page.evaluate(() => (window as unknown as { transitions: number }).transitions)
+
+for (const motion of ['no-preference', 'reduce'] as const) {
+  test(`a change of theme ${motion === 'reduce' ? 'is at once with reduced motion' : 'grows as a circle'}, from the switch and from Settings`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark', reducedMotion: motion })
+    await countTransitions(page)
+    await page.goto('/settings')
+    const html = page.locator('html')
+    await page.getByRole('banner').getByRole('button', { name: 'Switch to light mode', exact: true }).click()
+    await expect(html).toHaveAttribute('data-theme', 'magnetar-light')
+    await page.getByRole('radio', { name: 'Dark', exact: true }).click()
+    await expect(html).toHaveAttribute('data-theme', 'magnetar-dark')
+    expect(await transitions(page)).toBe(motion === 'reduce' ? 0 : 2)
+  })
+}

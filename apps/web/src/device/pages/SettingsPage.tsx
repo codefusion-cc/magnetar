@@ -14,7 +14,7 @@ import { blurOnEnter } from '../../ui/fields.tsx'
 import { ConfirmDialog } from '../../ui/Modal.tsx'
 import { Check, SettingActions, SettingSection, SettingValue } from '../../ui/settings.tsx'
 import { Star } from '../../ui/Star.tsx'
-import { theme } from '../../ui/theme.ts'
+import { revealChange, theme } from '../../ui/theme.ts'
 import { useCopy, useToast } from '../../ui/toast.tsx'
 import { useDevice } from '../DeviceContext.tsx'
 import { usePathChoice } from '../../lib/urlState.ts'
@@ -103,7 +103,7 @@ function GeneralSection({ settings }: { settings: SettingsDto }) {
   return (
     <>
       <SettingSection title={t('settings.appearance')} hint={t('settings.appearanceHint')}>
-        <Segmented appearance="quiet" label={t('settings.appearance')} value={mode} onChange={(m: ThemeMode) => theme.setMode(m)}
+        <Segmented appearance="quiet" label={t('settings.appearance')} value={mode} onChange={(m: ThemeMode, from) => void revealChange(from, () => theme.setMode(m))}
           options={(['system', 'light', 'dark'] as const).map(m => ({ value: m, label: t(`settings.theme.${m}`) }))} />
       </SettingSection>
       <SettingSection title={t('settings.language')} htmlFor={languageId} alert={languageFailure}>

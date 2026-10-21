@@ -8,13 +8,15 @@ import { useT } from '../lib/i18n.tsx'
 import { useDevice, useDownloads, useDownloadRead, useSearchLink } from './DeviceContext.tsx'
 import { BrandMark } from '../ui/BrandMark.tsx'
 import { MenuButton } from '../ui/Menu.tsx'
+import { ThemeToggle } from '../ui/ThemeToggle.tsx'
 import { UpdateBanner } from './UpdateBanner.tsx'
 
 /** Wraps the device's name in a way to reach the account's other devices; `placement` is where it opens. */
 export type DeviceMenu = (label: ReactNode, placement: 'up' | 'down') => ReactNode
 
 /**
- * The dashboard frame. Wide screens get one top row; phones keep the places at the bottom, within thumb reach.
+ * The dashboard frame. Wide screens get one top row; phones keep the places at the bottom, within thumb reach. The
+ * computer and the theme switch end the top row on both.
  * The device's name opens `deviceMenu`, or, on
  * this computer's own dashboard once it is on an account, a link to the account's other devices.
  */
@@ -47,8 +49,11 @@ export function Shell({ deviceMenu }: { deviceMenu?: DeviceMenu }) {
             {!!item.count && <span className="shrink-0 tabular-nums">{item.count}</span>}
           </Link>)}
         </nav>
-        <div role="group" aria-label={deviceName} className="shell-device flex min-w-0 items-center gap-2">
-          <DeviceStatus menu={menu} />
+        <div className="shell-end">
+          <div role="group" aria-label={deviceName} className="shell-device flex min-w-0 items-center gap-2">
+            <DeviceStatus menu={menu} />
+          </div>
+          <ThemeToggle />
         </div>
       </header>
       <ConnectionBanner />

@@ -13,7 +13,8 @@ export function Segmented<T extends string>({ label, value, options, onChange, s
   label: string
   value: T
   options: SegmentOption<T>[]
-  onChange: (value: T) => void
+  /** `from` is the option's button, for a change that answers where it was made. */
+  onChange: (value: T, from: HTMLButtonElement) => void
   size?: 'xs' | 'sm'
   appearance?: 'default' | 'quiet'
 }) {
@@ -26,15 +27,15 @@ export function Segmented<T extends string>({ label, value, options, onChange, s
     const next = nextFocusIndex(event.key, current, options.length)
     if (next === null) return
     event.preventDefault()
-    onChange(options[next]!.value)
-    buttons[next]?.focus()
+    onChange(options[next]!.value, buttons[next]!)
+    buttons[next]!.focus()
   }
   return (
     <div role="radiogroup" aria-label={label} className={appearance === 'quiet' ? 'download-views' : 'scroll-strip strip-bleed flex gap-1 overflow-x-auto'} onKeyDown={navigate}>
       {options.map((option, index) => {
         const selected = option.value === value
         return (
-          <button key={option.value} type="button" role="radio" aria-checked={selected} tabIndex={index === tabStop ? 0 : -1} onClick={() => onChange(option.value)}
+          <button key={option.value} type="button" role="radio" aria-checked={selected} tabIndex={index === tabStop ? 0 : -1} onClick={event => onChange(option.value, event.currentTarget)}
             className={appearance === 'quiet' ? undefined : `btn btn-${size} shrink-0 gap-1.5 rounded-full font-medium ${selected ? 'btn-neutral' : 'btn-ghost muted border-base-300 bg-base-100'}`}>
             {option.icon}
             {option.label}

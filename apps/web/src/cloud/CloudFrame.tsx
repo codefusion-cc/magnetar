@@ -1,9 +1,8 @@
-import { useTheme } from '@codefusion-cc/theme/react'
 import { useState, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router'
 import { useT } from '../lib/i18n.tsx'
 import { useInstallOffer } from '../lib/install.ts'
-import { theme } from '../ui/theme.ts'
+import { ThemeToggle } from '../ui/ThemeToggle.tsx'
 import { useAccount } from './CloudApp.tsx'
 import { BrandMark } from '../ui/BrandMark.tsx'
 import { BuildVersion, CommitLink } from '@codefusion-cc/app-update/react'
@@ -12,7 +11,7 @@ import { MAGNETAR_REPO } from '@magnetar/protocol/cloud'
 
 /**
  * The website's own pages (first page, sign-in, the computers, linking): the mark, Features and Sign in, or the
- * account and Sign out, over the page, and the footer. A page that is a single question has a `narrow` column.
+ * account and Sign out, and the theme, over the page, and the footer. A page that is a single question has a `narrow` column.
  */
 export function CloudFrame({ children, narrow = false }: { children: ReactNode; narrow?: boolean }) {
   const t = useT()
@@ -42,6 +41,7 @@ export function CloudFrame({ children, narrow = false }: { children: ReactNode; 
           <Link to="/features" className="setting-link">{t('footer.features')}</Link>
           {pathname !== '/login' && <Link to="/login" className="setting-link">{t('cloud.signInLink')}</Link>}
         </>}
+        <ThemeToggle />
       </header>
       <main className="site-main">{children}</main>
       <SiteFooter column="site-column" />
@@ -49,11 +49,8 @@ export function CloudFrame({ children, narrow = false }: { children: ReactNode; 
   )
 }
 
-/**
- * The website's footer: the build, what the app does, what's new, the source and the theme. `column` sizes its row like
- * the page's; a page with the theme switch in its header leaves it out here.
- */
-export function SiteFooter({ column, theme: switchTheme = true }: { column: string; theme?: boolean }) {
+/** The website's footer: the build, what the app does, what's new and the source. `column` sizes its row like the page's. */
+export function SiteFooter({ column }: { column: string }) {
   const t = useT()
   return (
     <footer className="site-footer">
@@ -62,20 +59,7 @@ export function SiteFooter({ column, theme: switchTheme = true }: { column: stri
         <Link to="/features" className="setting-link">{t('footer.whatItDoes')}</Link>
         <Link to="/about" className="setting-link">{t('footer.whatsNew')}</Link>
         <a href={`https://github.com/${MAGNETAR_REPO}`} className="setting-link" target="_blank" rel="noreferrer noopener">GitHub</a>
-        {switchTheme && <ThemeToggle />}
       </div>
     </footer>
-  )
-}
-
-/** Light or dark, the other one than shown, for this browser. */
-export function ThemeToggle({ className = 'setting-link' }: { className?: string }) {
-  const t = useT()
-  const { resolved } = useTheme(theme)
-  const next = resolved === 'dark' ? 'light' : 'dark'
-  return (
-    <button type="button" className={className} onClick={theme.toggle}>
-      {t(`theme.${next}`)}
-    </button>
   )
 }

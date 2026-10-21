@@ -260,7 +260,9 @@ test('the remote frame and its computer menu use text controls without icons', a
   const frame = page.getByRole('banner')
   await frame.getByRole('button', { name: /Switch device/ }).click()
   await expect(frame.getByRole('menuitem', { name: 'All computers', exact: true })).toBeVisible()
-  await expect(frame.locator('svg')).toHaveCount(0)
+  // The mark and the theme switch are the frame's only pictures.
+  await expect(frame.getByRole('group', { name: 'Mac-Mini-M1', exact: true }).locator('svg')).toHaveCount(0)
+  await expect(frame.getByRole('menu').locator('svg')).toHaveCount(0)
 })
 
 test('initial remote loading uses one connection message and the unreachable star has only its ring', async ({ page }) => {

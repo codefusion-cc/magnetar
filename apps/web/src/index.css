@@ -1,6 +1,8 @@
 @import "tailwindcss";
 /* The look's roles as Tailwind's theme (bg-surface, text-muted, font-display); their values: src/looks/infall.ts. */
 @import "@codefusion-cc/ui/tailwind.css";
+/* A change of theme as a circle from the click (revealChange in ui/theme.ts). */
+@import "@codefusion-cc/theme/reveal.css";
 
 @plugin "daisyui" {
   themes: false;
@@ -164,11 +166,41 @@ body {
   padding-inline: 40px;
 }
 
-.shell-device {
+.shell-end {
   position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.shell-device {
   width: auto;
+  min-width: 0;
   max-width: 220px;
-  justify-self: end;
+}
+
+/* The one icon in a top row: as quiet as the places beside it, a full touch target on a phone. */
+.theme-switch {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--cf-control-mouse);
+  height: var(--cf-control-mouse);
+  border-radius: var(--cf-radius-ctl);
+  color: var(--cf-muted);
+  transition: color var(--cf-duration-quick) var(--cf-ease-out), background-color var(--cf-duration-quick) var(--cf-ease-out);
+}
+.theme-switch:hover {
+  color: var(--cf-ink);
+  background: var(--cf-raised);
+}
+@media (pointer: coarse) {
+  .theme-switch {
+    width: var(--cf-control-touch);
+    height: var(--cf-control-touch);
+  }
 }
 
 .shell-nav {
@@ -210,7 +242,7 @@ body {
   background: linear-gradient(90deg, var(--mg-heat-from), var(--mg-h1), var(--mg-heat-mid), var(--mg-h2));
 }
 
-/* Menus open inward from the frame edge, including when another control follows the trigger. */
+/* The computer's menu opens inward from the end of the row (.shell-end), past the switch that follows it. */
 .shell-device > div {
   position: static;
 }
@@ -220,25 +252,6 @@ body {
   right: 0;
   border-radius: var(--cf-radius-ctl);
   box-shadow: none;
-}
-
-@layer components {
-  .frame-control {
-    display: inline-flex;
-    min-height: 40px;
-    min-width: 0;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid var(--cf-line);
-    border-radius: var(--cf-radius-ctl);
-    padding-inline: 12px;
-    color: var(--cf-ink);
-    font-size: 13px;
-  }
-
-  .frame-control:hover {
-    background: var(--cf-raised);
-  }
 }
 
 .infall-star {
@@ -280,9 +293,9 @@ body {
   }
 }
 
+/* A long word in a narrow tab breaks where its language hyphenates it, never mid-syllable. */
 @media (max-width: 1100px) {
   .shell-tab-label {
-    overflow-wrap: anywhere;
     white-space: normal;
     hyphens: auto;
     text-align: center;
@@ -292,7 +305,7 @@ body {
 @media (min-width: 721px) and (max-width: 1100px) {
   .shell-header {
     gap: 12px;
-    grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(120px, 16vw);
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(170px, 21vw);
   }
   .shell-tab {
     padding: 4px 6px 8px;
@@ -334,6 +347,19 @@ body {
   .shell-tab[aria-current="page"]::after {
     inset-inline: 5px;
     bottom: 6px;
+  }
+}
+
+@media (max-width: 360px) {
+  .shell-nav {
+    padding-inline: 4px;
+  }
+  .shell-tab {
+    padding-inline: 3px;
+    font-size: 12px;
+  }
+  .shell-tab[aria-current="page"]::after {
+    inset-inline: 3px;
   }
 }
 

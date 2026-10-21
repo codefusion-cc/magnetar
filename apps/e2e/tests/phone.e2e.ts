@@ -17,6 +17,19 @@ test('on a phone the tab bar moves between pages and the theme follows the choic
   expect(width, 'no sideways scrolling').toBeLessThanOrEqual(0)
 })
 
+test('on a phone the switch sits in the top row beside the computer and flips the theme', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'light' })
+  await page.goto('/')
+  const header = page.getByRole('banner'), html = page.locator('html')
+  const toDark = header.getByRole('button', { name: 'Switch to dark mode', exact: true })
+  const box = (await toDark.boundingBox())!, viewport = page.viewportSize()!
+  expect(box.x + box.width).toBeLessThanOrEqual(viewport.width)
+  expect(box.width).toBeGreaterThanOrEqual(44)
+  await toDark.click()
+  await expect(html).toHaveAttribute('data-theme', 'magnetar-dark')
+  await expect(header.getByRole('button', { name: 'Switch to light mode', exact: true })).toBeVisible()
+})
+
 test('at 390px every tab stays inside the viewport after scrolling Settings to the bottom', async ({ page }) => {
   await serveDevice(page)
   await page.setViewportSize({ width: 390, height: 700 })
@@ -79,7 +92,7 @@ test('at 320px the frame fits a long computer name in light and dark', async ({ 
   }
 })
 
-for (const language of ['de', 'pl', 'ru']) {
+for (const language of ['en', 'de', 'pl', 'ru']) {
   test(`at 320px the ${language} tab labels remain readable`, async ({ page }) => {
     await serveDevice(page, { language })
     await page.setViewportSize({ width: 320, height: 700 })
@@ -90,6 +103,19 @@ for (const language of ['de', 'pl', 'ru']) {
     await expect(labels).toHaveCount(5)
     for (const label of await labels.all()) {
       expect(await label.evaluate(node => node.scrollWidth <= node.clientWidth), 'the full label fits its tab').toBe(true)
+      // A label on two lines breaks between words or at a hyphen the browser adds, never inside a syllable.
+      const lines = await label.evaluate(node => {
+        const range = document.createRange(), text = node.firstChild!, tops = new Map<number, string>()
+        for (let i = 0; i < text.textContent!.length; i++) {
+          range.setStart(text, i); range.setEnd(text, i + 1)
+          const top = Math.round(range.getBoundingClientRect().top)
+          tops.set(top, (tops.get(top) ?? '') + text.textContent![i])
+        }
+        return [...tops.values()]
+      })
+      if (language === 'en') expect(lines, 'English labels stay on one line').toHaveLength(1)
+      for (const line of lines.slice(0, -1)) expect(line.length, `"${lines.join('|')}" leaves no lone letters`).toBeGreaterThanOrEqual(2)
+      for (const line of lines.slice(1)) expect(line.length, `"${lines.join('|')}" leaves no lone letters`).toBeGreaterThanOrEqual(2)
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320)
   })
