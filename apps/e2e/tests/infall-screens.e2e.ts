@@ -21,7 +21,7 @@ test('Search double submit, out-of-order sources, a late failed source, then a c
   await expect(page.getByRole('list', { name: 'Search', exact: true }).getByRole('heading', { level: 2 })).toHaveText([data.results[0]!.title])
   device.send('search.source', {searchId:'search1',outcome:data.outcomes[0]!})
   device.send('search.source', {searchId:'search1',outcome:data.outcomes[5]!})
-  await expect(page.getByRole('list').filter({ hasText: '1337x' })).toContainText('no answer')
+  await expect(page.getByRole('list').filter({ hasText: 'RARBG' })).toContainText('no answer')
   await expect(page.getByRole('list', { name: 'Search', exact: true }).getByRole('heading', { level: 2 })).toHaveCount(1)
   // Changing a filter cancels the old search and starts a fresh one.
   await page.getByRole('radio', {name:'720p',exact:true}).click()

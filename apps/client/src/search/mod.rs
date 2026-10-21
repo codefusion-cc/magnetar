@@ -7,10 +7,9 @@ pub mod relevance;
 pub mod types;
 
 use std::collections::HashMap;
-use std::sync::{Arc, LazyLock};
+use std::sync::Arc;
 
 use futures::future::join_all;
-use regex::Regex;
 use tokio_util::sync::CancellationToken;
 
 use crate::protocol::SourceOutcomeDto;
@@ -42,47 +41,6 @@ pub fn merge_results(rows: Vec<TorrentSearchResult>) -> Vec<TorrentSearchResult>
     hashless.extend(by_hash);
     hashless.sort_by_key(|r| std::cmp::Reverse(r.seeders));
     hashless
-}
-
-static BLOCK_BREAK: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)<(br|/p|/div|/li)\s*/?>").unwrap());
-static TAG: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"<[^>]+>").unwrap());
-static BLANK_LINES: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\n{3,}").unwrap());
-
-/// Strips a scraped HTML description block to readable plain text.
-pub fn html_to_plain_text(html: &str) -> Option<String> {
-    if html.trim().is_empty() {
-        return None;
-    }
-    let with_breaks = BLOCK_BREAK.replace_all(html, "\n");
-    let stripped = TAG.replace_all(&with_breaks, "");
-    let decoded = html_escape::decode_html_entities(&stripped);
-    let collapsed = BLANK_LINES.replace_all(&decoded, "\n\n").trim().to_owned();
-    (!collapsed.is_empty()).then_some(collapsed)
-}
-
-/// Windows-1252 characters for bytes 0x80–0x9F, where it differs from Latin-1.
-const CP1252_HIGH: [char; 32] = [
-    '€', '\u{81}', '‚', 'ƒ', '„', '…', '†', '‡', 'ˆ', '‰', 'Š', '‹', 'Œ', '\u{8d}', 'Ž', '\u{8f}', '\u{90}', '‘', '’', '“', '”',
-    '•', '–', '—', '˜', '™', 'š', '›', 'œ', '\u{9d}', 'ž', 'Ÿ',
-];
-
-/// Undoes UTF-8 text that was decoded as Windows-1252 and encoded again ("ç„¡è·" → "無職"). Text
-/// that doesn't turn back into valid UTF-8 that way was not garbled, and is returned as it is.
-pub fn repair_mojibake(text: &str) -> std::borrow::Cow<'_, str> {
-    if text.is_ascii() {
-        return text.into();
-    }
-    let bytes: Option<Vec<u8>> = text
-        .chars()
-        .map(|c| match c as u32 {
-            0..=0x7f | 0xa0..=0xff => Some(c as u8),
-            _ => CP1252_HIGH.iter().position(|&h| h == c).map(|i| 0x80 + i as u8),
-        })
-        .collect();
-    match bytes.map(String::from_utf8) {
-        Some(Ok(repaired)) => repaired.into(),
-        _ => text.into(),
-    }
 }
 
 /// Aggregates every provider: parallel fan-out, per-source outcomes, lazy detail resolution.
@@ -222,31 +180,5 @@ mod tests {
         };
         let merged = merge_results(vec![row("a", "AAAA", 5), row("a2", "aaaa", 9), row("lazy", "", 1), row("lazy2", "", 3)]);
         assert_eq!(merged.iter().map(|r| r.title.as_str()).collect::<Vec<_>>(), ["a2", "lazy2", "lazy"]);
-    }
-
-    #[test]
-    fn garbled_titles_are_repaired_and_clean_ones_left_alone() {
-        let original = "[pasta] 【無職転生】ロキシー動画です — café";
-        let garbled: String = original
-            .bytes()
-            .map(|b| match b {
-                0x80..=0x9f => CP1252_HIGH[(b - 0x80) as usize],
-                _ => b as char,
-            })
-            .collect();
-        assert_ne!(garbled, original);
-        assert_eq!(repair_mojibake(&garbled), original);
-        for clean in ["Mushoku Tensei - 06", "Amélie (2001)", "無職転生", "Ølstykke Straße", ""] {
-            assert_eq!(repair_mojibake(clean), clean);
-        }
-    }
-
-    #[test]
-    fn html_descriptions_become_plain_text() {
-        assert_eq!(
-            html_to_plain_text("<p>One</p><p>Two &amp; three</p>\n\n\n\n<b>x</b>").as_deref(),
-            Some("One\nTwo & three\n\nx")
-        );
-        assert_eq!(html_to_plain_text("   "), None);
     }
 }

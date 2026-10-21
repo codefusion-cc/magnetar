@@ -5,7 +5,7 @@ import { CloudFrame } from './CloudFrame.tsx'
 import { useGetApp } from './DownloadApp.tsx'
 
 /** The sources the app searches, in the order the picture's streams take them. */
-const SOURCES = ['The Pirate Bay', '1337x', 'RARBG', 'Torrents-CSV', 'Nyaa', 'EZTV']
+const SOURCES = ['The Pirate Bay', 'Knaben', 'RARBG', 'Torrents-CSV', 'Nyaa', 'EZTV']
 
 /** `/` for someone signed out: what Magnetar is, the app to get, and the way in. */
 export function HomePage() {

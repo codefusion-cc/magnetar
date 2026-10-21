@@ -57,7 +57,7 @@ test('by keyboard: arrows open and move without choosing, Enter chooses, Escape 
   expect(sourceParam(page)).toBeNull()
 
   await page.keyboard.press('End')
-  await expectActive(page, menu, '1337x')
+  await expectActive(page, menu, 'RARBG')
   await page.keyboard.press('Home')
   await page.keyboard.press('ArrowDown')
   await page.keyboard.press('Enter')

@@ -25,7 +25,6 @@ futures = "0.3"
 gethostname = "1"
 hkdf = "0.12"
 hmac = "0.12"
-html-escape = "0.2"
 lettre = { version = "0.11", default-features = false, features = ["builder", "smtp-transport", "tokio1", "tokio1-rustls", "aws-lc-rs", "rustls-platform-verifier"] }
 librqbit = { version = "9", default-features = false, features = ["rust-tls"] }
 mime_guess = "2"

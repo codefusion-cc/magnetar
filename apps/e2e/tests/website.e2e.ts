@@ -20,7 +20,7 @@ test('someone signed out lands on the first page, and Sign in takes them to sign
   const system = (await get.innerText()).replace('Download for ', '')
   const others = ['macOS', 'Windows', 'Linux'].filter(name => name !== system)
   await expect(page.getByText(`Free. Also for ${others[0]} and ${others[1]}.`)).toBeVisible()
-  await expect(page.getByRole('list', { name: 'The six sources it searches' }).getByRole('listitem')).toHaveText(['The Pirate Bay', '1337x', 'RARBG', 'Torrents-CSV', 'Nyaa', 'EZTV'])
+  await expect(page.getByRole('list', { name: 'The six sources it searches' }).getByRole('listitem')).toHaveText(['The Pirate Bay', 'Knaben', 'RARBG', 'Torrents-CSV', 'Nyaa', 'EZTV'])
 
   await page.getByRole('main').getByRole('link', { name: 'Sign in', exact: true }).click()
   await expect(page).toHaveURL(/\/login$/)
