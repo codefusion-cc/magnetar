@@ -4,6 +4,8 @@ The Worker in `apps/worker` serves the website, sign-in, pairing and the relay. 
 merge to `main` goes to the preview Worker (preview.magnetar.codefusion.cc) once every check has passed, and to production
 (magnetar.codefusion.cc) once the owner approves it in CodeFusion Console.
 
+The commands below run from the repository root.
+
 ## 1. Google OAuth client
 
 Google Cloud Console → **APIs & Services → Credentials → Create credentials → OAuth client ID**:
@@ -60,20 +62,20 @@ limit the token to your account. Store it in the `production` environment, which
 Console's Infrastructure → Deploy tokens makes one for each environment instead):
 
 ```bash
-cd /Users/xeon/Projects/mediadownloader-v2 && gh api -X PUT repos/codefusion-cc/magnetar/environments/production --input - <<<'{"deployment_branch_policy":{"protected_branches":false,"custom_branch_policies":true}}' && gh api -X POST repos/codefusion-cc/magnetar/environments/production/deployment-branch-policies -f name=main -f type=branch && gh secret set CLOUDFLARE_API_TOKEN --env production --repo codefusion-cc/magnetar
+gh api -X PUT repos/codefusion-cc/magnetar/environments/production --input - <<<'{"deployment_branch_policy":{"protected_branches":false,"custom_branch_policies":true}}' && gh api -X POST repos/codefusion-cc/magnetar/environments/production/deployment-branch-policies -f name=main -f type=branch && gh secret set CLOUDFLARE_API_TOKEN --env production --repo codefusion-cc/magnetar
 ```
 
 The `production-approval` environment, once: the owner as required reviewer, self-review allowed, `main` only.
 
 ```bash
-cd /Users/xeon/Projects/mediadownloader-v2 && gh api -X PUT repos/codefusion-cc/magnetar/environments/production-approval --input - <<<'{"reviewers":[{"type":"User","id":8079877}],"prevent_self_review":false,"deployment_branch_policy":{"protected_branches":false,"custom_branch_policies":true}}' && gh api -X POST repos/codefusion-cc/magnetar/environments/production-approval/deployment-branch-policies -f name=main -f type=branch
+gh api -X PUT repos/codefusion-cc/magnetar/environments/production-approval --input - <<<'{"reviewers":[{"type":"User","id":8079877}],"prevent_self_review":false,"deployment_branch_policy":{"protected_branches":false,"custom_branch_policies":true}}' && gh api -X POST repos/codefusion-cc/magnetar/environments/production-approval/deployment-branch-policies -f name=main -f type=branch
 ```
 
 A failed deploy leaves the website on the previous build: fix the cause and merge again, or re-run the job. In an
 emergency, deploy the checkout from this Mac, applying a new migration first:
 
 ```bash
-cd /Users/xeon/Projects/mediadownloader-v2 && codefusion-console cloudflare workers:edit,d1:edit,domains:edit -- sh -c 'npm run migrate:remote -w @magnetar/worker && npm run deploy -w @magnetar/worker'
+codefusion-console cloudflare workers:edit,d1:edit,domains:edit -- sh -c 'pnpm --filter @magnetar/worker run migrate:remote && pnpm --filter @magnetar/worker run deploy'
 ```
 
 ## 5. The preview Worker and branch Previews
@@ -117,7 +119,7 @@ console's Secrets page or with its `set_secrets` tool, never in a chat. Previews
 config:
 
 ```bash
-cd /Users/xeon/Projects/mediadownloader-v2/apps/worker && codefusion-console cloudflare workers:edit -- sh -c 'npx -p @codefusion-cc/web-push codefusion-vapid | npx wrangler preview base-config secret put VAPID_PRIVATE_KEY --env preview'
+cd apps/worker && codefusion-console cloudflare workers:edit -- sh -c 'pnpm exec codefusion-vapid | pnpm exec wrangler preview base-config secret put VAPID_PRIVATE_KEY --env preview'
 ```
 
 ### The app on the preview Worker
@@ -126,7 +128,7 @@ A dev build pairs with the preview Worker when run with its address, and a data 
 the one your installed app has:
 
 ```bash
-cd /Users/xeon/Projects/mediadownloader-v2 && MAGNETAR_CLOUD_URL=https://preview.magnetar.codefusion.cc MAGNETAR_DATA_DIRECTORY="$HOME/.magnetar-staging" MAGNETAR_DOWNLOAD_FOLDER="$HOME/Downloads/magnetar-staging" npm run dev:client
+MAGNETAR_CLOUD_URL=https://preview.magnetar.codefusion.cc MAGNETAR_DATA_DIRECTORY="$HOME/.magnetar-staging" MAGNETAR_DOWNLOAD_FOLDER="$HOME/Downloads/magnetar-staging" pnpm run dev:client
 ```
 
 A branch Preview's address works the same way. The app remembers which Worker it paired with and sends that link's
@@ -141,23 +143,23 @@ CodeFusion Console CLI instead, `codefusion-console cloudflare <scope>[,<scope>�
 a token with exactly those scopes for that one command (two hours unless `--ttl` says otherwise), gives it to the
 command as `CLOUDFLARE_API_TOKEN` with `CLOUDFLARE_ACCOUNT_ID`, and deletes it when the command exits. A token with an
 `:edit` scope waits for the owner's passkey tap on Dispatch before the command starts. A command with a pipe goes
-through `sh -c '…'`. Once on the Mac: `npm install -g @codefusion-cc/console && codefusion-console relay install`.
+through `sh -c '…'`. Once on the Mac: `pnpm add -g @codefusion-cc/console && codefusion-console relay install`.
 
 | Command | Scopes |
 |---|---|
-| `npm run migrate:remote -w @magnetar/worker` | `d1:edit` |
-| `npm run deploy -w @magnetar/worker` | `workers:edit,d1:edit,domains:edit` (the `DB` binding, the custom domain) |
-| `npm run migrate:preview -w @magnetar/worker`, `npm run deploy:preview -w @magnetar/worker` | as for production |
-| `npx wrangler preview delete --env preview --name <name>` | `workers:edit` |
-| `npx wrangler secret put …` | `workers:edit` |
-| `npx wrangler tail` | `tail:read` |
+| `pnpm --filter @magnetar/worker run migrate:remote` | `d1:edit` |
+| `pnpm --filter @magnetar/worker run deploy` | `workers:edit,d1:edit,domains:edit` (the `DB` binding, the custom domain) |
+| `pnpm --filter @magnetar/worker run migrate:preview`, `pnpm --filter @magnetar/worker run deploy:preview` | as for production |
+| `pnpm exec wrangler preview delete --env preview --name <name>` | `workers:edit` |
+| `pnpm exec wrangler secret put …` | `workers:edit` |
+| `pnpm exec wrangler tail` | `tail:read` |
 
 ## Release signing
 
 Once, from the repo root:
 
 ```bash
-node scripts/release-key.ts
+node packages/release/release-key.ts
 ```
 
 Commit `apps/client/release-public-key.txt` and save the printed private key as the repository secret
@@ -187,7 +189,7 @@ and Gatekeeper only once the installed app is itself certificate-signed.
 Once:
 
 ```bash
-cd /Users/xeon/Projects/mediadownloader-v2/apps/worker && codefusion-console cloudflare workers:edit -- sh -c 'npx -p @codefusion-cc/web-push codefusion-vapid | npx wrangler secret put VAPID_PRIVATE_KEY'
+cd apps/worker && codefusion-console cloudflare workers:edit -- sh -c 'pnpm exec codefusion-vapid | pnpm exec wrangler secret put VAPID_PRIVATE_KEY'
 ```
 
 The Worker derives the public key browsers subscribe with. For `wrangler dev`, put the printed key in
@@ -203,5 +205,5 @@ The first page, an account without computers and `/about` offer the app for the 
 
 GitHub allows 60 anonymous API calls an hour per address, which Cloudflare's addresses share with other Workers. A
 token raises that to 5,000: a fine-grained GitHub token with no permissions (public repositories only), stored once
-with `codefusion-console cloudflare workers:edit -- npx wrangler secret put GITHUB_TOKEN` from `apps/worker`. Without
+with `codefusion-console cloudflare workers:edit -- pnpm exec wrangler secret put GITHUB_TOKEN` from `apps/worker`. Without
 it, a rate-limited lookup shows "GitHub's limit is reached" and is asked again on the next visit.

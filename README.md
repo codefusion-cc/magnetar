@@ -160,20 +160,20 @@ computer, and the bearer token. Whatever comes through the proxy counts as remot
 
 ## Development
 
-Requires [Node.js](https://nodejs.org) 24 with npm 11, and a stable [Rust](https://rustup.rs) toolchain.
+Requires [Node.js](https://nodejs.org) 24 with pnpm 12 (`corepack enable` gives the version `package.json` names), and a stable [Rust](https://rustup.rs) toolchain.
 
 ```bash
-npm install
-npm run dev:client        # the app on http://localhost:47820 (cargo run; no tray, dev data in the normal folder unless MAGNETAR_DATA_DIRECTORY is set)
-npm run dev:web           # Vite on http://localhost:5173, proxying to the client (MAGNETAR_WEB_TARGET=cloud proxies to the Worker)
-npm run dev:worker        # the website on http://localhost:8790 with a local D1 and a passwordless dev sign-in
-npm run check             # oxlint, clippy, rustfmt, tsc, Vitest (the Worker's tests in workerd) and cargo test
-npm run e2e               # Playwright drives the real app (its own data and download folders) through the dashboard
-npm run build:client      # the dashboard and a release executable in apps/client/dist (--target <rust triple> for another platform)
-npm run screenshots -w @magnetar/e2e   # the features page's screenshots, light and dark (--only=search,player); see below
+pnpm install
+pnpm run dev:client       # the app on http://localhost:47820 (cargo run; no tray, dev data in the normal folder unless MAGNETAR_DATA_DIRECTORY is set)
+pnpm run dev:web          # Vite on http://localhost:5173, proxying to the client (MAGNETAR_WEB_TARGET=cloud proxies to the Worker)
+pnpm run dev:worker       # the website on http://localhost:8790 with a local D1 and a passwordless dev sign-in
+pnpm run check            # oxlint, clippy, rustfmt, tsc, Vitest (the Worker's tests in workerd) and cargo test
+pnpm run e2e              # Playwright drives the real app (its own data and download folders) through the dashboard
+pnpm run build:client     # the dashboard and a release executable in apps/client/dist (--target <rust triple> for another platform)
+pnpm --filter @magnetar/e2e run screenshots   # the features page's screenshots, light and dark (--only=search,player); see below
 ```
 
-The debug client serves the dashboard from `apps/web/dist`, so run `npm run build:web` once (or use `dev:web`). To try
+The debug client serves the dashboard from `apps/web/dist`, so run `pnpm run build:web` once (or use `dev:web`). To try
 remote access locally, run the client with `MAGNETAR_CLOUD_URL=http://localhost:8790` next to `dev:worker`; to pair it
 with the preview Worker, `MAGNETAR_CLOUD_URL=https://preview.magnetar.codefusion.cc` (or a branch Preview's address) and a data
 folder of its own (docs/DEPLOY.md, section 5). Released builds take only a Worker on this computer from it.
@@ -183,9 +183,9 @@ weekly in CI).
 The features page (`/features`, `/features/<language>`, the website's only) is `apps/web/src/features`: the outline of
 groups, features and shots in `outline.ts`, the words of each language in `content/`, and the page itself from
 [@codefusion-cc/features-page](https://www.npmjs.com/package/@codefusion-cc/features-page). Its screenshots are taken
-by `apps/e2e/features/screenshots.ts` from the real app on fresh data: build the dashboard (`npm run build:web`) and the
-app with a release's version (`MAGNETAR_VERSION=1.1.0 cargo build -p magnetar`), then run `npm run screenshots -w
-@magnetar/e2e`. It starts the Worker and three copies of the app on ports 8797 and 47891–47893, downloads Blender's
+by `apps/e2e/features/screenshots.ts` from the real app on fresh data: build the dashboard (`pnpm run build:web`) and the
+app with a release's version (`MAGNETAR_VERSION=1.1.0 cargo build -p magnetar`), then run `pnpm --filter
+@magnetar/e2e run screenshots`. It starts the Worker and three copies of the app on ports 8797 and 47891–47893, downloads Blender's
 open films and Linux images, and removes everything it made when it ends.
 
 Worktrees share compiled crates through [sccache](https://github.com/mozilla/sccache), set up once per machine rather
@@ -217,7 +217,7 @@ parallel builds wait on one lock.
 ### Releases
 
 Every merge to `main` that changes the app is released automatically as the next patch version once CI is green: the
-latest `vX.Y.Z` tag plus one (`scripts/release-version.ts`). Merges that change only docs, tests or CI files are not
+latest `vX.Y.Z` tag plus one (`packages/release/release-version.ts`). Merges that change only docs, tests or CI files are not
 released.
 
 While `.github/release-hold` exists, merges are not released either: work that lands in parts (a redesign) collects
@@ -227,7 +227,7 @@ its own pull request (everything waiting ships with it), and a later pull reques
 from `package.json` or `Cargo.toml` (they only name the first release and local builds). For a minor or major release
 tag the merge by hand once CI is green: `git tag v2.1.0 && git push origin v2.1.0`; the next automatic patch continues
 from it (v2.1.1). The Release workflow builds every platform, writes `SHA256SUMS.txt`, signs it with the `RELEASE_SIGNING_KEY` secret
-(created once with `node scripts/release-key.ts`) and publishes the GitHub release, with notes written from the pull
+(created once with `node packages/release/release-key.ts`) and publishes the GitHub release, with notes written from the pull
 requests merged since the last release and grouped by branch type (`feat/` New, `fix/` Fixes, `perf/` Faster; a PR
 labeled `skip-changelog` stays out). The app's What's new shows these notes, so PR titles are written for users. A tag
 with a pre-release (`v2.1.0-rc.1`) publishes a pre-release, which installed apps don't take. With the Apple and Windows

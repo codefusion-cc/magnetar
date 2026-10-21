@@ -1,0 +1,15 @@
+packages:
+  - packages/*
+  - apps/*
+
+# Install scripts run only for these; any other dependency with one fails the install until it is named here.
+allowBuilds:
+  esbuild: true
+  workerd: true
+  fsevents: false
+
+engineStrict: true
+
+# Our own package, newer than pnpm's minimum release age when it was taken.
+minimumReleaseAgeExclude:
+  - '@codefusion-cc/console@0.34.0'

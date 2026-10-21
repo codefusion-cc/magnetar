@@ -3,27 +3,33 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "npm run build -w @magnetar/web && wrangler dev --env dev --port 8790",
-    "deploy": "npm run build -w @magnetar/web && wrangler deploy --env=\"\"",
+    "dev": "pnpm --filter @magnetar/web run build && wrangler dev --env dev --port 8790",
+    "deploy": "pnpm --filter @magnetar/web run build && wrangler deploy --env=\"\"",
     "migrate:local": "wrangler d1 migrations apply magnetar --local --env dev",
     "migrate:remote": "wrangler d1 migrations apply magnetar --remote --env=\"\"",
-    "deploy:preview": "npm run build -w @magnetar/web && wrangler deploy --env preview",
+    "deploy:preview": "pnpm --filter @magnetar/web run build && wrangler deploy --env preview",
     "migrate:preview": "wrangler d1 migrations apply DB --remote --env preview",
-    "typecheck": "tsc -p . && tsc -p test"
+    "typecheck": "tsc -p . && tsc -p test",
+    "test": "vitest run"
   },
   "dependencies": {
-    "@codefusion-cc/app-update": "^0.1.2",
-    "@codefusion-cc/base58": "^0.1.1",
-    "@codefusion-cc/console": "^0.34.0",
-    "@codefusion-cc/google-sign-in": "^0.1.3",
-    "@codefusion-cc/previews": "^0.1.3",
-    "@codefusion-cc/web-push": "^0.1.1",
-    "@codefusion-cc/workers-crypto": "^0.1.2",
-    "@codefusion-cc/workers-http": "^0.1.3",
-    "@magnetar/protocol": "*"
+    "@codefusion-cc/app-update": "0.1.2",
+    "@codefusion-cc/base58": "0.1.1",
+    "@codefusion-cc/console": "0.34.0",
+    "@codefusion-cc/google-sign-in": "0.1.3",
+    "@codefusion-cc/previews": "0.1.3",
+    "@codefusion-cc/web-push": "0.1.1",
+    "@codefusion-cc/workers-crypto": "0.1.2",
+    "@codefusion-cc/workers-http": "0.1.3",
+    "@magnetar/protocol": "workspace:*"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20260928.1",
-    "wrangler": "^4.142.0"
+    "@cloudflare/vitest-plugin": "1.4.4",
+    "@cloudflare/workers-types": "5.20261012.1",
+    "@types/node": "24.19.0",
+    "fast-check": "4.10.2",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5",
+    "wrangler": "4.151.1"
   }
 }

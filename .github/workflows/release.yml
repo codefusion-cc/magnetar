@@ -1,7 +1,7 @@
 name: Release
 
 # Every merge to main that changes the app is released as the next patch version (ci.yml calls this workflow once
-# its checks pass; scripts/release-version.ts picks the version and skips docs-, test- and CI-only merges, and every
+# its checks pass; packages/release/release-version.ts picks the version and skips docs-, test- and CI-only merges, and every
 # merge while .github/release-hold exists).
 # A minor or major release is a tag pushed by hand once CI is green on main: git tag v1.3.0 && git push origin v1.3.0.
 # The next automatic patch continues from it. A tag with a pre-release (v1.3.0-rc.1) publishes a pre-release, which
@@ -42,7 +42,7 @@ jobs:
         env:
           # Set by a tag pushed by hand; a call from ci.yml runs on a branch, where the version is computed.
           PUSHED_TAG: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
-        run: node scripts/release-version.ts plan --sha "$GITHUB_SHA" ${PUSHED_TAG:+--tag "$PUSHED_TAG"}
+        run: node packages/release/release-version.ts plan --sha "$GITHUB_SHA" ${PUSHED_TAG:+--tag "$PUSHED_TAG"}
 
   build:
     name: Build ${{ matrix.target }}
@@ -62,17 +62,18 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-          cache: npm
+          cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.target }}
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
       # Only when the Developer ID certificate is a secret; without it the build is ad-hoc signed.
       - name: Import the Developer ID certificate
         if: runner.os == 'macOS' && env.HAS_MACOS_CERTIFICATE == 'true'
@@ -102,7 +103,7 @@ jobs:
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
           WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
-        run: npm run build -w @magnetar/client -- --target ${{ matrix.target }} --version ${{ needs.plan.outputs.version }}
+        run: pnpm --filter @magnetar/client run build --target ${{ matrix.target }} --version ${{ needs.plan.outputs.version }}
       - name: Collect the release asset
         shell: bash
         run: |
@@ -119,9 +120,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - uses: actions/setup-node@v6
         with:
           node-version: 24
+          cache: pnpm
+      # Only for the release notes' command, before any step has a token.
+      - run: pnpm install --frozen-lockfile
       # The tag is made once the builds succeeded, so a failed release leaves no tag and the next merge retries the
       # same version. A tag pushed by hand exists already. (A push with GITHUB_TOKEN starts no other workflow.)
       - name: Tag the commit
@@ -143,7 +148,7 @@ jobs:
           RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
         run: |
           cd assets && sha256sum Magnetar-* > SHA256SUMS.txt && cd ..
-          node scripts/sign-release.ts assets
+          node packages/release/sign-release.ts assets
       # What the release brings, from the pull requests merged since the release before, grouped by their branch's
       # type (feat/ New, fix/ Fixes, perf/ Faster…). The app's changelog and its update notice show these notes.
       # A GitHub hiccup here must not lose the release built above: GitHub's own notes stand in.
@@ -153,7 +158,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           TAG: ${{ needs.plan.outputs.tag }}
-        run: npx --yes -p @codefusion-cc/app-update@^0.1.1 codefusion-release-notes "$TAG" > notes.md && cat notes.md
+        run: pnpm --filter @magnetar/worker exec codefusion-release-notes "$TAG" > notes.md && cat notes.md
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.plan.outputs.tag }}

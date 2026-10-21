@@ -14,7 +14,7 @@
  * The version and the release public key (release-public-key.txt) are compiled in by build.rs.
  */
 import { execFileSync, execSync, type ExecFileSyncOptions } from 'node:child_process'
-import { chmodSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, cpSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join, relative } from 'node:path'
 import { parseArgs } from 'node:util'
@@ -45,7 +45,8 @@ const { values } = parseArgs({
 const root = import.meta.dirname
 const repo = join(root, '..', '..')
 const dist = join(root, 'dist')
-const version = values.version ?? (JSON.parse(readFileSync(join(repo, 'package.json'), 'utf8')) as { version: string }).version
+// The tag is the version: the release this commit is or is heading for, unless the release workflow names it.
+const version = values.version ?? execFileSync('node', [join(repo, 'scripts', 'release-version.ts'), 'display'], { cwd: repo, encoding: 'utf8' }).trim()
 if (!/^\d+\.\d+\.\d+(-[\w.]+)?$/.test(version)) throw new Error(`Invalid version ${version}`)
 
 const hostTarget = execFileSync('rustc', ['-vV'], { encoding: 'utf8' }).match(/^host: (.+)$/m)?.[1]
@@ -57,8 +58,8 @@ const exe = platform === 'windows' ? '.exe' : ''
 const name = `Magnetar-${version}-${platform}-${arch}`
 
 if (!values['skip-web']) {
-  // Through a shell: npm is npm.cmd on Windows.
-  execSync('npm run build', { cwd: join(repo, 'apps', 'web'), env: { ...process.env, VITE_APP_VERSION: version }, stdio: 'inherit' })
+  // Through a shell: pnpm is pnpm.cmd on Windows.
+  execSync('pnpm run build', { cwd: join(repo, 'apps', 'web'), env: { ...process.env, VITE_APP_VERSION: version }, stdio: 'inherit' })
 }
 if (!existsSync(join(repo, 'apps', 'web', 'dist', 'index.html'))) throw new Error('apps/web/dist is missing; build the dashboard first')
 if (!process.env.MAGNETAR_RELEASE_PUBLIC_KEY && !existsSync(join(root, 'release-public-key.txt'))) {

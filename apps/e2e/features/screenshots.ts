@@ -5,9 +5,9 @@
  * images), adds a series and three watches, pairs two of the apps with a dev account on the local website, and
  * links a phone. Run from the repository:
  *
- *     npm run build -w @magnetar/web
+ *     pnpm --filter @magnetar/web run build
  *     MAGNETAR_VERSION=1.1.0 cargo build -p magnetar
- *     npm run screenshots -w @magnetar/e2e [-- --only=search,player] [-- --modes=dark]
+ *     pnpm --filter @magnetar/e2e run screenshots [--only=search,player] [--modes=dark]
  *
  * The app is built with a release's version so it shows what a user's does (updates on, no "dev"). Searches ask the
  * real torrent sources, for the open films' titles only. Everything it starts and writes goes when it ends.
@@ -89,14 +89,14 @@ async function stopAll(): Promise<void> {
 
 async function startServers(): Promise<void> {
   if (!existsSync(APP)) throw new Error(`No app at ${APP}: MAGNETAR_VERSION=1.1.0 cargo build -p magnetar`)
-  if (!existsSync(join(ROOT, 'apps/web/dist/index.html'))) throw new Error('No dashboard build: npm run build -w @magnetar/web')
+  if (!existsSync(join(ROOT, 'apps/web/dist/index.html'))) throw new Error('No dashboard build: pnpm --filter @magnetar/web run build')
   const worker = join(ROOT, 'apps/worker')
   const persist = join(scratch, 'wrangler')
   await new Promise<void>((resolve, reject) => {
-    const migrate = spawn('npx', ['wrangler', 'd1', 'migrations', 'apply', 'magnetar', '--local', '--env', 'dev', '--persist-to', persist], { cwd: worker, stdio: 'ignore' })
+    const migrate = spawn('pnpm', ['exec', 'wrangler', 'd1', 'migrations', 'apply', 'magnetar', '--local', '--env', 'dev', '--persist-to', persist], { cwd: worker, stdio: 'ignore' })
     migrate.on('exit', code => (code === 0 ? resolve() : reject(new Error(`D1 migrations failed (${code})`))))
   })
-  start('npx', ['wrangler', 'dev', '--env', 'dev', '--port', String(WORKER_PORT), '--persist-to', persist], { cwd: worker, log: 'worker.log' })
+  start('pnpm', ['exec', 'wrangler', 'dev', '--env', 'dev', '--port', String(WORKER_PORT), '--persist-to', persist], { cwd: worker, log: 'worker.log' })
   for (const [key, device] of Object.entries(DEVICES_ON_ACCOUNT)) {
     const home = join(scratch, key)
     mkdirSync(join(home, 'downloads'), { recursive: true })

@@ -3,8 +3,8 @@
  * the shots each one shows, and the entries of its own sections. Each language (content/*.ts) gives the words for
  * exactly these, so TypeScript finds a feature, shot or entry a translation misses.
  *
- * A new feature people can see gets an entry here and its words in every language; `npm run screenshots -w
- * @magnetar/e2e` takes its shots (apps/e2e/features/screenshots.ts). What the page says must match the code.
+ * A new feature people can see gets an entry here and its words in every language; `pnpm --filter @magnetar/e2e run
+ * screenshots` takes its shots (apps/e2e/features/screenshots.ts). What the page says must match the code.
  */
 import type SIZES from './shots.json'
 

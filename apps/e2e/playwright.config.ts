@@ -29,7 +29,8 @@ export default defineConfig({
     { name: 'phone', use: { ...devices['Pixel 7'] }, testMatch: /phone\.e2e\.ts/ },
   ],
   webServer: {
-    command: 'npm run build -w @magnetar/web && cargo run -q -p magnetar',
+    command: 'pnpm --filter @magnetar/web run build && cargo run -q -p magnetar',
+    cwd: import.meta.dirname,
     url: `http://localhost:${PORT}/health`,
     timeout: 600_000,
     reuseExistingServer: false,
@@ -43,7 +44,6 @@ export default defineConfig({
       MAGNETAR_CLOUD_URL: 'http://127.0.0.1:9',
       MAGNETAR_NO_TRAY: '1',
       MAGNETAR_NO_BROWSER: '1',
-      PATH: `/opt/homebrew/opt/rustup/bin:${process.env.PATH}`,
     },
   },
 })
