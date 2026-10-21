@@ -23,8 +23,8 @@ struct State {
     last_prune: u64,
 }
 
-/// Short-lived handles for search results. Starting a download needs the live result — a 1337x row
-/// only has a placeholder hash until its detail page is fetched — and a dashboard or an agent over
+/// Short-lived handles for search results. Starting a download needs the live result — a lazy source's
+/// row only has a placeholder hash until its detail page is fetched — and a dashboard or an agent over
 /// HTTP has no other way to point back at it. Entries expire on a sliding window and the cache is
 /// bounded, so a long-running app doesn't accumulate them.
 pub struct SearchResultCache {

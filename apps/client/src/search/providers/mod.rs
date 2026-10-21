@@ -1,5 +1,5 @@
 pub mod eztv;
-pub mod leetx;
+pub mod knaben;
 pub mod nyaa;
 pub mod piratebay;
 pub mod rarbg;
@@ -15,7 +15,7 @@ use super::types::Provider;
 pub fn all() -> Vec<Arc<dyn Provider>> {
     vec![
         Arc::new(eztv::Eztv),
-        Arc::new(leetx::Leetx),
+        Arc::new(knaben::Knaben),
         Arc::new(nyaa::Nyaa),
         Arc::new(piratebay::PirateBay),
         Arc::new(rarbg::Rarbg),

@@ -9,7 +9,7 @@ use tokio_util::sync::CancellationToken;
 pub struct TorrentSearchResult {
     pub title: String,
     pub magnet_uri: String,
-    /// Real info hash, or a provider placeholder ("1337x-123") until the detail page is resolved.
+    /// Real info hash, or a lazy provider's placeholder ("site-123") until the detail page is resolved.
     pub info_hash: String,
     pub size_bytes: u64,
     pub seeders: u32,

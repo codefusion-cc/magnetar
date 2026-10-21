@@ -4,7 +4,7 @@ import { pathChoice, pickParam, readSearch, searchAddress, searchKey, searchText
 
 type Resolution = '' | '720p' | '1080p' | '2160p'
 type Sort = 'seeders' | 'newest' | 'largest' | 'smallest'
-const SOURCES = [{ id: 'tpb', name: 'The Pirate Bay' }, { id: 'nyaa', name: 'Nyaa' }, { id: '1337x', name: '1337x' }]
+const SOURCES = [{ id: 'tpb', name: 'The Pirate Bay' }, { id: 'nyaa', name: 'Nyaa' }, { id: 'knaben', name: 'Knaben' }]
 const CHOICES: SearchChoices<Resolution, Sort> = {
   resolutions: ['', '720p', '1080p', '2160p'],
   sorts: [['seeders', 'seeders'], ['newest', 'new'], ['largest', 'large'], ['smallest', 'small']],

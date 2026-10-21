@@ -1,7 +1,7 @@
 //! Parsers against pages captured from each site.
 
 use chrono::{DateTime, Datelike, TimeZone, Utc};
-use magnetar::search::providers::{eztv, leetx, nyaa, piratebay, rarbg, torrentscsv};
+use magnetar::search::providers::{eztv, knaben, nyaa, piratebay, rarbg, torrentscsv};
 use magnetar::search::types::{TorrentSearchResult, is_real_info_hash};
 
 fn fixture(name: &str) -> String {
@@ -48,51 +48,47 @@ fn piratebay_upload_dates() {
 }
 
 #[test]
-fn leetx_rows_placeholder_hashes_and_details() {
-    let rows = leetx::parse_rows(&fixture("leetx-search.html"), "1337x.to");
-    assert_eq!(rows.len(), 2);
+fn knaben_rows_and_dates() {
+    let rows = knaben::parse(&fixture("live-knaben.json")).unwrap();
+    // RuTracker's rows there have no hash, only a link to a .torrent file on Knaben: nothing to start.
+    assert_eq!(rows.len(), 95);
     let first = &rows[0];
-    // The title anchor, not the category icon.
-    assert_eq!(first.title, "Ubuntu MATE 16.04.2 [MATE][armhf][img.xz][Uzerus]");
-    assert_eq!(
-        first.details_url.as_deref(),
-        Some("https://1337x.to/torrent/2099267/Ubuntu-MATE-16-04-2-MATE-armhf-img-xz-Uzerus/")
-    );
-    assert_eq!((first.size_bytes, first.seeders, first.leechers), (1181116006, 260, 2));
-    assert_eq!(first.published_at, utc(2017, 6, 20, 0, 0));
-    // A placeholder hash until the detail page is resolved.
-    assert_eq!(first.info_hash, "1337x-2099267");
-    assert!(first.needs_resolution());
-
-    let details = leetx::parse_detail_page(
-        r#"<a href="magnet:?xt=urn:btih:abcdef0123456789abcdef0123456789abcdef01&tr=udp://evil">m</a><div id="description"><p>Line one</p><br>Line &amp; two</div>"#,
-        "Title",
-    );
-    assert_eq!(details.info_hash.as_deref(), Some("abcdef0123456789abcdef0123456789abcdef01"));
-    let magnet = details.magnet_uri.unwrap();
-    assert!(magnet.starts_with("magnet:?xt=urn:btih:abcdef0123456789abcdef0123456789abcdef01&dn=Title"));
-    assert!(!magnet.contains("evil"));
-    assert_eq!(details.description.as_deref(), Some("Line one\n\nLine & two"));
-}
-
-#[test]
-fn leetx_copy_titles_are_repaired_and_untagged() {
-    let rows = leetx::parse_rows(&fixture("leetx-copy-search.html"), "www.1337xx.to");
-    assert_eq!(rows.len(), 20);
-    let titles: Vec<&str> = rows.iter().map(|r| r.title.as_str()).collect();
+    assert_eq!(first.title, "ubuntu-26.04-desktop-amd64.iso");
+    assert_eq!(first.info_hash, "dafc8c076ca2f3ed376eeae7c76a0d6be2415c45");
     assert!(
-        titles.contains(&"[pasta] This is a video of Roxy from Mushoku Tensei. / [ぱすた] 【無職転生】ロキシー動画です"),
-        "{titles:#?}"
+        first
+            .magnet_uri
+            .starts_with("magnet:?xt=urn:btih:dafc8c076ca2f3ed376eeae7c76a0d6be2415c45&dn=ubuntu-26.04-desktop-amd64.iso")
     );
-    assert!(titles.contains(&"[Erai-raws] Tensei shitara Slime Datta Ken - 21 [1080p][Multiple Subtitle].mkv"), "{titles:#?}");
-    assert!(titles.iter().all(|t| !t.contains("(Torrent) -") && !t.contains('Ã')), "{titles:#?}");
+    assert_eq!((first.size_bytes, first.seeders, first.leechers), (6517612871, 139, 31));
+    assert_eq!(first.published_at, utc(2026, 4, 25, 14, 35));
+    assert_eq!(first.details_url.as_deref(), Some("https://knaben.xyz/thepiratebay/description.php?id=82917197"));
+    assert_eq!(first.source, "Knaben");
+
+    assert_eq!(knaben::parse_date("2012-06-12T22:00:00+00:00"), utc(2012, 6, 12, 22, 0));
+    assert_eq!(knaben::parse_date("2012-06-13T00:30:00+02:00"), utc(2012, 6, 12, 22, 30));
+    assert_eq!(knaben::parse_date("2015-11-08T00:00:00"), utc(2015, 11, 8, 0, 0));
+    for nonsense in ["", "yesterday", "2015-11-08", "1447000000"] {
+        assert_eq!(knaben::parse_date(nonsense), None, "{nonsense}");
+    }
 }
 
 #[test]
-fn leetx_dates() {
-    assert_eq!(leetx::parse_date("Jan. 17th '26"), utc(2026, 1, 17, 0, 0));
-    assert_eq!(leetx::parse_date("5:42am Jan. 3rd '26"), utc(2026, 1, 3, 0, 0));
-    assert_eq!(leetx::parse_date("yesterday"), None);
+fn knaben_rows_without_their_fields_are_kept_or_dropped_whole() {
+    let hash = "8586fe65d6b589aca262dbbc164570c335bd7d37";
+    let rows = knaben::parse(&format!(
+        r#"{{"hits":[{{"title":"Bare","hash":"{hash}"}},{{"title":"Odd","hash":"{hash}","bytes":"12","seeders":-4,"peers":null,"date":null,"details":"http://knaben.xyz/x"}},{{"title":"No hash","link":"https://knaben.org/live/dl/x"}}]}}"#
+    ))
+    .unwrap();
+    let kept: Vec<_> = rows
+        .iter()
+        .map(|r| (r.title.as_str(), r.size_bytes, r.seeders, r.leechers, r.published_at, r.details_url.as_deref()))
+        .collect();
+    // A details page that isn't https is no link to show.
+    assert_eq!(kept, [("Bare", 0, 0, 0, None, None), ("Odd", 12, 0, 0, None, None)]);
+    assert!(knaben::parse(r#"{"hits":null}"#).unwrap().is_empty());
+    assert!(knaben::parse("{}").unwrap().is_empty());
+    assert!(knaben::parse("<html>Cloudflare</html>").is_err());
 }
 
 #[test]
@@ -180,11 +176,15 @@ fn hostile_hashes_and_magnets_from_a_source_never_reach_a_magnet() {
     let wrap = |list: String| format!(r#"{{"total":7,"torrents_count":7,"results":{list},"torrents":{list}}}"#);
     assert_eq!(kept(rarbg::parse_page(&wrap(rows("h", ""))).unwrap().results), fine, "RARBG");
     assert_eq!(kept(torrentscsv::parse(&wrap(rows("infohash", ""))).unwrap()), fine, "Torrents-CSV");
+    // Knaben sends a magnet of its own too, with its trackers.
+    let knaben_magnet = format!(r#""magnetUrl":"magnet:?xt=urn:btih:{good}{evil}","#);
+    let hits = format!(r#"{{"hits":{}}}"#, rows("hash", &knaben_magnet));
+    assert_eq!(kept(knaben::parse(&hits).unwrap()), fine, "Knaben");
     // EZTV also sends a magnet of its own, which is ignored even with a good hash beside it.
     let site_magnet = format!(r#""magnet_url":"magnet:?xt=urn:btih:{good}{evil}","#);
     assert_eq!(kept(eztv::parse_page(&wrap(rows("hash", &site_magnet))).unwrap().torrents), fine, "EZTV");
 
-    // The mirrors' and 1337x's magnet links: only the hash is taken from them, and only a whole one.
+    // The mirrors' magnet links: only the hash is taken from them, and only a whole one.
     let links: String = hostile[3..]
         .iter()
         .map(|h| format!(r#"<tr><td><a title="Details for Evil">Evil</a><a href="magnet:?xt=urn:btih:{h}">m</a></td></tr>"#))
@@ -194,10 +194,6 @@ fn hostile_hashes_and_magnets_from_a_source_never_reach_a_magnet() {
         .collect();
     let mirror = kept(piratebay::parse_mirror_html(&format!("<table>{links}</table>"), Utc::now()));
     assert_eq!(mirror, fine, "The Pirate Bay mirror");
-    let details = leetx::parse_detail_page(&format!(r#"<a href="magnet:?xt=urn:btih:{good}0{evil}">m</a>"#), "Fine");
-    assert_eq!((details.info_hash, details.magnet_uri), (None, None), "1337x");
-    let details = leetx::parse_detail_page(&format!(r#"<a href="magnet:?xt=urn:btih:{good}{evil}">m</a>"#), "Fine");
-    assert_eq!((details.info_hash.as_deref(), details.magnet_uri), (Some(good), Some(ours("Fine"))), "1337x");
 }
 
 /// Full, unedited pages captured from each live site. Assertions are structural so they survive a
@@ -210,7 +206,7 @@ fn live_page_sanity() {
         ("The Pirate Bay", piratebay::parse_mirror_html(&fixture("live-piratebay-mirror.html"), Utc::now())),
         ("EZTV", eztv::parse_page(&fixture("live-eztv-api.json")).unwrap().torrents),
         ("RARBG", rarbg::parse_page(&fixture("live-rarbg-search.json")).unwrap().results),
-        ("1337x", leetx::parse_rows(&fixture("live-leetx-search.html"), "1337x.to")),
+        ("Knaben", knaben::parse(&fixture("live-knaben.json")).unwrap()),
         ("Torrents-CSV", torrentscsv::parse(&fixture("live-torrentscsv.json")).unwrap()),
     ];
     for (source, results) in pages {

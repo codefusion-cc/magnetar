@@ -78,14 +78,14 @@ export function infallFiles(): DownloadFileDto[] {
   ]
 }
 
-export const infallSources: SourceDto[] = ['The Pirate Bay', 'Torrents-CSV', 'RARBG', 'Nyaa', 'EZTV', '1337x'].map((name, i) => ({ id: ['tpb', 'csv', 'rarbg', 'nyaa', 'eztv', '1337x'][i]!, name, enabled: true }))
+export const infallSources: SourceDto[] = ['The Pirate Bay', 'Torrents-CSV', 'Knaben', 'Nyaa', 'EZTV', 'RARBG'].map((name, i) => ({ id: ['tpb', 'csv', 'knaben', 'nyaa', 'eztv', 'rarbg'][i]!, name, enabled: true }))
 export function infallSearch(): { results: SearchResultDto[]; outcomes: SourceOutcomeDto[] } {
   const data: [string, number, number, number, string][] = [
     ['Sintel (2010) 1080p BluRay x264', 1.9e9, 124, 3, 'The Pirate Bay'],
-    ['Sintel.2010.1080p.WEB.H264', 556e6, 30, 1, 'RARBG'],
+    ['Sintel.2010.1080p.WEB.H264', 556e6, 30, 1, 'Knaben'],
     ['Sintel (2010) 720p BluRay', 138e6, 15, 2, 'Torrents-CSV'],
     ['Sintel 4K UHD FLAC ITA ENG', 4.8e9, 5, 11, 'The Pirate Bay'],
-    ['Sintel.2010.720p.WEB', 383e6, 11, 1, 'RARBG'],
+    ['Sintel.2010.720p.WEB', 383e6, 11, 1, 'Knaben'],
     ['Sintel, original soundtrack (FLAC)', 441e6, 4, 10, 'The Pirate Bay'],
   ]
   const results = data.map(([title, sizeBytes, seeders, age, source], i) => ({
@@ -93,7 +93,7 @@ export function infallSearch(): { results: SearchResultDto[]; outcomes: SourceOu
     publishedAt: `20${26-age}-10-14T12:00:00Z`, detailsUrl: null, infoHash: null,
   }))
   const outcomes = infallSources.map((s, i) => ({
-    source: s.name, status: (s.name === '1337x' ? 'failed' : 'ok') as 'failed' | 'ok',
+    source: s.name, status: (s.name === 'RARBG' ? 'failed' : 'ok') as 'failed' | 'ok',
     returned: [22,13,8,0,0,0][i]!, filtered: 0, error: null,
   }))
   return { results, outcomes }

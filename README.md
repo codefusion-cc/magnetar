@@ -17,8 +17,8 @@ Rust, the dashboard and website TypeScript. It can import everything from a Medi
 Every feature with screenshots of the app, in English and Polish: [magnetar.codefusion.cc/features](https://magnetar.codefusion.cc/features).
 
 - **Search six sources in parallel**, with results streamed in as each answers: The Pirate Bay (apibay API with HTML
-  mirror fallback), 1337x (the real site where it answers, else a mirror; magnet and description fetched on demand),
-  RARBG (TheRARBG's JSON API), Torrents-CSV, Nyaa and EZTV. A search can be linked (`/search/house+of+the+dragon?res=720p&source=tpb&sort=new`), and
+  mirror fallback), Knaben (its index of
+  The Pirate Bay, Nyaa, YTS, RuTracker and more, through its API), RARBG (TheRARBG's JSON API), Torrents-CSV, Nyaa and EZTV. A search can be linked (`/search/house+of+the+dragon?res=720p&source=tpb&sort=new`), and
   queries in any script match.
 - **Per-source outcomes** in a sentence and a visible count for every source above the results, so a failing site or
   an over-eager relevance filter never looks like "no results". Turn any source off in Settings.
@@ -149,7 +149,7 @@ claude mcp add --transport http --scope user magnetar http://localhost:47820/mcp
 
 The resolved URLs and bearer token are also written to `endpoint.json` in the data folder (owner-only). REST lives
 under `/api`, described at `/openapi/v1.json`. Tools and routes: search (rate limited; a source by its name or its
-short id, `tpb`, `1337x`, `nyaa`, `eztv`, `rarbg`, `torrents-csv`), details, start/pause/resume/delete downloads, series-task CRUD with `PATCH` (partial) and `PUT` (complete) updates, "check now", a task's episodes (air times and
+short id, `tpb`, `knaben`, `nyaa`, `eztv`, `rarbg`, `torrents-csv`), details, start/pause/resume/delete downloads, series-task CRUD with `PATCH` (partial) and `PUT` (complete) updates, "check now", a task's episodes (air times and
 which are downloaded, downloading, expected or missed, in pages), and read-only
 settings. Agent-chosen save folders must be inside the download folder, symlinks included, because an agent picks
 arguments after reading untrusted torrent titles and descriptions.

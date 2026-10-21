@@ -1,4 +1,4 @@
-/// Drops results that don't actually match the query. Some sites (notably 1337x) match loosely
+/// Drops results that don't actually match the query. Some sites match loosely
 /// and, sorted by seeders, float unrelated high-seed torrents to the top — so every meaningful
 /// query term must appear in the title.
 pub fn matches_query(query: &str, title: &str) -> bool {

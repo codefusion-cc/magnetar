@@ -42,14 +42,17 @@ pub async fn cancellable<T>(cancel: &CancellationToken, future: impl Future<Outp
 
 /// GET a page as text, failing on non-2xx, a timeout, or cancellation.
 pub async fn fetch_text(http: &reqwest::Client, url: &str, cancel: &CancellationToken) -> anyhow::Result<String> {
+    read_text(http.get(url).header("accept", "text/html,application/json;q=0.9,*/*;q=0.8"), cancel).await
+}
+
+/// POST a JSON body to an API and read its answer as text, failing as `fetch_text` does.
+pub async fn post_json(http: &reqwest::Client, url: &str, body: &Value, cancel: &CancellationToken) -> anyhow::Result<String> {
+    read_text(http.post(url).header("accept", "application/json").json(body), cancel).await
+}
+
+async fn read_text(request: reqwest::RequestBuilder, cancel: &CancellationToken) -> anyhow::Result<String> {
     cancellable(cancel, async {
-        let response = http
-            .get(url)
-            .header("accept", "text/html,application/json;q=0.9,*/*;q=0.8")
-            .timeout(SEARCH_TIMEOUT)
-            .send()
-            .await
-            .map_err(classify)?;
+        let response = request.timeout(SEARCH_TIMEOUT).send().await.map_err(classify)?;
         if !response.status().is_success() {
             let host = response.url().host_str().unwrap_or_default().to_owned();
             return Err(FetchError::Status(response.status().as_u16(), host).into());

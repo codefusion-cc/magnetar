@@ -7,12 +7,12 @@ import { searchCount, searchSummary, outcomeTitle, outcomeCount } from './search
 
 const translate = (strings: Record<string, string>) => (key: string, ...args: (string | number)[]) => (strings[key] ?? key).replace(/\{(\d+)\}/g, (_, n) => String(args[Number(n)]))
 const en = translate(english.strings), pl = translate(polish.strings)
-const sources: SourceOutcomeDto[] = ['The Pirate Bay','Torrents-CSV','RARBG','Nyaa','EZTV','1337x'].map((source,i) => ({source,status:i===5?'failed':'ok',returned:[22,13,8,0,0,0][i]!,filtered:0,error:null}))
+const sources: SourceOutcomeDto[] = ['The Pirate Bay','Torrents-CSV','RARBG','Nyaa','EZTV','Knaben'].map((source,i) => ({source,status:i===5?'failed':'ok',returned:[22,13,8,0,0,0][i]!,filtered:0,error:null}))
 const state = {outcomes:sources,total:6,sourceCount:6,searching:false,ran:true,query:'sintel'}
 
 test('source totals, empty answers and failures give the reference sentence in both languages', () => {
-  expect(searchSummary(en,'en',state)).toEqual({line:'43 results from 3 of 6 sources. Nyaa and EZTV found nothing, 1337x did not answer.',allFailed:false})
-  expect(searchSummary(pl,'pl',state)).toEqual({line:'43 wyniki z 3 z 6 źródeł. Źródła Nyaa i EZTV nic nie znalazły, a źródło 1337x nie odpowiedziało.',allFailed:false})
+  expect(searchSummary(en,'en',state)).toEqual({line:'43 results from 3 of 6 sources. Nyaa and EZTV found nothing, Knaben did not answer.',allFailed:false})
+  expect(searchSummary(pl,'pl',state)).toEqual({line:'43 wyniki z 3 z 6 źródeł. Źródła Nyaa i EZTV nic nie znalazły, a źródło Knaben nie odpowiedziało.',allFailed:false})
 })
 test('out-of-order answers produce the same source counts and filtered matches do not count', () => {
   const shuffled = [sources[2]!,sources[0]!,sources[1]!]

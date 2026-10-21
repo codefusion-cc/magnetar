@@ -43,7 +43,7 @@ export const content: FeaturesContent = {
         sources: {
           title: 'Sześć źródeł w jednym wyszukiwaniu',
           gain: 'Jedno pole wyszukiwania zamiast sześciu stron: wyniki spływają w miarę, jak odpowiadają kolejne źródła, i to bez reklam.',
-          text: 'Magnetar pyta jednocześnie EZTV, 1337x, Nyaa, The Pirate Bay, RARBG i Torrents-CSV, a kopie tego samego torrenta łączy w jeden wiersz. Przy każdym wyniku widać rozmiar, liczbę seedów i szczegóły wydania odczytane z tytułu.',
+          text: 'Magnetar pyta jednocześnie EZTV, Knaben, Nyaa, The Pirate Bay, RARBG i Torrents-CSV, a kopie tego samego torrenta łączy w jeden wiersz. Przy każdym wyniku widać rozmiar, liczbę seedów i szczegóły wydania odczytane z tytułu.',
           points: [
             'Tagi wydania z tytułu: rozdzielczość (od 480p do 4K), HDR lub Dolby Vision, kodek (H.264, HEVC, AV1) i źródło (BluRay, WEB, HDTV, DVD)',
             'Zawężanie według rozdzielczości i źródła; sortowanie według liczby seedów, od najnowszych, największych lub najmniejszych',
