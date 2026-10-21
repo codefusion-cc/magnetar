@@ -71,7 +71,7 @@ if (!values['skip-web']) {
   execSync('pnpm run build', { cwd: join(repo, 'apps', 'web'), env: { ...process.env, VITE_APP_VERSION: version }, stdio: 'inherit' })
 }
 if (!existsSync(join(repo, 'apps', 'web', 'dist', 'index.html'))) throw new Error('apps/web/dist is missing; build the dashboard first')
-if (!process.env.MAGNETAR_RELEASE_PUBLIC_KEY && !existsSync(join(root, preview ? 'preview-public-key.txt' : 'release-public-key.txt'))) {
+if (!existsSync(join(root, preview ? 'preview-public-key.txt' : 'release-public-key.txt'))) {
   console.warn('No release public key: this build will open the release page instead of installing updates')
 }
 

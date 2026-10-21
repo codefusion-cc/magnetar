@@ -1,4 +1,6 @@
-import { readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { generateKeyPair } from './release-key.ts'
@@ -17,7 +19,13 @@ describe('Magnetar Preview signing', () => {
   })
 
   it('never reads the release signing key', () => {
-    expect(workflow).not.toContain('secrets.RELEASE_SIGNING_KEY')
+    const secrets = [...workflow.matchAll(/secrets(?:\.(\w+)|\[\s*['"](\w+)['"]\s*\])/g)].map((m) => m[1] ?? m[2])
+    expect(secrets).toContain('PREVIEW_SIGNING_KEY')
+    expect(secrets).not.toContain('RELEASE_SIGNING_KEY')
+  })
+
+  it('checks the signature against preview-public-key.txt before publishing', () => {
+    expect(publish).toContain('node packages/release/sign-release.ts assets --public-key apps/client/preview-public-key.txt')
   })
 
   it('trusts a key of its own, not the release key', () => {
@@ -26,10 +34,6 @@ describe('Magnetar Preview signing', () => {
     expect(preview).not.toBe(read('apps/client/release-public-key.txt').trim())
   })
 
-  it('builds Magnetar Preview with preview-public-key.txt', () => {
-    const build = read('apps/client/build.rs')
-    expect(build).toContain('if std::env::var_os("MAGNETAR_PREVIEW").is_some() { "preview-public-key.txt" } else { "release-public-key.txt" }')
-  })
 })
 
 describe('a generated key pair', () => {
@@ -47,5 +51,46 @@ describe('a generated key pair', () => {
     const [a, b] = await Promise.all([generateKeyPair(), generateKeyPair()])
     expect(a.publicKey).not.toBe(b.publicKey)
     expect(a.privateKey).not.toBe(b.privateKey)
+  })
+})
+
+describe('sign-release.ts', () => {
+  const sign = (secret: string, publicKey: string, ...args: string[]) => {
+    const dir = mkdtempSync(join(tmpdir(), 'sign-release-'))
+    writeFileSync(join(dir, 'SHA256SUMS.txt'), 'abc  Magnetar-1.2.9-preview.92-macos-arm64.zip\n')
+    writeFileSync(join(dir, 'public-key.txt'), publicKey + '\n')
+    const script = join(import.meta.dirname, 'sign-release.ts')
+    try {
+      execFileSync(process.execPath, [script, dir, '--public-key', join(dir, 'public-key.txt'), ...args], {
+        env: { ...process.env, RELEASE_SIGNING_KEY: secret },
+        stdio: 'pipe',
+      })
+      return { dir, error: '' }
+    } catch (error) {
+      return { dir, error: String((error as { stderr: Buffer }).stderr) }
+    }
+  }
+
+  it('signs with the private half of the given public key', async () => {
+    const pair = await generateKeyPair()
+    const { dir, error } = sign(pair.privateKey, pair.publicKey)
+    expect(error).toBe('')
+    const verifier = await crypto.subtle.importKey('raw', Buffer.from(pair.publicKey, 'base64url'), 'Ed25519', false, ['verify'])
+    const signature = Buffer.from(readFileSync(join(dir, 'SHA256SUMS.txt.sig'), 'utf8').trim(), 'base64url')
+    expect(await crypto.subtle.verify('Ed25519', verifier, signature, readFileSync(join(dir, 'SHA256SUMS.txt')))).toBe(true)
+  })
+
+  it('refuses a key of another pair, and writes no signature', async () => {
+    const [pair, other] = await Promise.all([generateKeyPair(), generateKeyPair()])
+    const { dir, error } = sign(other.privateKey, pair.publicKey)
+    expect(error).toContain('RELEASE_SIGNING_KEY is not the private half of')
+    expect(existsSync(join(dir, 'SHA256SUMS.txt.sig'))).toBe(false)
+  })
+
+  it('refuses a missing key', async () => {
+    const pair = await generateKeyPair()
+    const { dir, error } = sign('', pair.publicKey)
+    expect(error).toContain('RELEASE_SIGNING_KEY is not set')
+    expect(existsSync(join(dir, 'SHA256SUMS.txt.sig'))).toBe(false)
   })
 })

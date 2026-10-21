@@ -166,14 +166,16 @@ Commit `apps/client/release-public-key.txt` and save the printed private key as 
 `RELEASE_SIGNING_KEY`. Keep no other copy: losing it means shipping a release with a new public key, which older
 installs will not auto-install (they fall back to opening the release page).
 
-Magnetar Preview has its own pair, so nothing the preview build can reach signs an update the released app installs:
+Magnetar Preview has its own pair, so the preview workflow holds no key the released app trusts:
 
 ```bash
 node packages/release/release-key.ts --preview
 ```
 
 It writes `apps/client/preview-public-key.txt` (commit it; only Preview builds trust it) and puts the private key on the
-clipboard, for the secret `PREVIEW_SIGNING_KEY` of the `preview-signing` environment, which only `main` deploys to.
+clipboard until you press Enter, for the secret `PREVIEW_SIGNING_KEY` of the `preview-signing` environment, which only
+`main` deploys to. Each build refuses to compile in the other flavour's key, and `sign-release.ts` refuses a secret that
+is not the private half of the key the app trusts.
 
 ## Code signing
 

@@ -1,21 +1,26 @@
 //! Stamps the release build: `MAGNETAR_VERSION` (set by package.ts from the release tag) and the update
-//! signing key, from `MAGNETAR_RELEASE_PUBLIC_KEY` or the committed `release-public-key.txt`; Magnetar Preview
-//! (`MAGNETAR_PREVIEW`) trusts only its own, `preview-public-key.txt`, so a preview build's key never signs an
-//! update the released app installs. On Windows it also embeds the icon and version resource.
+//! signing key, the committed `release-public-key.txt`; Magnetar Preview (`MAGNETAR_PREVIEW`) trusts only its own,
+//! `preview-public-key.txt`, so a preview build's key never signs an update the released app installs. On Windows it
+//! also embeds the icon and version resource.
 
 fn main() {
     println!("cargo:rerun-if-env-changed=MAGNETAR_VERSION");
-    println!("cargo:rerun-if-env-changed=MAGNETAR_RELEASE_PUBLIC_KEY");
     println!("cargo:rerun-if-env-changed=MAGNETAR_PREVIEW");
     println!("cargo:rerun-if-changed=release-public-key.txt");
     println!("cargo:rerun-if-changed=preview-public-key.txt");
 
-    let file = if std::env::var_os("MAGNETAR_PREVIEW").is_some() { "preview-public-key.txt" } else { "release-public-key.txt" };
-    let key = std::env::var("MAGNETAR_RELEASE_PUBLIC_KEY")
-        .ok()
-        .or_else(|| std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(file)).ok())
-        .map(|k| k.trim().to_owned())
-        .unwrap_or_default();
+    let (own, other) = if std::env::var_os("MAGNETAR_PREVIEW").is_some() {
+        ("preview-public-key.txt", "release-public-key.txt")
+    } else {
+        ("release-public-key.txt", "preview-public-key.txt")
+    };
+    let read = |file: &str| {
+        std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(file))
+            .map(|k| k.trim().to_owned())
+            .unwrap_or_default()
+    };
+    let key = read(own);
+    assert!(key.is_empty() || key != read(other), "{own} holds {other}'s key: each build must trust only its own");
     println!("cargo:rustc-env=MAGNETAR_RELEASE_PUBLIC_KEY={key}");
 
     #[cfg(windows)]
