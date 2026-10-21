@@ -318,7 +318,7 @@ export const content: FeaturesContent = {
         },
         languages: {
           title: 'W Twoim języku',
-          gain: 'Panel i ta strona po angielsku, niemiecku, hiszpańsku, francusku, włosku, polsku, portugalsku i rosyjsku.',
+          gain: 'Panel i ta strona po polsku i angielsku.',
           text: 'Język wybierzesz w sekcji Ustawienia → Ogólne; obowiązuje w każdej przeglądarce, która otwiera ten komputer. Własne strony serwisu podążają za językiem przeglądarki.',
           points: ['Daty i godziny są zapisywane tak, jak przyjęło się w Twoim języku'],
         },

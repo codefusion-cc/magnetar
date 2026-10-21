@@ -50,7 +50,7 @@ for (const [stored, scheme, expected] of [
   })
 }
 
-test('headings are set in Unbounded in Polish and Russian, not in a fallback', async ({ page }) => {
+test('headings are set in Unbounded in Polish, and cover Cyrillic, not in a fallback', async ({ page }) => {
   /** The heading's first font, and the letters of its text and `extra` that no loaded Unbounded face covers. */
   const heading = (extra = '') =>
     page.getByRole('heading', { level: 1 }).first().evaluate(async (h, more) => {
@@ -71,11 +71,9 @@ test('headings are set in Unbounded in Polish and Russian, not in a fallback', a
     await pick(page, 'Language', 'Polski')
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Ustawienia')
     expect(await heading('ąćęłńóśźżĄĆĘŁŃÓŚŹŻ')).toEqual({ family: 'Unbounded', missing: [] })
-
-    await pick(page, 'Język', 'Русский')
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText(/[\u0400-\u04FF]/)
+    // Torrent names are often Russian.
     expect(await heading('ЁЖЩЮЯёжщюя')).toEqual({ family: 'Unbounded', missing: [] })
   } finally {
-    await pick(page, /^(Language|Język|Язык)$/, 'English')
+    await pick(page, /^(Language|Język)$/, 'English')
   }
 })

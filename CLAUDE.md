@@ -1,7 +1,7 @@
 # Magnetar
 
 Monorepo: `packages/protocol` (TypeScript: the RPC contract and E2E crypto for the dashboard and Worker),
-`apps/client` (Rust: the single-executable app), `apps/web` (React/daisyUI dashboard, served by both the app and the
+`apps/client` (Rust: the single-executable app), `apps/web` (React dashboard on Tailwind and `@codefusion-cc/ui`, served by both the app and the
 Worker), `apps/worker` (Cloudflare Worker). npm workspaces on Node 24 for the TypeScript, a Cargo workspace at the
 root for Rust.
 See docs/ARCHITECTURE.md before touching the relay, pairing or either `e2e` implementation.
@@ -24,9 +24,9 @@ Read docs/MAP.md before exploring; update it when you move or add something it n
 - New settings: add to `AppSettings` in `apps/client/src/settings.rs` (settings are one JSON row, no migration),
   `SettingsDto`/`SettingsPatch` in both protocol files. Schema changes to tables: append a migration in
   `apps/client/src/db.rs`, never edit a shipped one.
-- New user-facing strings: add the key to all eight `apps/web/src/i18n/*.json` catalogs.
+- New user-facing strings: add the key to both `apps/web/src/i18n/*.json` catalogs (English and Polish).
 - A feature people can see, new or changed: describe it on the features page (`apps/web/src/features/outline.ts` and
-  the same feature in all eight `content/*.ts`; claims must match the code) and retake its shots
+  the same feature in both `content/*.ts`; claims must match the code) and retake its shots
   (`npm run screenshots -w @magnetar/e2e -- --only=<shot>`, README "Development").
 - Never let librqbit delete files (`Session::delete(.., true)` also removes an emptied output folder, which can be the
   user's download folder); `downloads::engine::delete_files` does it.

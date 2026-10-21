@@ -92,7 +92,7 @@ test('at 320px the frame fits a long computer name in light and dark', async ({ 
   }
 })
 
-for (const language of ['en', 'de', 'pl', 'ru']) {
+for (const language of ['en', 'pl']) {
   test(`at 320px the ${language} tab labels remain readable`, async ({ page }) => {
     await serveDevice(page, { language })
     await page.setViewportSize({ width: 320, height: 700 })

@@ -3,8 +3,6 @@ import fc from 'fast-check'
 import { describe, expect, test } from 'vitest'
 import en from '../i18n/en.json'
 import pl from '../i18n/pl.json'
-import ru from '../i18n/ru.json'
-import de from '../i18n/de.json'
 import { calendarDistance, episodeAirDate, episodeArc, upcomingEpisodes, seriesLine, seriesRule, episodeApproachDate } from './seriesPresentation.ts'
 
 const translate = (strings: Record<string, string>) => (key: string, ...args: (string | number)[]) => (strings[key] ?? key).replace(/\{(\d+)\}/g, (_, n) => String(args[Number(n)]))
@@ -60,7 +58,6 @@ test('air dates use native weekday cases and English day-month order', () => {
   expect(episodeAirDate(wednesday, 'en', translate(en.strings))).toBe('Wednesday, 14 October')
   expect(episodeAirDate(wednesday, 'pl', translate(pl.strings), true)).toBe('w środę')
   expect(episodeAirDate(saturday, 'pl', translate(pl.strings), true)).toBe('w sobotę')
-  expect(episodeAirDate(wednesday, 'ru', translate(ru.strings), true)).toBe('в среду')
 })
 
 test('series sentences distinguish paused, finished, active, dated and undated episodes', () => {
@@ -84,6 +81,6 @@ test('orbit rules distinguish one episode, unknown season and a numbered season'
   expect(seriesRule(t, { ...task, season: 4 }, 1, 1)).toBe('Season 4, 1 of 1 episode. Takes any quality.')
 })
 
-test('German approach labels keep the standalone weekday abbreviation', () => {
-  expect(episodeApproachDate(new Date(2026, 9, 14, 12).toISOString(), 'de', translate(de.strings))).toBe('Mi 14')
+test('approach labels use the standalone weekday abbreviation', () => {
+  expect(episodeApproachDate(new Date(2026, 9, 14, 12).toISOString(), 'pl', translate(pl.strings))).toBe('śr. 14')
 })

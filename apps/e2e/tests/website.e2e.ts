@@ -256,7 +256,7 @@ test('every website page can be used by keyboard', async ({ page }) => {
   }
 })
 
-for (const language of ['en', 'pl', 'de', 'fr', 'es', 'it', 'pt', 'ru']) {
+for (const language of ['en', 'pl']) {
   test(`the website fits a phone in ${language}`, async ({ browser }) => {
     for (const signedIn of [false, true]) {
       const context = await browser.newContext({ viewport: { width: 390, height: 780 }, locale: language, baseURL: test.info().project.use.baseURL })

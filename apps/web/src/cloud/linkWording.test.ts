@@ -37,7 +37,7 @@ describe('what the not-linked screen calls itself', () => {
   })
 
   test('every language has its own words for the app, and names the device in both titles', () => {
-    expect(languages).toHaveLength(8)
+    expect(languages).toEqual(['en', 'pl'])
     for (const language of languages) {
       const s = strings(language)
       const [app, tab] = [s[linkTitle(true)], s[linkTitle(false)]]

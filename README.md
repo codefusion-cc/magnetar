@@ -14,7 +14,7 @@ Rust, the dashboard and website TypeScript. It can import everything from a Medi
 
 ## Features
 
-Every feature with screenshots of the app, in all eight languages: [magnetar.codefusion.cc/features](https://magnetar.codefusion.cc/features).
+Every feature with screenshots of the app, in English and Polish: [magnetar.codefusion.cc/features](https://magnetar.codefusion.cc/features).
 
 - **Search six sources in parallel**, with results streamed in as each answers: The Pirate Bay (apibay API with HTML
   mirror fallback), 1337x (the real site where it answers, else a mirror; magnet and description fetched on demand),
@@ -66,7 +66,7 @@ Every feature with screenshots of the app, in all eight languages: [magnetar.cod
   About, the menu-bar icon, or magnetar.codefusion.cc/about) shows what each release brings.
 - **Always know what runs:** the app (Settings → About, the menu-bar icon) and the website (its footer) show their
   version and commit, and the website flags any of your computers whose app is out of date, with one-click update.
-- **Eight languages**: English, Polish, German, French, Spanish, Italian, Portuguese and Russian.
+- **Two languages**: English and Polish.
 - Secrets (SMTP password, bot token, agent and device tokens, browser keys) are **encrypted at rest**.
 
 ## Install

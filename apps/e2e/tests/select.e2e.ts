@@ -5,6 +5,10 @@ import { combobox, listbox as list } from '../fixtures/select.ts'
 /** The language menu in Settings. */
 const language = (page: Page) => combobox(page, 'Language')
 
+/** The source menu on Search: seven options, two starting with T. */
+const source = (page: Page) => combobox(page, 'Source')
+const sourceParam = (page: Page) => new URL(page.url()).searchParams.get('source')
+
 test('a click opens the list with the choice marked, and an option changes it and closes the list', async ({ page }) => {
   const device = await serveDevice(page, { design: 'set-general' })
   await page.goto('/settings')
@@ -15,59 +19,61 @@ test('a click opens the list with the choice marked, and an option changes it an
 
   await menu.click()
   await expect(menu).toHaveAttribute('aria-expanded', 'true')
-  await expect(list(page).getByRole('option')).toHaveText(['English', 'Deutsch', 'Español', 'Français', 'Italiano', 'Polski', 'Português', 'Русский'])
+  await expect(list(page).getByRole('option')).toHaveText(['English', 'Polski'])
   await expect(list(page).getByRole('option', { name: 'English' })).toHaveAttribute('aria-selected', 'true')
   // Each language's own name is read in that language.
-  await expect(list(page).getByRole('option', { name: 'Русский' })).toHaveAttribute('lang', 'ru')
+  await expect(list(page).getByRole('option', { name: 'Polski' })).toHaveAttribute('lang', 'pl')
 
-  await list(page).getByRole('option', { name: 'Deutsch' }).click()
+  await list(page).getByRole('option', { name: 'Polski' }).click()
   await expect(list(page)).toBeHidden()
-  await expect(combobox(page, 'Sprache')).toHaveText('Deutsch')
-  await expect(combobox(page, 'Sprache')).toBeFocused()
-  await expect.poll(() => device.settings().language).toBe('de')
+  await expect(combobox(page, 'Język')).toHaveText('Polski')
+  await expect(combobox(page, 'Język')).toBeFocused()
+  await expect.poll(() => device.settings().language).toBe('pl')
 })
 
 test('by keyboard: arrows open and move without choosing, Enter chooses, Escape changes nothing', async ({ page }) => {
-  const device = await serveDevice(page, { design: 'set-general' })
-  await page.goto('/settings')
-  const menu = language(page)
+  await serveDevice(page, { design: 'search' })
+  await page.goto('/search/sintel')
+  const menu = source(page)
   await menu.focus()
   await page.keyboard.press('ArrowDown')
   await expect(list(page)).toBeVisible()
   // Opening marks the current choice; nothing is chosen yet.
-  await expect(menu).toHaveAttribute('aria-activedescendant', await list(page).getByRole('option', { name: 'English' }).getAttribute('id') ?? '')
+  await expect(menu).toHaveAttribute('aria-activedescendant', await list(page).getByRole('option', { name: 'All sources' }).getAttribute('id') ?? '')
   await page.keyboard.press('ArrowDown')
   await page.keyboard.press('ArrowDown')
-  await expect(menu).toHaveAttribute('aria-activedescendant', await list(page).getByRole('option', { name: 'Español' }).getAttribute('id') ?? '')
+  await expect(menu).toHaveAttribute('aria-activedescendant', await list(page).getByRole('option', { name: 'Torrents-CSV' }).getAttribute('id') ?? '')
   await page.keyboard.press('Escape')
   await expect(list(page)).toBeHidden()
-  await expect(menu).toHaveText('English')
+  await expect(menu).toHaveText('All sources')
   await expect(menu).toBeFocused()
+  expect(sourceParam(page)).toBeNull()
 
   await page.keyboard.press('End')
-  await expect(menu).toHaveAttribute('aria-activedescendant', await list(page).getByRole('option', { name: 'Русский' }).getAttribute('id') ?? '')
+  await expect(menu).toHaveAttribute('aria-activedescendant', await list(page).getByRole('option', { name: '1337x' }).getAttribute('id') ?? '')
   await page.keyboard.press('Home')
   await page.keyboard.press('ArrowDown')
   await page.keyboard.press('Enter')
-  await expect(combobox(page, 'Sprache')).toHaveText('Deutsch')
-  await expect.poll(() => device.settings().language).toBe('de')
-  expect(device.log.filter(c => c.method === 'settings.update').length).toBe(1)
+  await expect(list(page)).toBeHidden()
+  await expect(menu).toHaveText('The Pirate Bay')
+  await expect.poll(() => sourceParam(page)).toBe('tpb')
 })
 
-test('typing a letter finds the language it starts, and the same letter again the next one', async ({ page }) => {
-  await serveDevice(page, { design: 'set-general' })
-  await page.goto('/settings')
-  const menu = language(page)
+test('typing a letter finds the option it starts, and the same letter again the next one', async ({ page }) => {
+  await serveDevice(page, { design: 'search' })
+  await page.goto('/search/sintel')
+  const menu = source(page)
   await menu.focus()
-  await page.keyboard.press('p')
+  await page.keyboard.press('t')
   await expect(list(page)).toBeVisible()
-  await expect(menu).toHaveAttribute('aria-activedescendant', await list(page).getByRole('option', { name: 'Polski' }).getAttribute('id') ?? '')
-  await page.keyboard.press('p')
-  await expect(menu).toHaveAttribute('aria-activedescendant', await list(page).getByRole('option', { name: 'Português' }).getAttribute('id') ?? '')
+  await expect(menu).toHaveAttribute('aria-activedescendant', await list(page).getByRole('option', { name: 'The Pirate Bay' }).getAttribute('id') ?? '')
+  await page.keyboard.press('t')
+  await expect(menu).toHaveAttribute('aria-activedescendant', await list(page).getByRole('option', { name: 'Torrents-CSV' }).getAttribute('id') ?? '')
   // Tab takes the marked option and moves on, as a system menu does.
   await page.keyboard.press('Tab')
   await expect(list(page)).toBeHidden()
-  await expect(combobox(page, 'Idioma')).toHaveText('Português')
+  await expect(menu).toHaveText('Torrents-CSV')
+  await expect.poll(() => sourceParam(page)).toBe('csv')
 })
 
 test('a space typed in the middle of a word is part of it, not a choice', async ({ page }) => {
@@ -149,4 +155,11 @@ test('clicking the name above a group of choices changes nothing', async ({ page
   // A label around the group passed this click to its first choice.
   await dialog.getByText('Resolution', { exact: true }).click()
   await expect(resolution.getByRole('radio', { name: '1080p' })).toHaveAttribute('aria-checked', 'true')
+})
+
+test('a language saved before it was dropped shows as English, in an English page', async ({ page }) => {
+  await serveDevice(page, { design: 'set-general', language: 'de' })
+  await page.goto('/settings')
+  await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible()
+  await expect(language(page)).toHaveText('English')
 })

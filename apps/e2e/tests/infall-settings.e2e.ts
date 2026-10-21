@@ -157,7 +157,7 @@ test('every section can be reached and used by keyboard', async ({ page }) => {
   await expect(page).toHaveURL(/\/settings\/notifications$/)
 })
 
-for (const language of ['en', 'pl', 'de', 'fr', 'es', 'it', 'pt', 'ru']) {
+for (const language of ['en', 'pl']) {
   test(`every section fits a phone in ${language}, also in a wide font`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 780 })
     await serveDevice(page, { design: 'set-dl', language })

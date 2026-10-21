@@ -1,6 +1,6 @@
 /*
  * The look's fonts, bundled so the app needs no font host (it also runs on a computer with no internet). Each face holds
- * one script's letters and loads only when the page shows them: Latin, Latin Extended (Polish), Cyrillic (Russian).
+ * one script's letters and loads only when the page shows them: Latin, Latin Extended (Polish), Cyrillic (torrent names in Russian and its neighbours).
  * woff2 only: every browser the dashboard supports reads it. Faces and ranges as @fontsource publishes them.
  */
 

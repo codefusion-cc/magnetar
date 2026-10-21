@@ -21,10 +21,10 @@ test('speed limits are checked as typed, saved on leaving the field, and kept', 
 
 test('the dashboard speaks the chosen language, and back', async ({ page }) => {
   await page.goto('/settings')
-  await pick(page, 'Language', 'Deutsch')
-  await expect(page.getByRole('link', { name: 'Einstellungen' })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Merkliste' })).toBeVisible()
-  await pick(page, 'Sprache', 'English')
+  await pick(page, 'Language', 'Polski')
+  await expect(page.getByRole('link', { name: 'Ustawienia' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Obserwowane' })).toBeVisible()
+  await pick(page, 'Język', 'English')
   await expect(page.getByRole('link', { name: 'Settings' })).toBeVisible()
 })
 

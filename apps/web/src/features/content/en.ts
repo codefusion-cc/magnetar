@@ -318,7 +318,7 @@ export const en: FeaturesContent = {
         },
         languages: {
           title: 'In your language',
-          gain: 'The dashboard and this page in English, German, Spanish, French, Italian, Polish, Portuguese and Russian.',
+          gain: 'The dashboard and this page in English and Polish.',
           text: 'Pick a language in Settings → General; it applies to every browser that opens that computer. The website\'s own pages follow your browser\'s language.',
           points: ['Dates and times are written the way your language writes them'],
         },

@@ -7,6 +7,7 @@ import { askingWhere } from '../../lib/downloadFlow.ts'
 import { downloadDay } from '../../lib/downloadPresentation.ts'
 import { featuresUrl } from '../../lib/featuresLink.ts'
 import { LANGUAGES, useFormatDate, useLanguage, useT } from '../../lib/i18n.tsx'
+import { shownLanguage } from '../../lib/languages.ts'
 import { askNotificationPermission } from '../../lib/notifications.ts'
 import { Select } from '../../ui/Select.tsx'
 import { Segmented } from '../../ui/controls.tsx'
@@ -107,7 +108,7 @@ function GeneralSection({ settings }: { settings: SettingsDto }) {
           options={(['system', 'light', 'dark'] as const).map(m => ({ value: m, label: t(`settings.theme.${m}`) }))} />
       </SettingSection>
       <SettingSection title={t('settings.language')} htmlFor={languageId} alert={languageFailure}>
-        <Select id={languageId} value={language} onChange={chooseLanguage}
+        <Select id={languageId} value={shownLanguage(language)} onChange={chooseLanguage}
           options={LANGUAGES.map(l => ({ value: l.code, label: l.name, lang: l.code }))} />
       </SettingSection>
       <SettingSection title={t('settings.startupTitle')} alert={startupFailure ?? undefined}>

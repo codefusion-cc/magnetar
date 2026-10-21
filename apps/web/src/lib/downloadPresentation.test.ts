@@ -4,7 +4,6 @@ import fc from 'fast-check'
 import { describe, expect, test } from 'vitest'
 import english from '../i18n/en.json'
 import polish from '../i18n/pl.json'
-import russian from '../i18n/ru.json'
 import { formatEta, pluralMessage } from './i18n.tsx'
 import { downloadDay, downloadSummary, noPeersError, retainFinished } from './downloadPresentation.ts'
 
@@ -34,9 +33,8 @@ describe('download presentation', () => {
     }
   })
 
-  test('plural families keep Polish and Russian final digits and fall back to other', () => {
-    const ru = translate(russian.strings)
-    expect([1, 2, 5, 12, 21, 22, 112].map(n => pluralMessage(ru, 'ru', 'search.results', n, n))).toEqual(['1 результат', '2 результата', '5 результатов', '12 результатов', '21 результат', '22 результата', '112 результатов'])
+  test('plural families keep Polish final digits and fall back to other', () => {
+    expect([1, 2, 5, 12, 21, 22, 112].map(n => pluralMessage(pl, 'pl', 'search.results', n, n))).toEqual(['1 wynik', '2 wyniki', '5 wyników', '12 wyników', '21 wyników', '22 wyniki', '112 wyników'])
     const sparse = translate({ 'sample.other': '{0} items' })
     expect(pluralMessage(sparse, 'pl', 'sample', 2, 2)).toBe('2 items')
     expect(pluralMessage(pl, 'pl', 'downloads.minutesLeft', 22, 22)).toBe('zostały 22 min')

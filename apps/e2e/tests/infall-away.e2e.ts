@@ -199,29 +199,27 @@ async function fits(page: Page, ...parts: Locator[]) {
   }
 }
 
-for (const language of ['de', 'ru'] as const) {
-  test(`a long computer name in ${language} fits the bar and both screens at 320 px`, async ({ page }) => {
-    await page.setViewportSize({ width: 320, height: 700 })
-    const { device, install } = await computer(page, { name: longName, language })
-    await page.goto(`/${longName}`)
-    const updateNow = page.getByRole('button', { name: language === 'de' ? 'Jetzt aktualisieren' : 'Обновить', exact: true })
-    await expect(updateNow).toBeVisible()
-    await fits(page, bar(page, language === 'de' ? 'Jetzt aktualisieren' : 'Обновить'), updateNow, page.getByRole('button', { name: language === 'de' ? 'Später' : 'Позже', exact: true }))
+test('a long computer name in Polish fits the bar and both screens at 320 px', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 700 })
+  const { device, install } = await computer(page, { name: longName, language: 'pl' })
+  await page.goto(`/${longName}`)
+  const updateNow = page.getByRole('button', { name: 'Aktualizuj teraz', exact: true })
+  await expect(updateNow).toBeVisible()
+  await fits(page, bar(page, 'Aktualizuj teraz'), updateNow, page.getByRole('button', { name: 'Później', exact: true }))
 
-    device.setOnline(false)
-    const offline = page.getByRole('heading', { level: 1, name: language === 'de' ? `${longName} ist offline` : `${longName} не в сети` })
-    await expect(offline).toBeVisible()
-    await fits(page, offline, page.getByRole('link', { name: language === 'de' ? 'Andere Computer' : 'Другие компьютеры' }))
+  device.setOnline(false)
+  const offline = page.getByRole('heading', { level: 1, name: `${longName} jest offline` })
+  await expect(offline).toBeVisible()
+  await fits(page, offline, page.getByRole('link', { name: 'Inne komputery' }))
 
-    device.setOnline(true)
-    await expect(updateNow).toBeVisible()
-    await updateNow.click({ trial: true })
-    await install(language === 'de' ? 'Jetzt aktualisieren' : 'Обновить')
-    const updating = page.getByRole('heading', { level: 1, name: language === 'de' ? `Magnetar auf ${longName} wird aktualisiert` : `Magnetar на ${longName} обновляется` })
-    await expect(updating).toBeVisible()
-    await fits(page, updating)
-  })
-}
+  device.setOnline(true)
+  await expect(updateNow).toBeVisible()
+  await updateNow.click({ trial: true })
+  await install('Aktualizuj teraz')
+  const updating = page.getByRole('heading', { level: 1, name: `Trwa aktualizacja Magnetara na ${longName}` })
+  await expect(updating).toBeVisible()
+  await fits(page, updating)
+})
 
 test('the bar and the screens follow light and dark', async ({ page }) => {
   const { device } = await computer(page)

@@ -347,7 +347,7 @@ test('download pushes reuse folder rows and the details file list while updating
   expect(await rendered()).toEqual([])
 })
 
-for (const language of ['de', 'fr']) {
+for (const language of ['en', 'pl']) {
   test(`the main screens fit a phone in ${language}, also in a wide font`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 780 })
     // Each screen is measured in the asked language with what it lists drawn, not while it still loads.
