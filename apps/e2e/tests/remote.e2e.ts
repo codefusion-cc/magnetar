@@ -98,10 +98,9 @@ async function openLink(page: Page, label: string) {
 }
 
 /** A browser's row in the list of linked browsers. */
-const row = (page: Page, label: string) => page.locator('div.flex')
+const row = (page: Page, label: string) => page.getByRole('listitem')
   .filter({ has: page.getByText(label, { exact: true }) })
-  .filter({ has: page.getByRole('button', { name: 'Revoke' }) })
-  .last()
+  .filter({ has: page.getByRole('button', { name: `Remove: ${label}` }) })
 
 test('the link dialog closes by itself once the browser it is for has linked, and says which one', async ({ page }) => {
   const remote = await FakeRemote.on(page)
@@ -111,14 +110,14 @@ test('the link dialog closes by itself once the browser it is for has linked, an
 
   // Another browser connecting is not this link being used.
   remote.use('laptop')
-  await expect(row(page, 'Laptop')).toContainText('Last used')
+  await expect(row(page, 'Laptop')).toContainText('Used')
   await expect(link).toBeVisible()
   await expect(linkedToast(page)).toHaveCount(0)
 
   remote.use('key1')
   await expect(link).toBeHidden()
   await expect(linkedToast(page)).toHaveText('Browser linked: My phone')
-  await expect(row(page, 'My phone')).toContainText('Last used')
+  await expect(row(page, 'My phone')).toContainText('Used')
 })
 
 test('the dialog counts down the link, says when it expired and offers a new one for the same browser', async ({ page }) => {
@@ -179,7 +178,7 @@ test('a link dialog closed by hand stays closed, whatever becomes of its link', 
   await expect(link).toBeHidden()
 
   remote.use('key1')
-  await expect(row(page, 'My phone')).toContainText('Last used')
+  await expect(row(page, 'My phone')).toContainText('Used')
   await expect(dialog(page, 'Link another browser')).toBeHidden()
   await expect(linkedToast(page)).toHaveCount(0)
 
@@ -212,7 +211,7 @@ test('leaving the page with the link dialog open forgets the link', async ({ pag
 
   remote.use('key1')
   await page.getByRole('link', { name: 'Remote access' }).click()
-  await expect(row(page, 'My phone')).toContainText('Last used')
+  await expect(row(page, 'My phone')).toContainText('Used')
   await expect(dialog(page, 'Link another browser')).toBeHidden()
   await expect(linkedToast(page)).toHaveCount(0)
 })

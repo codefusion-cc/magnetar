@@ -1,3 +1,5 @@
+import { plural, formatters, type PluralForms } from '@codefusion-cc/i18n'
+import { formatBytes, formatRate } from '@magnetar/protocol/bytes'
 import { applyDocumentLocale } from '@codefusion-cc/i18n/browser'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import english from '../i18n/en.json'
@@ -127,9 +129,10 @@ export function useFormatDate(): (iso: string | null, withTime?: boolean) => str
   return useCallback((iso, withTime = false) => {
     if (!iso) return '—'
     const date = new Date(iso)
+    if (Number.isNaN(date.getTime())) return '—'
     return withTime
-      ? date.toLocaleString(language, { dateStyle: 'medium', timeStyle: 'short' })
-      : date.toLocaleDateString(language, { year: 'numeric', month: '2-digit', day: '2-digit' })
+      ? formatters(language).date(iso, { dateStyle: 'medium', timeStyle: 'short' })
+      : formatters(language).date(iso, { year: 'numeric', month: '2-digit', day: '2-digit' })
   }, [language])
 }
 
@@ -145,20 +148,50 @@ function relative(format: Intl.RelativeTimeFormat, seconds: number): string {
 }
 
 /** "3 yr. ago", "in 5 min." — in the dashboard language. */
-export function useFormatRelative(): (iso: string | null) => string {
+export function useFormatRelative(style: Intl.RelativeTimeFormatStyle = 'short', numeric: Intl.RelativeTimeFormatNumeric = 'auto'): (iso: string | number | null, now?: number) => string {
   const language = useLanguage()
-  return useCallback((iso: string | null) => {
-    if (!iso) return '—'
-    const format = new Intl.RelativeTimeFormat(language, { numeric: 'auto', style: 'short' })
-    return relative(format, (new Date(iso).getTime() - Date.now()) / 1000)
-  }, [language])
+  const format = useMemo(() => new Intl.RelativeTimeFormat(language, { numeric, style }), [language, numeric, style])
+  return useCallback((iso: string | number | null, now = Date.now()) => {
+    if (iso === null || iso === undefined || iso === '') return '—'
+    return relative(format, (new Date(iso).getTime() - now) / 1000)
+  }, [format])
 }
 
-/** Time left, as "in 4 min." — from now plus `seconds`. */
-export function useFormatEta(): (seconds: number) => string {
-  const language = useLanguage()
-  return useCallback((seconds: number) => {
-    const format = new Intl.RelativeTimeFormat(language, { numeric: 'always', style: 'short' })
-    return relative(format, Math.max(1, seconds))
-  }, [language])
+/**
+ * A catalog family keyed by CLDR category (`base.one`, `base.few`, …, `base.other`). Every catalog has every key of
+ * English (i18n/catalogs.test.ts), so the families English defines are complete everywhere.
+ */
+export function pluralMessage(t: Translate, language: string, base: string, count: number, ...args: (string | number)[]): string {
+  const forms: PluralForms = { zero: `${base}.zero`, one: `${base}.one`, two: `${base}.two`, few: `${base}.few`, many: `${base}.many`, other: `${base}.other` }
+  // Zero is an explicit empty-state sentence when a family supplies one.
+  const zero = `${base}.zero`
+  const key = count === 0 && t(zero) !== zero ? zero : plural(language, count, forms)
+  const text = t(key, ...args)
+  return text === key ? t(`${base}.other`, ...args) : text
 }
+
+/** Decimal sizes and rates throughout the dashboard. */
+export function useFormatBytes() {
+  const language = useLanguage()
+  return useCallback((bytes: number, digits = 1) => formatBytes(bytes, digits, { decimal: true, locale: language }), [language])
+}
+
+export function useFormatRate() {
+  const language = useLanguage()
+  return useCallback((bytes: number, digits = 1) => formatRate(bytes, digits, { decimal: true, locale: language }), [language])
+}
+
+export function formatEta(t: Translate, language: string, seconds: number): string {
+  const minutes = Math.max(1, Math.round(seconds / 60))
+  if (minutes < 60) return pluralMessage(t, language, 'downloads.minutesLeft', minutes, minutes)
+  return t('downloads.hoursLeft', Math.floor(minutes / 60), minutes % 60)
+}
+
+/** Time left in the download design's wording. */
+export function useFormatEta(): (seconds: number) => string {
+  const t = useT()
+  const language = useLanguage()
+  return useCallback((seconds: number) => formatEta(t, language, seconds), [t, language])
+}
+
+export { formatters }

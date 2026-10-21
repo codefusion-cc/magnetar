@@ -39,16 +39,16 @@ describe('previewProblems', () => {
 
   it('fails an image that is not in the output, is relative, is not a JPEG or is too big', () => {
     let dir = output()
-    rmSync(join(dir, 'og-v1.jpg'))
-    expect(previewProblems(dir).join('\n')).toMatch(/og:image points at \/og-v1\.jpg, which is not in/)
+    rmSync(join(dir, 'og-v2.jpg'))
+    expect(previewProblems(dir).join('\n')).toMatch(/og:image points at \/og-v2\.jpg, which is not in/)
     dir = output()
-    edit(dir, 'index.html', (html) => html.replaceAll('https://magnetar.codefusion.cc/og-v1.jpg', '/og-v1.jpg'))
+    edit(dir, 'index.html', (html) => html.replaceAll('https://magnetar.codefusion.cc/og-v2.jpg', '/og-v2.jpg'))
     expect(previewProblems(dir).join('\n')).toMatch(/og:image is not an absolute https URL/)
     dir = output()
-    edit(dir, 'index.html', (html) => html.replaceAll('og-v1.jpg', 'og-v1.png'))
+    edit(dir, 'index.html', (html) => html.replaceAll('og-v2.jpg', 'og-v2.png'))
     expect(previewProblems(dir).join('\n')).toMatch(/not an absolute https URL of a \.jpg/)
     dir = output()
-    writeFileSync(join(dir, 'og-v1.jpg'), Buffer.alloc(200_001))
+    writeFileSync(join(dir, 'og-v2.jpg'), Buffer.alloc(200_001))
     expect(previewProblems(dir).join('\n')).toMatch(/over 200000 bytes/)
   })
 

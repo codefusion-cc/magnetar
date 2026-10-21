@@ -1,5 +1,5 @@
 import { MAX_TORRENT_FILE } from '@magnetar/protocol/limits'
-import { FilePlus2, Link2, Upload } from 'lucide-react'
+import { Link2, Upload } from 'lucide-react'
 import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { errorMessage } from '../../lib/errors.ts'
 import { useT, type Translate } from '../../lib/i18n.tsx'
@@ -167,53 +167,53 @@ export function AddDownloadDialog({ open, initial, onClose }: { open: boolean; i
   }
 
   return (
-    <Modal open={open} title={t('add.title')} icon={<FilePlus2 size={20} />} onClose={onClose}
+    <Modal open={open} title={t('add.title')} onClose={onClose}
       actions={<>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>{t('common.cancel')}</button>
-        <button type="button" className="btn btn-primary btn-sm" disabled={busy || count === 0} onClick={() => void submit()}>
-          {busy && <span className="loading loading-spinner loading-xs" />}{count > 1 ? t('add.startMany', count) : t('common.download')}
+        <button type="button" className="infall-button quiet" onClick={onClose}>{t('common.cancel')}</button>
+        <button type="button" className="infall-button" disabled={busy || count === 0} aria-busy={busy} onClick={() => void submit()}>
+          {count > 1 ? t('add.startMany', count) : t('common.download')}
         </button>
       </>}>
-      <label className="flex flex-col gap-1.5">
-        <span className="text-sm font-medium">{t('add.magnets')}</span>
-        <textarea className="textarea h-28 w-full font-mono text-xs" placeholder="magnet:?xt=urn:btih:…" value={text} readOnly={busy}
+      <label className="infall-labelled">
+        <span>{t('add.magnets')}</span>
+        <textarea className="infall-field setting-mono" placeholder="magnet:?xt=urn:btih:…" value={text} readOnly={busy}
           onChange={e => setText(e.target.value)} data-autofocus spellCheck={false} />
-        <span className="muted text-xs">{magnets.length === 1 ? t('add.magnetOne') : magnets.length > 1 ? t('add.magnetCount', magnets.length) : t('add.magnetsHint')}</span>
+        <span className="fine">{magnets.length === 1 ? t('add.magnetOne') : magnets.length > 1 ? t('add.magnetCount', magnets.length) : t('add.magnetsHint')}</span>
       </label>
-      <div className="my-4 flex items-center gap-3 text-xs"><span className="h-px flex-1 bg-base-300" /><span className="muted">{t('add.or')}</span><span className="h-px flex-1 bg-base-300" /></div>
+      <p className="add-or">{t('add.or')}</p>
       <input ref={picker} type="file" accept=".torrent,application/x-bittorrent" multiple hidden onChange={e => { if (e.target.files) addFiles(e.target.files); e.target.value = '' }} />
-      <button type="button" disabled={busy} className="flex w-full flex-col items-center gap-1 rounded-box border border-dashed border-base-content/25 px-4 py-5 text-sm transition-colors enabled:hover:border-primary enabled:hover:bg-primary/5 disabled:opacity-60"
+      <button type="button" disabled={busy} className="add-drop"
         onClick={() => picker.current?.click()} onDragOver={e => e.preventDefault()} onDrop={(e: DragEvent) => { e.preventDefault(); if (!busy) addFiles(e.dataTransfer.files) }}>
-        <Upload size={20} className="text-primary" />
-        <span className="font-medium">{t('add.chooseFiles')}</span>
-        <span className="muted text-xs">{t('add.dropHint')}</span>
+        <Upload size={20} aria-hidden />
+        <span className="font-semibold">{t('add.chooseFiles')}</span>
+        <span className="fine">{t('add.dropHint')}</span>
       </button>
       {paths.length > 0 && (
-        <ul className="mt-3 flex flex-col gap-1">
+        <ul className="add-picked">
           {paths.map(path => (
-            <li key={path} className="flex items-center gap-2 rounded-field bg-base-200 px-3 py-1.5 text-sm">
-              <Link2 size={14} className="muted shrink-0" />
+            <li key={path}>
+              <Link2 size={14} className="muted shrink-0" aria-hidden />
               <span className="break-release min-w-0 flex-1" title={path}>{path.split(/[\\/]/).pop()}</span>
-              <button type="button" className="btn btn-ghost btn-xs" disabled={busy} onClick={() => setPaths(list => list.filter(x => x !== path))}>{t('common.remove')}</button>
+              <button type="button" className="download-text-action" disabled={busy} onClick={() => setPaths(list => list.filter(x => x !== path))}>{t('common.remove')}</button>
             </li>
           ))}
         </ul>
       )}
       {files.length > 0 && (
-        <ul className="mt-3 flex flex-col gap-1">
+        <ul className="add-picked">
           {files.map(f => {
             const sent = progress?.key === fileKey(f) ? progress.sent : undefined
             return (
-              <li key={fileKey(f)} className="flex flex-col gap-1 rounded-field bg-base-200 px-3 py-1.5 text-sm">
-                <div className="flex items-center gap-2">
-                  <Link2 size={14} className="muted shrink-0" />
+              <li key={fileKey(f)} className="flex-wrap">
+                <div className="flex min-w-0 flex-1 basis-full items-center gap-2">
+                  <Link2 size={14} className="muted shrink-0" aria-hidden />
                   <span className="break-release min-w-0 flex-1">{f.name}</span>
-                  <button type="button" className="btn btn-ghost btn-xs" disabled={busy} onClick={() => setFiles(list => list.filter(x => x !== f))}>{t('common.remove')}</button>
+                  <button type="button" className="download-text-action" disabled={busy} onClick={() => setFiles(list => list.filter(x => x !== f))}>{t('common.remove')}</button>
                 </div>
                 {sent !== undefined && (
-                  <div className="h-1 overflow-hidden rounded-full bg-base-300" role="progressbar" aria-label={t('add.sending', f.name)}
+                  <div className="h-1 basis-full overflow-hidden rounded-full bg-line" role="progressbar" aria-label={t('add.sending', f.name)}
                     aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(sent * 100)}>
-                    <div className="h-full rounded-full bg-primary transition-[width] duration-300" style={{ width: `${sent * 100}%` }} />
+                    <div className="h-full rounded-full bg-accent transition-[width] duration-300 motion-reduce:transition-none" style={{ width: `${sent * 100}%` }} />
                   </div>
                 )}
               </li>
@@ -221,12 +221,12 @@ export function AddDownloadDialog({ open, initial, onClose }: { open: boolean; i
           })}
         </ul>
       )}
-      {offersOtherFolder(ask) && <div className="mt-4">
-        <button type="button" className="link link-hover text-sm" disabled={busy || count === 0} onClick={() => setChoosing(true)}>{t('add.otherFolder')}</button>
+      {offersOtherFolder(ask) && <div className="mt-3">
+        <button type="button" className="setting-link" disabled={busy || count === 0} onClick={() => setChoosing(true)}>{t('add.otherFolder')}</button>
       </div>}
       <FolderBrowser open={choosing} start={choices[0] ?? defaultFolder} onClose={() => setChoosing(false)}
         onSelect={(folder, always) => { setChoosing(false); void submit(folder, always) }} save={{ canAlways: canRemember, recent: choices, fallback: defaultFolder, busy: false, error: null, subject: subject() }} />
-      {error && <p role="alert" className="mt-3 whitespace-pre-line text-sm text-error">{error}</p>}
+      {error && <p role="alert" className="setting-alert mt-3 whitespace-pre-line">{error}</p>}
     </Modal>
   )
 }
@@ -257,7 +257,7 @@ export function useAddShortcuts(onAdd: (pending: PendingAdd) => void) {
       // Pasting into a field, or while a dialog is open, is left to the page.
       if (e.target instanceof Element && e.target.closest('input, textarea, [contenteditable="true"], dialog[open]')) return
       // A dialog showing its content (one closing has already dropped it).
-      if (document.querySelector('dialog[open] .modal-box')) return
+      if (document.querySelector('dialog[open] > .infall-dialog-head')) return
       const magnets = magnetsIn(e.clipboardData?.getData('text') ?? '')
       if (magnets.length) {
         e.preventDefault()
@@ -283,9 +283,9 @@ export function useAddShortcuts(onAdd: (pending: PendingAdd) => void) {
 export function DropOverlay() {
   const t = useT()
   return (
-    <div className="pointer-events-none fixed inset-0 z-40 grid place-items-center bg-base-100/80 p-6 backdrop-blur-sm" aria-hidden>
-      <div className="flex flex-col items-center gap-2 rounded-box border-2 border-dashed border-primary px-10 py-8 text-center">
-        <Upload size={32} className="text-primary" />
+    <div className="pointer-events-none fixed inset-0 z-40 grid place-items-center bg-page/85 p-6" aria-hidden>
+      <div className="flex flex-col items-center gap-2 rounded-card border-2 border-dashed border-accent px-10 py-8 text-center text-ink">
+        <Upload size={32} />
         <span className="text-lg font-semibold">{t('add.dropTitle')}</span>
       </div>
     </div>

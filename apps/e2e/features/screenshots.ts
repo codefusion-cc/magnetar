@@ -170,7 +170,7 @@ async function signIn(page: Page): Promise<void> {
   await page.goto(`${WEBSITE}/login`)
   await page.getByLabel('Email').fill(ACCOUNT)
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await page.getByRole('heading', { name: 'Your devices' }).waitFor()
+  await page.getByRole('heading', { name: 'Your computers' }).waitFor()
 }
 
 /** The browsers on the website that stay linked for the whole run: the one that paired, and a phone. */
@@ -280,7 +280,7 @@ const dialog = (page: Page, title: string) => page.locator('dialog[open]').filte
 async function search(page: Page, address: string): Promise<void> {
   await page.goto(`${local()}${address}`)
   await heading(page, 'Search')
-  await page.locator('button[aria-label="Search"]:not([disabled])').waitFor({ timeout: 60_000 })
+  await page.locator('.search-query button:not([disabled])').waitFor({ timeout: 60_000 })
   await blur(page)
 }
 
@@ -299,14 +299,14 @@ function scenes(website: Website): Scene<BrowserContext, Page>[] {
     shot('search', (page: Page) => search(page, '/search/sintel')),
     shot('save-folder', async (page: Page) => {
       await search(page, '/search/sintel')
-      await page.getByRole('button', { name: 'Download', exact: true }).first().click()
+      await page.locator('.search-results').getByRole('button', { name: /^Download:/ }).first().click()
       await dialog(page, 'Download to').getByText('free').first().waitFor()
       await page.waitForTimeout(800)
     }),
     shot('search-phone', (page: Page) => search(page, '/search/big+buck+bunny?res=1080p'), { device: DEVICES.phone }),
     shot('search-sources', async (page: Page) => {
       await search(page, '/search/tears+of+steel')
-      await page.getByRole('button', { name: 'Show sources' }).click()
+      await page.locator('.source-figure').waitFor()
     }),
     localShot('add', '/', 'Downloads', {
       ready: async page => {
@@ -327,8 +327,8 @@ function scenes(website: Website): Scene<BrowserContext, Page>[] {
         await page.goto(`${local()}/downloads?view=finished`)
         await heading(page, 'Downloads')
         await page.locator('li').filter({ hasText: 'Sintel' }).getByRole('button', { name: 'Sintel', exact: true }).click()
-        const details = dialog(page, 'Download details')
-        await details.getByText('Sintel.mp4').waitFor()
+        const details = page.locator('.download-one')
+        await details.getByRole('button', { name: 'Play Sintel.mp4', exact: true }).waitFor()
         await tidy(page)
         await shoot(page, 'details')
         if (!wants('player')) return
@@ -379,7 +379,7 @@ function scenes(website: Website): Scene<BrowserContext, Page>[] {
       run: async ({ page: open, shoot, wants }) => {
         const page = await open()
         await page.goto(`${local()}/settings/remote`)
-        await page.getByText('Connected', { exact: true }).first().waitFor()
+        await page.getByText(/^Connected to /).first().waitFor()
         await tidy(page)
         await shoot(page, 'remote')
         if (!wants('link-qr')) return
@@ -390,10 +390,10 @@ function scenes(website: Website): Scene<BrowserContext, Page>[] {
         await shoot(page, 'link-qr')
         // The QR code's browser never comes: revoke it, so the next mode's list is the same.
         await dialog(page, 'Link another browser').getByRole('button', { name: 'Done' }).click()
-        const row = page.locator('div').filter({ hasText: /^Pixel 9/ }).last()
-        await page.getByRole('button', { name: 'Revoke' }).last().click()
-        await page.locator('dialog[open]').getByRole('button', { name: 'Revoke' }).click()
-        await row.waitFor({ state: 'detached' }).catch(() => {})
+        const remove = page.getByRole('button', { name: 'Remove: Pixel 9', exact: true })
+        await remove.click()
+        await page.locator('dialog[open]').getByRole('button', { name: 'Remove', exact: true }).click()
+        await remove.waitFor({ state: 'detached' })
       },
     },
     {
@@ -415,7 +415,7 @@ function scenes(website: Website): Scene<BrowserContext, Page>[] {
         }
       },
     },
-    websiteShot('devices', website, 'desktop', '/', page => page.getByRole('heading', { name: 'Your devices' }).waitFor()),
+    websiteShot('devices', website, 'desktop', '/', page => page.getByRole('heading', { name: 'Your computers' }).waitFor()),
     websiteShot('remote-phone', website, 'phone', `/${DEVICES_ON_ACCOUNT.main.name}`, page => heading(page, 'Downloads')),
     websiteShot('switcher', website, 'desktop', `/${DEVICES_ON_ACCOUNT.main.name}/series`, async page => {
       await heading(page, 'Watchlist')
@@ -459,9 +459,13 @@ try {
       sizesFile: new URL('shots.json', WEB),
       scenes: scenes(website),
       contextOptions: { locale: 'en-US' },
-      busy: '[aria-busy="true"], .loading-dots',
+      busy: '[aria-busy="true"]',
       prepare: (context, { mode }) => context.addInitScript(value => {
         try { localStorage.setItem('magnetar-theme', value) } catch { /* about:blank */ }
+        // The app runs 1.1.0, so the update bar would come and go with each release check: no shot shows it.
+        document.addEventListener('DOMContentLoaded', () => {
+          document.head.append(Object.assign(document.createElement('style'), { textContent: '.update-bar { display: none }' }))
+        })
       }, mode),
       ...captureArgs(process.argv, process.env),
     })

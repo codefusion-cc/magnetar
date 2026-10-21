@@ -1,4 +1,5 @@
 import { CircleAlert, CircleCheck, Info, X } from 'lucide-react'
+import { buttonClass } from '@codefusion-cc/ui/react'
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 import { useT } from '../lib/i18n.tsx'
 
@@ -37,20 +38,19 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
       {/* Above the phone tab bar; bottom right on wide screens. */}
-      <div className="toast toast-center toast-bottom z-50 mb-[calc(4.5rem+env(safe-area-inset-bottom))] w-full max-w-md px-4 lg:toast-end lg:mb-0 lg:w-auto"
-        role="status" aria-live="polite">
+      <div className="toasts" role="status" aria-live="polite">
         {toasts.map(toast => (
-          <div key={toast.id} className="flex items-start gap-3 rounded-box border border-base-300 bg-base-100 p-3 pr-2 text-base-content shadow-lg">
-            {toast.tone === 'success' ? <CircleCheck size={18} className="mt-0.5 shrink-0 text-success" />
-              : toast.tone === 'error' ? <CircleAlert size={18} className="mt-0.5 shrink-0 text-error" />
-              : <Info size={18} className="mt-0.5 shrink-0 text-info" />}
-            <span className="break-release min-w-0 flex-1 text-sm">{toast.message}</span>
+          <div key={toast.id} className="toast-item">
+            {toast.tone === 'success' ? <CircleCheck size={18} className="text-ok" aria-hidden />
+              : toast.tone === 'error' ? <CircleAlert size={18} className="text-danger" aria-hidden />
+              : <Info size={18} className="text-info" aria-hidden />}
+            <span className="break-release min-w-0 flex-1">{toast.message}</span>
             {toast.action && (
-              <button type="button" className="btn btn-ghost btn-xs -my-0.5 text-primary"
+              <button type="button" className="setting-link"
                 onClick={() => { toast.action!.onClick(); dismiss(toast.id) }}>{toast.action.label}</button>
             )}
-            <button type="button" className="btn btn-ghost btn-xs btn-circle -my-0.5" aria-label={t('common.close')} onClick={() => dismiss(toast.id)}>
-              <X size={14} />
+            <button type="button" className={buttonClass({ tone: 'ghost', size: 'icon' })} aria-label={t('common.close')} onClick={() => dismiss(toast.id)}>
+              <X size={16} aria-hidden />
             </button>
           </div>
         ))}

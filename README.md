@@ -14,14 +14,14 @@ Rust, the dashboard and website TypeScript. It can import everything from a Medi
 
 ## Features
 
-Every feature with screenshots of the app, in all eight languages: [magnetar.codefusion.cc/features](https://magnetar.codefusion.cc/features).
+Every feature with screenshots of the app, in English and Polish: [magnetar.codefusion.cc/features](https://magnetar.codefusion.cc/features).
 
 - **Search six sources in parallel**, with results streamed in as each answers: The Pirate Bay (apibay API with HTML
   mirror fallback), 1337x (the real site where it answers, else a mirror; magnet and description fetched on demand),
   RARBG (TheRARBG's JSON API), Torrents-CSV, Nyaa and EZTV. A search can be linked (`/search/house+of+the+dragon?res=720p&source=tpb&sort=new`), and
   queries in any script match.
-- **Per-source outcomes** above the results, so a failing site or an over-eager relevance filter never looks like
-  "no results". Turn any source off in Settings.
+- **Per-source outcomes** in a sentence and a visible count for every source above the results, so a failing site or
+  an over-eager relevance filter never looks like "no results". Turn any source off in Settings.
 - **Built-in BitTorrent engine** (librqbit, with DHT and trackers): live progress, speed and peers, in Active, Finished and All views you can sort, with when each was
   added and finished; pause, resume, retry and delete (optionally with the files). Restarts and pauses resume without re-reading what
   is already downloaded, and the peer port is forwarded on your router (UPnP). Torrents that can't find peers fail
@@ -38,10 +38,12 @@ Every feature with screenshots of the app, in all eight languages: [magnetar.cod
 - **Play while downloading:** video and audio play in the browser, with the torrent's subtitles, fetching the
   parts you reach first. On the computer running the app a link works in VLC too; from the website, playback goes
   through the same end-to-end encrypted connection as everything else.
-- **Files:** browse the download folder and folders you add on the computer, folders first with sizes and dates;
+- **Files:** opens the download folder, with places as views and paths as links. Browse folders added on the computer,
+  folders first with sizes and dates;
   play what came from a download, make folders, and choose the download folder, also from a phone. Only those
   folders can be seen, and only the computer itself adds one.
-- **Watchlist:** series tasks check for the next episode on a schedule and take the best release your rules allow
+- **Watchlist:** a season orbit shows each episode held, downloading or waiting, and a two-week approach line shows known air dates in your
+  time zone. Series tasks check for the next episode on a schedule and take the best release your rules allow
   (resolution, seeders, size, words to prefer or avoid), starting from an episode, the latest one, or new ones only.
   A release with no seeders is replaced by the next best. Posters, networks and air dates come from TVmaze. Watches
   wait for a release of anything else (a film in 4K) and tell you, or download it, when one appears.
@@ -63,8 +65,9 @@ Every feature with screenshots of the app, in all eight languages: [magnetar.cod
   arrives as a system notification with an **Install** button (once per version), and **What's new** (Settings →
   About, the menu-bar icon, or magnetar.codefusion.cc/about) shows what each release brings.
 - **Always know what runs:** the app (Settings → About, the menu-bar icon) and the website (its footer) show their
-  version and commit, and the website flags any of your computers whose app is out of date, with one-click update.
-- **Eight languages**: English, Polish, German, French, Spanish, Italian, Portuguese and Russian.
+  version and commit. Your computers says which of them have an update waiting, and a computer's pages offer
+  **Update now**.
+- **Two languages**: English and Polish.
 - Secrets (SMTP password, bot token, agent and device tokens, browser keys) are **encrypted at rest**.
 
 ## Install
@@ -101,11 +104,21 @@ The dashboard is at <http://localhost:47820> (the next free port if that one is 
 One account holds up to 20 computers. Each has a name of letters, digits and hyphens, unique on the account, which is
 its address on the website: `magnetar.codefusion.cc/MacBook-Pro/search/dragon`. Renaming moves an open page to the new
 address; links by id (`/d/<device id>/…`, as notifications use) always find the device under its current name. On the
-website, the device's name at the bottom of the sidebar (at the top on
-a phone) switches to another one and keeps the page you are on; each shows whether it is online and whether this
-browser is linked to it. A computer's own dashboard links to the others once it is on an account.
+website, the device's name at the top of the page switches to another one and keeps the page you are on; each
+shows whether it is online and whether this browser is linked to it. A computer's own dashboard links to the others once it is on an account.
+Downloads, Search, Watchlist, Files and Settings sit in the top row on a computer and in a fixed bottom tab bar
+on a phone. The number beside Downloads counts downloads under way, including those queued or waiting for metadata.
+Sizes and transfer rates use decimal units (KB, MB, GB) and the dashboard language’s decimal separator.
+Build details and Features are in **Settings → About**. The Downloads summary shows this computer, its combined
+download speed and free space; **Slow down** and **Full speed** change the limits there, while the schedule stays
+in **Settings → Downloads**. Open a download for its own page (`/downloads/<id>`, after the computer name on the
+website), with a link back to all downloads, its facts and selectable files. A row finishing in the current Active
+view stays in place until you change views. File selection edits survive progress refreshes.
+Long lists (downloads, search results, a folder in Files, a download's files) keep only the rows on screen in the
+page, so thousands of rows scroll as lightly as ten; a long title ends in an ellipsis and shows in full on hover.
+The browser's find-in-page therefore finds only rows on screen: use the page's own search, views and sort instead.
 
-Revoke a browser, rename the device or disconnect it from the same Settings section, or remove a device from the
+Remove a browser, rename the device or disconnect it from the same Settings section, or remove a device from the
 website's device list. How the encryption works is described in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#end-to-end-encryption).
 
 ## Coming from MediaDownloader
@@ -196,7 +209,7 @@ parallel builds wait on one lock.
 |---|---|
 | `packages/protocol` | The RPC contract shared by dashboard and device, the end-to-end encryption, relay framing, Worker API types |
 | `apps/client` | The app, in Rust: search providers, librqbit engine, series monitor, notifications, RPC/REST/MCP server, relay connector, tray, updater, legacy importer |
-| `apps/web` | The React + Tailwind + daisyUI dashboard, served by the app locally and by the Worker remotely |
+| `apps/web` | The React + Tailwind dashboard on @codefusion-cc/ui, served by the app locally and by the Worker remotely |
 | `apps/worker` | The Cloudflare Worker: Google sign-in, pairing, device registry (D1), the relay (a Durable Object per device), Web Push forwarding and the latest-release lookup |
 | `apps/e2e` | Playwright tests of the dashboard against the real app, and the features page's screenshots |
 | `docs/` | [Architecture and security](docs/ARCHITECTURE.md), [deployment](docs/DEPLOY.md) |

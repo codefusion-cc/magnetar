@@ -29,14 +29,14 @@ export function QualityFields<F extends QualityForm>({ form, set, kind }: {
   const series = kind === 'series'
   return (
     <>
-      <Field label={t('search.resolution')}>
+      <Field label={t('search.resolution')} group>
         <Segmented label={t('search.resolution')} value={form.resolution} onChange={set('resolution')} options={resolutionOptions(t)} />
       </Field>
       <div className="grid grid-cols-2 gap-3">
         <TextField label={t('series.minSeeders')} help={series ? t('series.minSeedersHelp') : undefined} type="number" min={1}
           value={form.minSeeders} onChange={set('minSeeders')} />
         <TextField label={series ? t('series.maxSize') : t('watch.maxSize')}
-          help={sizeInvalid ? <span className="text-error">{t('settings.speedInvalid')}</span> : series ? t('series.maxSizeHelp') : undefined}
+          help={sizeInvalid ? <span className="text-danger">{t('settings.speedInvalid')}</span> : series ? t('series.maxSizeHelp') : undefined}
           type="number" min={0.1} step={0.1} value={form.maxSizeGb} placeholder={t('settings.noLimit')} onChange={set('maxSizeGb')} />
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

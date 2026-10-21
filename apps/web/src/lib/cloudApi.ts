@@ -40,6 +40,8 @@ async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 let knownDevices: CloudDeviceDto[] | null = null
 let knownAccount: string | null = null
 let listing: Promise<CloudDeviceDto[]> | null = null
+/** How many devices this tab removed: a list asked for before a removal is out of date when it arrives. */
+let removals = 0
 
 export const cloud = {
   /** The signed-in account, or null when signed out. */
@@ -65,14 +67,22 @@ export const cloud = {
     knownDevices = null
   },
   devices(): Promise<CloudDeviceDto[]> {
-    listing ??= api<CloudDeviceDto[]>('/api/devices')
-      .then(list => (knownDevices = list))
-      .finally(() => { listing = null })
-    return listing
+    if (listing) return listing
+    const asked = removals
+    const request: Promise<CloudDeviceDto[]> = api<CloudDeviceDto[]>('/api/devices')
+      .then(list => (asked === removals ? (knownDevices = list) : cloud.devices()))
+      .finally(() => { if (listing === request) listing = null })
+    return (listing = request)
   },
   /** The devices as last listed, to show a page at once while they are listed again; null before the first list. */
   knownDevices: () => knownDevices,
-  removeDevice: (id: string) => api<void>(`/api/devices/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  /** Removes a device; a list under way is not shared any more, and asks again when it arrives. */
+  async removeDevice(id: string): Promise<void> {
+    await api<void>(`/api/devices/${encodeURIComponent(id)}`, { method: 'DELETE' })
+    removals++
+    listing = null
+    knownDevices = knownDevices?.filter(d => d.id !== id) ?? null
+  },
   pairing: (id: string) => api<PairingInfoDto>(`/api/pair/${encodeURIComponent(id)}`),
   latestRelease: () => api<LatestReleaseDto>('/api/releases/latest'),
   /** The releases and what each brings, newest first; `problem` says why there are none when GitHub couldn't be read. */

@@ -1,64 +1,8 @@
 @import "tailwindcss";
 /* The look's roles as Tailwind's theme (bg-surface, text-muted, font-display); their values: src/looks/infall.ts. */
 @import "@codefusion-cc/ui/tailwind.css";
-
-@plugin "daisyui" {
-  themes: false;
-}
-
-/*
- * daisyUI's names read the Infall look (src/looks/infall.ts, written by uiLooks as the --cf-* roles), so every screen
- * not yet moved onto the kit takes its colours from the same place, in light and dark alike: the roles follow
- * color-scheme. Status keeps its own colours, the accent never borrows them: info = downloading (heat), success =
- * seeding and finished (blue-white), warning = paused, error = failed. Beware one name: daisyUI's components
- * (btn-accent, badge-accent) take the look's second accent (amber), while the utility text-accent / bg-accent is the
- * kit's, the look's main accent; screens use text-accent-2 for amber. daisyUI goes when the last screen has moved
- * (the redesign's sweep).
- */
-@plugin "daisyui/theme" {
-  name: "magnetar-light";
-  default: true;
-  color-scheme: light;
-}
-
-@plugin "daisyui/theme" {
-  name: "magnetar-dark";
-  prefersdark: true;
-  color-scheme: dark;
-}
-
-/* Both themes alike: each role already holds its light and its dark value, picked by color-scheme. */
-:root,
-[data-theme] {
-  --color-base-100: var(--cf-surface);
-  --color-base-200: var(--cf-page);
-  --color-base-300: var(--cf-line);
-  --color-base-content: var(--cf-ink);
-  --color-primary: var(--cf-accent);
-  --color-primary-content: var(--cf-on-accent);
-  --color-secondary: var(--cf-muted);
-  --color-secondary-content: var(--cf-page);
-  --color-accent: var(--cf-accent-2);
-  --color-accent-content: var(--cf-page);
-  --color-neutral: var(--cf-inverse);
-  --color-neutral-content: var(--cf-on-inverse);
-  --color-info: var(--cf-info);
-  --color-info-content: var(--cf-page);
-  --color-success: var(--cf-ok);
-  --color-success-content: var(--cf-page);
-  --color-warning: var(--cf-warn);
-  --color-warning-content: var(--cf-page);
-  --color-error: var(--cf-danger);
-  --color-error-content: var(--cf-page);
-  --radius-selector: var(--cf-radius-ctl);
-  --radius-field: var(--cf-radius-ctl);
-  --radius-box: var(--cf-radius-card);
-  --size-selector: 0.25rem;
-  --size-field: 0.25rem;
-  --border: 1px;
-  --depth: 0;
-  --noise: 0;
-}
+/* A change of theme as a circle from the click (revealChange in ui/theme.ts). */
+@import "@codefusion-cc/theme/reveal.css";
 
 @theme inline {
   --font-sans: var(--cf-font-body);
@@ -98,11 +42,6 @@ body {
   word-break: break-word;
 }
 
-/* A card, until each screen moves to rows separated by one rule: no shadow in Infall. */
-.surface {
-  @apply rounded-box border border-base-300 bg-base-100;
-}
-
 /* Secondary text, one step quieter than the body (the look keeps it above 4.5:1 on every ground). */
 .muted {
   color: var(--cf-muted);
@@ -110,39 +49,1054 @@ body {
 
 /* Room below the content for the phone tab bar and the home indicator. */
 .pb-tabbar {
-  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+  padding-bottom: calc(6rem + env(safe-area-inset-bottom));
 }
 
-@media (min-width: 64rem) {
+@media (min-width: 721px) {
   .pb-tabbar {
-    padding-bottom: 2.5rem;
+    padding-bottom: 4rem;
   }
 }
 
-/* A row of chips that scrolls sideways on narrow screens, without a scrollbar. */
-.scroll-strip {
-  scrollbar-width: none;
-}
-
-.scroll-strip::-webkit-scrollbar {
-  display: none;
-}
-
-@layer components {
-  /* A strip whose chips reach 4px past its column, so their focus rings and edges are not cut: margin, padding and
-     width move together, or the strip ends up narrower than its chips and scrolls by the difference. */
-  .strip-bleed {
-    margin-inline: -0.25rem;
-    padding-inline: 0.25rem;
-    max-width: calc(100% + 0.5rem);
+/* Every focus ring in the look's focus colour, under the utilities so `outline-none` and a control's own offset win. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--cf-focus);
+    outline-offset: 3px;
   }
 }
 
-/* Focused fields and every focus ring in the look's focus colour. */
-:root :is(.input, .select, .textarea):is(:focus, :focus-within) {
-  --input-color: var(--cf-focus);
+/* The frame shares one navigation element between the desktop row and the phone's fixed bar. */
+.shell-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  min-height: 68px;
+  align-items: center;
+  gap: 24px;
+  padding: 12px 40px;
 }
 
-:focus-visible {
-  outline-color: var(--cf-focus);
+.shell-column {
+  max-width: 1040px;
+  margin-inline: auto;
+  padding-inline: 40px;
+}
+
+.shell-end {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.shell-device {
+  width: auto;
+  min-width: 0;
+  max-width: 220px;
+}
+
+/* The one icon in a top row: as quiet as the places beside it, a full touch target on a phone. */
+.theme-switch {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--cf-control-mouse);
+  height: var(--cf-control-mouse);
+  border-radius: var(--cf-radius-ctl);
+  color: var(--cf-muted);
+  transition: color var(--cf-duration-quick) var(--cf-ease-out), background-color var(--cf-duration-quick) var(--cf-ease-out);
+}
+.theme-switch:hover {
+  color: var(--cf-ink);
+  background: var(--cf-raised);
+}
+@media (pointer: coarse) {
+  .theme-switch {
+    width: var(--cf-control-touch);
+    height: var(--cf-control-touch);
+  }
+}
+
+.shell-nav {
+  display: flex;
+  min-width: 0;
+  gap: 4px;
+}
+
+.shell-tab {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding-inline: 14px;
+  color: var(--cf-muted);
+  white-space: nowrap;
+  line-height: 1.5;
+}
+
+.shell-tab-label {
+  min-width: 0;
+}
+
+.shell-tab[aria-current="page"] {
+  color: var(--cf-ink);
+  font-weight: 600;
+}
+
+.shell-tab[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  inset-inline: 14px;
+  bottom: 3px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--mg-heat-from), var(--mg-h1), var(--mg-heat-mid), var(--mg-h2));
+}
+
+/* The computer's menu opens inward from the end of the row (.shell-end), past the switch that follows it. */
+.shell-device > div {
+  position: static;
+}
+
+.shell-device [role="menu"] {
+  left: auto;
+  right: 0;
+  border-radius: var(--cf-radius-ctl);
+  box-shadow: none;
+}
+
+.infall-star {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--mg-core);
+  box-shadow: var(--mg-halo);
+}
+
+.infall-star[data-state="far"] {
+  width: 7px;
+  height: 7px;
+  background: var(--mg-far);
+  box-shadow: 0 0 12px 4px var(--mg-far-glow);
+}
+
+.infall-star[data-state="out"] {
+  background: var(--mg-void);
+  box-shadow: 0 0 0 1.5px var(--mg-ring);
+}
+
+@keyframes star-breathe {
+  0%, 100% {
+    opacity: 0.5;
+    box-shadow: var(--mg-halo-small);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: var(--mg-halo);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .infall-star-breathe {
+    animation: star-breathe 2.4s ease-in-out infinite;
+  }
+}
+
+/* A long word in a narrow tab breaks where its language hyphenates it, never mid-syllable. */
+@media (max-width: 1100px) {
+  .shell-tab-label {
+    white-space: normal;
+    hyphens: auto;
+    text-align: center;
+  }
+}
+
+@media (min-width: 721px) and (max-width: 1100px) {
+  .shell-header {
+    gap: 12px;
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(170px, 21vw);
+  }
+  .shell-tab {
+    padding: 4px 6px 8px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 720px) {
+  /* A control reached by Tab is scrolled clear of the fixed tab bar, not under it. */
+  :root {
+    scroll-padding-bottom: calc(65px + env(safe-area-inset-bottom));
+  }
+  .shell-header {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 8px;
+    padding: 12px 16px;
+  }
+  .shell-column {
+    padding-inline: 16px;
+  }
+  .shell-device-detail {
+    display: none;
+  }
+  .shell-nav {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 40;
+    display: grid;
+    grid-template-columns: repeat(5, auto);
+    justify-content: space-between;
+    gap: 0;
+    padding: 4px 8px calc(4px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--cf-line);
+    background: var(--cf-page);
+  }
+  .shell-tab {
+    min-height: 48px;
+    gap: 3px;
+    padding: 0 5px;
+    font-size: 13px;
+  }
+  .shell-tab[aria-current="page"]::after {
+    inset-inline: 5px;
+    bottom: 6px;
+  }
+}
+
+@media (max-width: 360px) {
+  .shell-nav {
+    padding-inline: 4px;
+  }
+  .shell-tab {
+    padding-inline: 3px;
+    font-size: 12px;
+  }
+  .shell-tab[aria-current="page"]::after {
+    inset-inline: 3px;
+  }
+}
+
+/* Downloads follow the reference's column, with the right-hand space reserved for the lanes canvas. */
+.shell-main {
+  padding-top: 4px;
+}
+.shell-device .infall-star {
+  width: 8px;
+  height: 8px;
+}
+.shell-device .infall-star[data-state="lit"] {
+  box-shadow: var(--mg-halo-small);
+}
+.downloads-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px 20px;
+  margin: 28px 0 18px;
+}
+.downloads-heading h1, .download-one h1, .download-empty > :is(h1, h2) {
+  font-size: 28px;
+  line-height: 1.2;
+}
+.infall-button, .infall-small {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 16px;
+  border-radius: 8px;
+  font-size: 15px;
+  line-height: 1.1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.infall-button {
+  background: var(--cf-accent);
+  color: var(--cf-on-accent);
+  font-weight: 600;
+}
+.infall-small {
+  padding: 0 12px;
+  background: var(--cf-surface);
+  box-shadow: inset 0 0 0 1px var(--cf-line);
+}
+.infall-button:hover, .infall-small:hover {
+  filter: brightness(1.12);
+}
+:is(.infall-button, .infall-small, .speed-control button):disabled {
+  cursor: wait;
+  opacity: .55;
+}
+.infall-acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.downloads-lanes {
+  margin-right: 310px;
+}
+.downloads-summary {
+  margin-bottom: 20px;
+}
+.downloads-summary p {
+  max-width: 36ch;
+  font-size: 19px;
+  line-height: 1.35;
+}
+.downloads-summary p > span {
+  color: var(--cf-muted);
+}
+.speed-control {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--cf-muted);
+}
+.speed-control button {
+  min-height: 28px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.download-views-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.download-views {
+  display: flex;
+  gap: 2px;
+}
+.download-views button {
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 8px;
+  color: var(--cf-muted);
+  cursor: pointer;
+}
+.download-views [aria-checked=true] {
+  background: var(--cf-raised);
+  color: var(--cf-ink);
+  font-weight: 600;
+}
+.download-row {
+  position: relative;
+  padding: 15px 0 13px;
+}
+.download-row h2 {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.3;
+  padding-right: 13.5em;
+}
+.download-row h2 button {
+  text-align: left;
+  min-height: 26px;
+  cursor: pointer;
+}
+.download-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.download-row > .download-actions {
+  position: absolute;
+  right: 0;
+  top: 9px;
+}
+.download-lane { height: 18px; margin: 4px 0; }
+.download-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--cf-muted);
+  font-variant-numeric: tabular-nums;
+}
+.download-status {
+  color: var(--cf-ink);
+  font-weight: 600;
+}
+.download-status[data-status=Error] {
+  color: var(--cf-danger);
+}
+.download-status:is([data-status=Seeding],[data-status=Completed]) {
+  color: var(--cf-ok);
+}
+.download-back {
+  margin-top: 20px;
+}
+.download-back a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.download-one {
+  display: grid;
+  gap: 22px;
+  margin-top: 8px;
+}
+.download-one-heading {
+  margin-right: 310px;
+}
+.download-one-heading .download-lane {
+  height: 26px;
+}
+
+.download-facts {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 14px 36px;
+  padding: 18px 0;
+  border-block: 1px solid var(--cf-line);
+}
+.download-facts dt {
+  font-size: 14px;
+  color: var(--cf-muted);
+}
+.download-facts dd {
+  overflow-wrap: anywhere;
+}
+.download-one h2 {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.download-file {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) 5em 5em;
+  gap: 12px;
+  align-items: center;
+  min-height: 48px;
+  border-top: 1px solid var(--cf-line);
+}
+.download-file input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--cf-accent);
+  flex-shrink: 0;
+}
+.download-file-size, .download-file-state {
+  font-size: 14px;
+  color: var(--cf-muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.download-lead {
+  font-size: 18px;
+  line-height: 1.5;
+  max-width: 58ch;
+}
+.download-empty > :is(h1, h2) {
+  font-family: var(--cf-font-display);
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+.download-empty {
+  max-width: 600px;
+  margin: 44px 0;
+  display: grid;
+  gap: 16px;
+  justify-items: start;
+}
+/* The state's picture as drawn: 210px tall, its star a little into the left margin. */
+.download-state-picture {
+  width: 100%;
+  height: 210px;
+  margin: 0 0 8px -20px;
+}
+
+.downloads-wait {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin: 28px 0 8px;
+  font-size: 18px;
+}
+.download-skeleton li {
+  padding: 20px 0;
+  border-top: 1px solid var(--cf-line);
+  display: grid;
+  gap: 12px;
+}
+.download-skeleton i {
+  height: 14px;
+  border-radius: 4px;
+  background: var(--cf-raised);
+  width: 58%;
+}
+.download-skeleton i+i {
+  height: 10px;
+  width: 32%;
+}
+@media (max-width: 720px) {
+  .shell-device > div {
+    flex: initial;
+  }
+  .downloads-heading {
+    margin-top: 16px;
+  }
+  .downloads-heading h1, .download-one h1, .download-empty > :is(h1, h2) {
+    font-size: 23px;
+  }
+  .downloads-lanes {
+    margin-right: 0;
+  }
+  .downloads-summary p {
+    padding-right: 84px;
+    font-size: 17px;
+  }
+  .download-row h2 {
+    padding-right: 0;
+  }
+  .download-lane {
+    margin-right: 26px;
+  }
+  .download-row > .download-actions {
+    position: static;
+    margin-top: 8px;
+  }
+  .download-one-heading {
+    margin-right: 0;
+    padding-right: 70px;
+  }
+  .download-facts {
+    grid-template-columns: minmax(0,1fr);
+  }
+  .download-file {
+    grid-template-columns: minmax(0,1fr) auto;
+  }
+  .download-file-size {
+    display: none;
+  }
+  .download-lead {
+    font-size: 17px;
+  }
+  .download-state-picture {
+    height: 170px;
+    margin-left: 0;
+  }
+}
+.download-transfer-notice, .update-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 20px;
+  margin-top: 20px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: var(--cf-surface);
+  box-shadow: inset 0 0 0 1px var(--mg-h1);
+}
+/* The update bar sits over the page's title on every device page, its words first and its buttons after them, under
+   them once they no longer fit beside. */
+.update-bar > p { flex: 1 1 24ch; min-width: 0; overflow-wrap: anywhere; }
+.update-bar .infall-acts { gap: 8px; }
+.update-bar.trouble { box-shadow: inset 0 0 0 1px var(--cf-warn); }
+.update-bar.danger { box-shadow: inset 0 0 0 1px var(--cf-danger); }
+/* Updating and offline take the page; they take focus only to be read out. */
+.shell-main:focus, .away-screen:focus { outline: none; }
+.download-empty > :is(h1, h2) { overflow-wrap: anywhere; }
+.away-screen > .fine { margin-top: -4px; }
+
+.download-file-label {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-height: 44px;
+  min-width: 0;
+}
+.download-text-action {
+  min-height: 26px;
+  font-size: 13px;
+  color: var(--cf-muted);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.download-one > .infall-acts .infall-small {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--cf-muted);
+  font-weight: 600;
+  padding-inline: 16px;
+}
+.download-one-heading h1 {
+  text-wrap: balance;
+}
+@media (max-width: 720px) {
+  .download-one-heading h1 {
+    max-width: none;
+  }
+}
+.downloads-summary p > .download-low-space {
+  color: var(--cf-warn);
+}
+.download-empty .infall-button, .search-query .infall-button, .infall-button.big {
+  min-height: 46px;
+  padding-inline: 22px;
+  font-size: 16px;
+}
+
+.download-files-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 22px;
+}
+.download-files-heading .download-text-action {
+  min-height: 22px;
+  line-height: 1.3;
+}
+.download-one > .infall-acts .download-actions {
+  gap: 10px;
+  /* Long words (German "Erneut versuchen", "Danach suchen") take a second line on a phone rather than the page's width. */
+  flex-wrap: wrap;
+  flex-shrink: 1;
+}
+
+/* A windowed list keeps the reader's row in place itself. The browser's own scroll anchoring would pick whatever
+   follows the list (a count, a button) and carry the reader to the end each time a page of rows is appended. */
+:root { overflow-anchor: none; }
+/* Windowed lists (`ui/WindowedRows.tsx`) give every row one height per breakpoint: a title takes one line and ends
+   in an ellipsis, facts take the lines the height has room for, and the facts that wrap past them are left out. */
+.download-list { --row-height: 101px; }
+.download-row h2 button, .search-results h2 button, .file-entry h2 :is(button, span), .download-file-label > :is(button, span) {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  vertical-align: top;
+}
+.download-row .download-meta { max-height: 21px; overflow: hidden; }
+.search-results { --row-height: 73px; }
+.search-results .search-meta, .file-entry .file-meta { max-height: 21px; overflow: hidden; }
+.folder-entries { --row-height: 64px; }
+.download-files { --row-height: 49px; }
+@media (max-width: 720px) {
+  .download-list { --row-height: 168px; }
+  .download-row .download-meta, .search-results .search-meta { max-height: 42px; }
+  .search-results { --row-height: 140px; }
+  .folder-entries.with-actions { --row-height: 106px; }
+  .folder-entries .file-entry { align-content: center; }
+}
+
+@media (max-width: 720px) {
+  .shell-header .font-display {
+    font-size: 14px;
+  }
+}
+
+/* Search, watchlist and Files: the same quiet lists as the reference. */
+.infall-button.quiet { background: transparent; color: var(--cf-ink); box-shadow: inset 0 0 0 1.5px var(--cf-muted); }
+.search-query { display: flex; gap: 8px; }
+.search-query input { flex: 1; min-width: 0; min-height: 46px; border: 1.5px solid var(--cf-line); border-radius: 10px; padding: 0 14px; background: var(--cf-surface); font-size: 18px; }
+.search-filters { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: center; margin: 14px 0 6px; }
+.search-sort { display: flex; gap: 10px; align-items: center; margin-left: auto; color: var(--cf-muted); font-size: 15px; }
+.search-filters .download-views { margin-bottom: 6px; }
+.search-sources { display: grid; gap: 8px; padding: 14px 0; font-size: 15px; }
+.source-figure { position: relative; display: grid; margin-top: 6px; }
+/* On a computer the star sits beside the best result's Download and its field spills over the rows below, as drawn;
+   on a phone it stays beside the sources, the canvas as tall as their list. */
+.search-fan { position: absolute; inset: -6px 0 auto; width: 100%; height: 380px; }
+@media (max-width: 519px) { .search-fan { inset: -6px 0; height: auto; } }
+.source-figure ul { position: relative; display: grid; justify-self: start; min-width: 210px; color: var(--cf-muted); }
+.source-figure li { display: flex; justify-content: space-between; gap: 18px; min-height: 27px; align-items: center; }
+.source-figure b { color: var(--cf-ink); font-weight: 600; }
+.source-figure .none b { color: var(--cf-muted); font-weight: 400; }
+.search-results li { display: grid; grid-template-columns: 22px minmax(0,1fr) auto; gap: 8px 20px; align-items: center; padding: 14px 0; border-top: 1px solid var(--cf-line); }
+.search-results h2, .series-shows h2, .file-entry h2 { font: 600 17px/1.3 var(--cf-font-body); overflow-wrap: anywhere; }
+.search-results h2 button { text-align: left; cursor: pointer; }
+.search-meta, .file-meta { display: flex; flex-wrap: wrap; gap: 0 16px; font-size: 14px; color: var(--cf-muted); font-variant-numeric: tabular-nums; }
+.search-meta .tags { color: var(--cf-ink); }
+.search-results .gl { display: block; justify-self: center; width: calc(5px + var(--m)*7px); aspect-ratio: 1; border-radius: 50%; background: var(--mg-core); opacity: calc(.3 + var(--m)*.7); box-shadow: 0 0 calc(var(--m)*14px) calc(var(--m)*3px) var(--mg-h1); }
+.search-hint { margin: 22px 0 14px; max-width: 52ch; font-size: 18px; color: var(--cf-ink); }
+.search-watch { display: block; margin-top: 22px; min-height: 38px; font-size: 14px; color: var(--cf-muted); text-decoration: underline; cursor: pointer; }
+.watch-tabs { margin-bottom: 14px; }
+.series-shows > li { display: grid; grid-template-columns: 72px minmax(0,1fr) minmax(200px,300px) auto; gap: 8px 20px; align-items: center; padding: 20px 0; border-top: 1px solid var(--cf-line); }
+.show-body { position: relative; display: grid; gap: 6px; min-width: 0; justify-items: start; }
+.show-body .rule { font-size: 14px; color: var(--cf-muted); }
+.series-tools { font-size: 13px; color: var(--cf-muted); }
+.series-tools summary, .file-manage summary { cursor: pointer; min-height: 24px; }
+.series-tools[open] .infall-acts { margin-top: 8px; }
+.season-orbit { width: 72px; height: 72px; }
+.season-orbit .seg { fill: none; stroke: var(--mg-seg); stroke-width: 3.4; }
+.season-orbit .got { stroke: var(--cf-warn); }
+.season-orbit .now { stroke: var(--mg-h1); }
+.season-orbit .body, .season-orbit .sun { fill: var(--mg-core); filter: drop-shadow(0 0 6px var(--mg-h1)); }
+.season-orbit.none .seg { stroke-dasharray: 2 6; }
+.episode-approach { position: relative; height: 54px; align-self: center; }
+.episode-approach::before { content: ''; position: absolute; left: 0; right: 13px; top: 26px; height: 2px; border-radius: 2px; background: linear-gradient(90deg,transparent,var(--mg-h0) 18%,var(--mg-h1) 70%,var(--mg-h2)); }
+.episode-approach.none::before { background: repeating-linear-gradient(90deg,var(--mg-seg) 0 3px,transparent 3px 9px); }
+.approaching-episode { position: absolute; top: 27px; right: calc(13px + var(--d)*(100% - 26px)); width: 9px; height: 9px; margin: -4.5px -4.5px 0 0; border-radius: 50%; background: var(--mg-h1); box-shadow: 0 0 8px 1px var(--mg-h1); }
+.approaching-episode.now { width: 11px; height: 11px; margin: -5.5px -5.5px 0 0; box-shadow: 0 0 0 3px var(--cf-page),0 0 12px 4px var(--mg-h1); }
+.approaching-episode small, .approach-today small { position: absolute; bottom: 16px; left: 50%; translate: -50% 0; font: 400 12px/1 var(--cf-font-body); color: var(--cf-muted); white-space: nowrap; }
+.approach-today { position: absolute; right: 0; top: 14px; width: 26px; height: 26px; display: grid; place-items: center; }
+.approach-today .infall-star { width: 8px; height: 8px; box-shadow: var(--mg-halo-small); }
+/* "Today" ends with the line, so a long word ("aujourd'hui") stays inside the row. */
+.approach-today small { bottom: auto; top: 28px; left: auto; right: 0; translate: none; }
+.series-paused { opacity: .8; }
+.file-places { margin-bottom: 14px; }
+.files-screen .folder-heading { position: absolute; width: 1px; height: 1px; clip-path: inset(50%); overflow: hidden; }
+.files-screen .folder-secondary { order: 5; margin-top: 10px; }
+.folder-where { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; color: var(--cf-muted); overflow-wrap: anywhere; font-size: 15px; }
+.folder-entries { border: 0; border-radius: 0; background: transparent; }
+.file-entry { display: grid; grid-template-columns: 30px minmax(0,1fr) auto; gap: 4px 12px; align-items: center; min-height: 62px; padding: 8px 0; border-top: 1px solid var(--cf-line); }
+.file-entry h2 button { cursor: pointer; text-align: left; min-height: 26px; }
+.file-star { display: grid; place-items: center; width: 30px; height: 30px; }
+.file-star i { display: block; width: calc(4px + var(--z)*7px); aspect-ratio: 1; border-radius: 50%; background: var(--cf-ok); box-shadow: 0 0 calc(4px + var(--z)*8px) 0 var(--cf-ok); }
+.file-star.dir i { width: 5px; background: var(--cf-muted); box-shadow: 8px -5px 0 0 var(--cf-muted),7px 6px 0 -1px var(--cf-muted),-4px 8px 0 -1px var(--cf-muted); }
+.file-star.part i { background: var(--mg-h1); box-shadow: 0 0 10px 1px var(--mg-h1); }
+.file-star.part.dir i { box-shadow: 8px -5px 0 0 var(--cf-muted),7px 6px 0 -1px var(--cf-muted),-4px 8px 0 -1px var(--cf-muted); }
+.still-arriving { color: var(--cf-info); font-weight: 500; }
+.folder-empty { margin: 18px 0; color: var(--cf-muted); }
+.folder-count { border-top: 1px solid var(--cf-line); padding-top: 12px; font-size: 14px; color: var(--cf-muted); }
+.file-manage { margin-top: 20px; font-size: 14px; color: var(--cf-muted); }
+.file-manage[open] > div { margin-top: 12px; }
+.folder-compact .file-entry { padding: 10px; }
+@media(max-width:720px) {
+  .source-figure ul { min-width: 168px; }
+  .search-results li { grid-template-columns: 22px minmax(0,1fr); }
+  .search-results .infall-button { grid-column: 2; justify-self: start; }
+  .search-filters { gap: 8px; }
+  .search-sort { margin-left: 0; }
+  .series-shows > li { grid-template-columns: 56px minmax(0,1fr); align-items: start; }
+  .season-orbit { width: 56px; height: 56px; }
+  .series-shows > li > button, .episode-approach { grid-column: 2; justify-self: start; }
+  .episode-approach { width: 100%; }
+  .file-entry { grid-template-columns: 30px minmax(0,1fr); }
+}
+
+.folder-where > span:first-child { color: var(--cf-ink); font-weight: 500; }
+.file-destination { font-weight: 400; }
+.files-screen .folder-panel { gap: 0; }
+.files-screen .file-places { margin-bottom: 16px; }
+.files-screen .folder-where { margin-bottom: 4px; }
+.files-screen .folder-count { margin-top: 18px; }
+.series-rule-details { flex-basis: 100%; }
+.series-metadata { display: flex; align-items: start; gap: 12px; }
+.series-metadata img { border-radius: 8px; object-fit: cover; }
+
+.watch-heading { flex-wrap: wrap; }
+.show-body h2 { padding-right: 42px; }
+.series-tools:not([open]) { position: absolute; right: 0; top: 0; }
+.file-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.file-meta { min-height: 21px; }
+@media(max-width:720px) {
+  .watch-heading h1 { flex-basis: 100%; }
+  .file-actions { grid-column: 2; justify-self: start; }
+}
+
+.folder-crumb ul { display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: center; margin: 10px 0 4px; }
+.folder-crumb li { display: flex; min-width: 0; gap: 8px; align-items: center; }
+.folder-crumb li > span[aria-hidden] { color: var(--cf-muted); }
+.folder-crumb button { min-height: 40px; padding: 0 2px; text-decoration: underline; text-underline-offset: 4px; }
+.files-screen .folder-empty { margin: 22px 0 14px; font-size: 18px; color: var(--cf-ink); }
+.file-use-folder { align-self: flex-start; }
+
+/* Infall pictures share the scene package's clock and its viewport pin. */
+.sky { display: block; min-width: 0; width: 100%; pointer-events: none; }
+:root[data-theme=magnetar-light] .sky { filter: invert(1) hue-rotate(180deg); }
+/* The picture reaches into the column's right gutter, as the design's lanes do; the content keeps its width. */
+.sky-lanes { position: relative; margin-right: -40px; padding-right: 40px; }
+@media (max-width: 720px) { .sky-lanes { margin-right: -16px; padding-right: 16px; } }
+.sky-pin { position: absolute; inset: 0; pointer-events: none; }
+.sky-content { position: relative; }
+.state-sky { width: 300px; max-width: 100%; height: 210px; }
+.download-state-picture .state-sky { width: 100%; height: 100%; }
+.downloads-wait .state-sky, .state-sky.wait-sky { flex: 0 0 90px; width: 90px; height: 70px; }
+@media (max-width: 720px) { .state-sky { height: 170px; } }
+
+/* Settings: the sections in a column on a computer and a wrapped row on a phone; each setting a titled section. */
+.settings-layout { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 44px; align-items: start; }
+.settings-sections { display: grid; gap: 2px; position: sticky; top: 16px; }
+.settings-sections a { display: flex; align-items: center; min-height: 40px; padding: 0 12px; border-radius: 8px; color: var(--cf-muted); }
+.settings-sections a:hover { color: var(--cf-ink); }
+.settings-sections a[aria-current] { color: var(--cf-ink); font-weight: 600; background: var(--cf-raised); }
+.settings-panel { display: grid; max-width: 620px; min-width: 0; }
+.setting { display: grid; gap: 10px; justify-items: start; padding: 22px 0; border-top: 1px solid var(--cf-line); min-width: 0; }
+.setting > * { max-width: 100%; }
+.setting > h2 { font-size: 17px; font-weight: 600; line-height: 1.3; }
+.setting p { overflow-wrap: anywhere; }
+.fine { font-size: 14px; color: var(--cf-muted); }
+.settings-saves { padding-top: 12px; }
+.setting-alert { color: var(--cf-danger); font-size: 15px; overflow-wrap: anywhere; }
+.setting-warn { color: var(--cf-warn); }
+.setting-value { font-weight: 500; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.setting-value a { text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
+.setting-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.infall-button.sm, .infall-small.sm { min-height: 38px; }
+.infall-small.danger, .infall-button.danger { color: var(--cf-danger); }
+.setting-link { display: inline-flex; align-items: center; min-height: 40px; padding: 0 2px; text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; cursor: pointer; }
+.setting-check { display: flex; gap: 12px; align-items: center; min-height: 44px; cursor: pointer; }
+.setting-check input { width: 20px; height: 20px; margin: 0; flex: none; accent-color: var(--cf-accent); }
+/* A source's star, small, in a 22px place of its own as drawn. */
+.setting-check > span { display: inline-flex; align-items: center; gap: 10px; }
+.setting-check > span > .infall-star { width: 8px; height: 8px; margin: 0 7px; flex: none; }
+.setting-check:has(input:disabled) { cursor: default; color: var(--cf-muted); }
+.setting-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; width: 100%; max-width: 420px; }
+.setting-field { display: grid; gap: 4px; min-width: 0; justify-items: start; }
+.setting-field label { font-size: 14px; color: var(--cf-muted); }
+.setting-field input { width: 100%; }
+.setting-short input { width: 6.5em; }
+.setting-field-error { font-size: 14px; color: var(--cf-danger); }
+.setting input:not([type=checkbox]), .setting-inline input, .infall-field {
+  min-height: 46px; min-width: 0; padding: 0 14px; border: 1px solid var(--cf-line); border-radius: 10px; background: var(--cf-surface); color: var(--cf-ink); font-size: 16px;
+}
+.setting input:not([type=checkbox]):focus-visible, .infall-field:focus-visible { outline: 2px solid var(--cf-focus); outline-offset: 2px; border-color: var(--cf-accent); }
+/* Time fields draw their own parts; the ring goes on the whole field whichever part has focus. */
+.setting input[type=time]:focus-within { outline: 2px solid var(--cf-focus); outline-offset: 2px; }
+.setting input[aria-invalid=true], .infall-field[aria-invalid=true] { border-color: var(--cf-danger); }
+.infall-field { width: 100%; }
+textarea.infall-field { min-height: 7rem; padding: 12px 14px; resize: vertical; }
+.setting-mono { font-family: var(--cf-font-mono); font-size: 14px; }
+.setting-inline { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; max-width: 560px; }
+.setting-inline input { flex: 1 1 12em; }
+.setting-inline :is(.infall-button, .infall-small) { white-space: normal; text-align: center; }
+.setting-days { display: flex; flex-wrap: wrap; gap: 4px; }
+.setting-days button { min-width: 44px; white-space: nowrap; min-height: 36px; padding: 0 10px; border-radius: 8px; color: var(--cf-muted); box-shadow: inset 0 0 0 1px var(--cf-line); }
+.setting-days button[aria-pressed=true] { color: var(--cf-ink); font-weight: 600; background: var(--cf-raised); box-shadow: none; }
+.setting-list, .setting-rows { width: 100%; }
+.setting-list { max-width: 420px; }
+.setting-list li { border-top: 1px solid var(--cf-line); }
+.setting-list li:first-child { border-top: 0; }
+.setting-rows li { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; padding: 10px 0; border-top: 1px solid var(--cf-line); }
+.setting-rows li > div { display: grid; min-width: 0; }
+.setting-rows li > div span { font-size: 14px; color: var(--cf-muted); }
+.setting-row-actions { display: flex; gap: 8px; align-items: center; }
+.setting-row-more { flex-basis: 100%; }
+.setting-waiting { color: var(--cf-muted); }
+@media (max-width: 720px) {
+  .settings-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .settings-sections { display: flex; flex-wrap: wrap; position: static; }
+  .settings-sections a { padding: 0 10px; }
+  .setting-two { grid-template-columns: minmax(0, 1fr); }
+}
+/* A setting's choices wrap on a phone rather than run past the screen (long in Polish and German). */
+.setting .download-views { flex-wrap: wrap; }
+
+/* A field's name above it and its help under it, in forms and dialogs. */
+.infall-labelled { display: grid; gap: 6px; min-width: 0; align-content: start; }
+.infall-labelled > :first-child { font-weight: 500; }
+
+/* A switch for something that runs or rests, beside its name (Switch in ui/controls.tsx). */
+.setting-check .infall-switch {
+  appearance: none; position: relative; width: 40px; height: 24px; border-radius: 12px; background: var(--cf-surface);
+  box-shadow: inset 0 0 0 1.5px var(--cf-muted); cursor: pointer;
+}
+.infall-switch::before {
+  content: ""; position: absolute; top: 5px; left: 5px; width: 14px; height: 14px; border-radius: 50%;
+  background: var(--cf-muted); transition: translate .15s ease;
+}
+.setting-check .infall-switch:checked { background: var(--cf-accent); box-shadow: none; }
+.infall-switch:checked::before { translate: 16px 0; background: var(--cf-on-accent); }
+.setting-check .infall-switch:disabled { opacity: .55; cursor: default; }
+@media (prefers-reduced-motion: reduce) { .infall-switch::before { transition: none; } }
+@media (forced-colors: active) {
+  .setting-check .infall-switch { border: 1px solid CanvasText; }
+  .infall-switch::before { background: CanvasText; }
+  .infall-switch:checked::before { background: Highlight; }
+}
+
+/* A word marking a row's state (Tag in ui/Tag.tsx): the state's colour inside a thin edge of the same. */
+.infall-tag {
+  display: inline-flex; align-items: center; min-height: 22px; padding: 0 7px; border-radius: 6px;
+  box-shadow: inset 0 0 0 1px currentColor; color: var(--cf-muted); font-size: 13px; font-weight: 600; line-height: 1.2; white-space: nowrap;
+}
+.infall-tag[data-tone=accent] { color: var(--cf-accent); }
+.infall-tag[data-tone=ok] { color: var(--cf-ok); }
+.infall-tag[data-tone=warn] { color: var(--cf-warn); }
+.infall-tag[data-tone=danger] { color: var(--cf-danger); }
+
+/* Dialogs (ui/Modal.tsx): a sheet from the bottom on a phone, in the middle wider; the one lifted thing in Infall. */
+.infall-dialog {
+  width: min(100% - 32px, 32rem); max-width: none; max-height: calc(100dvh - 32px); margin: auto; padding: 0; border: 0;
+  border-radius: 12px; background: var(--cf-surface); color: var(--cf-ink); box-shadow: var(--cf-shadow-lift); overflow: hidden;
+}
+.infall-dialog.wide { width: min(100% - 32px, 42rem); }
+.infall-dialog[open] { display: flex; flex-direction: column; }
+.infall-dialog::backdrop { background: rgb(0 0 0 / .55); }
+:root:has(.infall-dialog[open]) { overflow: hidden; }
+.infall-dialog-head { display: flex; align-items: center; gap: 8px; padding: 10px 10px 10px 20px; border-bottom: 1px solid var(--cf-line); }
+.infall-dialog-head h3 { font-size: 17px; font-weight: 600; line-height: 1.3; }
+.infall-dialog-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 18px 20px; }
+.infall-dialog-acts { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; padding: 12px 20px; border-top: 1px solid var(--cf-line); }
+.infall-dialog .download-views { flex-wrap: wrap; }
+@media (max-width: 639px) {
+  .infall-dialog, .infall-dialog.wide { width: 100%; max-height: 92dvh; margin: auto 0 0; border-radius: 14px 14px 0 0; }
+  .infall-dialog-acts { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+}
+
+/* Menus (ui/Menu.tsx): a list over the page, as the Select's. */
+.infall-menu {
+  position: absolute; z-index: 50; width: 18rem; max-width: calc(100vw - 2rem); padding: 4px; border: 1px solid var(--cf-line);
+  border-radius: 10px; background: var(--cf-surface); color: var(--cf-ink); font-size: 15px;
+}
+.infall-menu [role=menuitem] { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+.infall-menu [role=menuitem]:hover { background: var(--cf-raised); }
+.infall-menu [role=menuitem]:focus-visible { outline-offset: -2px; }
+.infall-menu [role=menuitem][aria-current=page] { background: var(--cf-raised); font-weight: 600; }
+.infall-menu-title { padding: 8px 12px 4px; font-size: 13px; color: var(--cf-muted); }
+.infall-menu-note { display: flex; align-items: center; min-height: 40px; padding: 0 12px; font-size: 14px; color: var(--cf-muted); }
+.infall-menu-end { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--cf-line); }
+
+/* Toasts (ui/toast.tsx): above the phone tab bar, at the bottom right on a computer. */
+.toasts {
+  position: fixed; z-index: 60; left: 50%; bottom: calc(5.5rem + env(safe-area-inset-bottom)); translate: -50% 0;
+  display: grid; gap: 8px; width: min(100% - 32px, 28rem); pointer-events: none;
+}
+.toasts > * { pointer-events: auto; }
+@media (min-width: 721px) { .toasts { left: auto; right: 24px; bottom: 24px; translate: none; } }
+.toast-item {
+  display: flex; align-items: center; gap: 12px; padding: 4px 4px 4px 14px; border-radius: 10px;
+  background: var(--cf-surface); color: var(--cf-ink); box-shadow: var(--cf-shadow-lift); font-size: 15px;
+}
+.toast-item > svg { flex: none; }
+
+/* What's new (ui/Changelog.tsx): each release a row under one rule. */
+.releases { display: grid; gap: 4px; width: 100%; }
+.release { display: grid; gap: 10px; justify-items: start; padding: 18px 0 8px; border-top: 1px solid var(--cf-line); }
+.release > * { max-width: 100%; }
+.release:first-child { border-top: 0; padding-top: 0; }
+.release header { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; width: 100%; }
+.release h3 { font-size: 17px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+.release time { margin-left: auto; }
+.releases details[open] > summary { margin-bottom: 4px; }
+.releases-trouble { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; color: var(--cf-warn); }
+
+/* Adding downloads: links typed in, or .torrent files chosen or dropped. */
+.add-or { display: flex; align-items: center; gap: 12px; margin: 16px 0; font-size: 14px; color: var(--cf-muted); }
+.add-or::before, .add-or::after { content: ""; flex: 1; height: 1px; background: var(--cf-line); }
+.add-drop {
+  display: grid; justify-items: center; gap: 4px; width: 100%; padding: 20px 16px; border: 1.5px dashed var(--cf-muted);
+  border-radius: 10px; color: var(--cf-ink); text-align: center; cursor: pointer;
+}
+.add-drop:not(:disabled):hover { background: var(--cf-raised); }
+.add-drop:disabled { opacity: .55; cursor: default; }
+.add-picked { margin-top: 12px; }
+.add-picked li { display: flex; align-items: center; gap: 6px 10px; min-height: 44px; padding: 6px 0; border-top: 1px solid var(--cf-line); font-size: 15px; }
+
+/* The places that can be browsed, each a row: what it is, where, and the room left. */
+.root-list { display: grid; gap: 12px; color: var(--cf-ink); font-size: 15px; }
+.root-list li { display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--cf-line); }
+.root-list li > button:first-child { display: grid; gap: 2px; flex: 1; min-width: 0; padding: 12px 0; text-align: left; cursor: pointer; }
+.root-list li > button:first-child:hover > :first-child { text-decoration: underline; text-underline-offset: 4px; }
+
+/* The website's own pages: the mark and the way in over the page, and a footer; no cards, rows parted by one rule. */
+.site { min-height: 100dvh; display: flex; flex-direction: column; background: var(--cf-page); color: var(--cf-ink); --gut: 40px; }
+.site-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 18px; padding: 12px var(--gut); }
+.site-brand { display: flex; align-items: center; gap: 6px; min-height: 44px; font: 500 15px/1 var(--cf-font-display); }
+.site-grow { flex: 1; }
+.site-who { min-width: 0; max-width: 28ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; color: var(--cf-muted); }
+.site-main { flex: 1; width: 100%; max-width: 1120px; margin-inline: auto; padding: 0 var(--gut) 56px; }
+.site[data-narrow] .site-main { max-width: 640px; }
+.site-footer > div { display: flex; flex-wrap: wrap; align-items: center; gap: 0 20px; padding-block: 12px 20px; font-size: 14px; color: var(--cf-muted); }
+.site-column { padding-inline: var(--gut); }
+.site-footer .setting-link { min-height: 36px; color: var(--cf-muted); }
+.site-head .setting-link { min-height: 44px; }
+.site-footer .setting-link:hover { color: var(--cf-ink); }
+.site-commit { font-family: var(--cf-font-mono); font-size: 13px; }
+.site-commit:hover { text-decoration: underline; }
+.site-lead { font-size: 18px; line-height: 1.5; max-width: 58ch; }
+.site-add { display: grid; gap: 10px; justify-items: start; }
+.site-add p { max-width: 64ch; }
+.infall-button.big { gap: 10px; }
+.google-logo { width: 20px; height: 20px; flex: none; }
+/* A control waiting for its answer says so with a turning ring after its words, or a still one without motion. */
+:is(.infall-button, .infall-small, .setting-link)[aria-busy="true"]::after { content: ""; flex: none; width: 14px; height: 14px; margin-left: 10px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: busy-turn .8s linear infinite; }
+@keyframes busy-turn { to { transform: rotate(1turn); } }
+@media (prefers-reduced-motion: reduce) { :is(.infall-button, .infall-small, .setting-link)[aria-busy="true"]::after { animation: none; border-right-color: currentColor; opacity: .5; } }
+
+/* First page: what it is beside the picture of every source falling in, three facts under it. */
+.home-hero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 56px; align-items: stretch; padding: 44px 0 36px; }
+.home-text { display: grid; gap: 18px; justify-items: start; align-content: center; padding-block: 20px; }
+.home-text h1 { font-size: 36px; line-height: 1.16; text-wrap: balance; }
+.hero-sky { position: relative; height: 100%; min-height: 430px; margin: 0 calc(-1 * var(--gut)) 0 0; overflow: hidden; }
+.hero-sky .sky { position: absolute; inset: 0; height: 100%; }
+/* The picture fades in from the text side: a still layer over it, so nothing is masked again on every frame. */
+.hero-sky::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, var(--cf-page), transparent 16%); pointer-events: none; }
+.hero-sky ul { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.hero-sky li { position: absolute; left: 0; top: 0; padding: 0 5px; border-radius: 4px; background: var(--cf-page); font-size: 13px; line-height: 20px; color: var(--cf-muted); white-space: nowrap; }
+.home-three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 36px; padding-top: 28px; border-top: 1px solid var(--cf-line); }
+.home-three div { display: grid; gap: 6px; align-content: start; }
+.home-three h2 { font-size: 17px; font-weight: 600; line-height: 1.3; }
+.home-three p { color: var(--cf-muted); }
+
+/* A page of the site with a list: Your computers, What's new. */
+.site-page { display: grid; gap: 20px; padding-top: 28px; }
+.site-page > h1 { font-size: 28px; line-height: 1.2; }
+.site-page .download-empty { margin-top: 8px; }
+.computers { display: grid; width: 100%; }
+.download-empty > .computer { width: 100%; }
+.computer { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px 20px; align-items: center; padding: 20px 0; border-top: 1px solid var(--cf-line); }
+.computer-star { display: inline-grid; place-items: center; width: 44px; height: 44px; }
+.computer-body { display: grid; gap: 2px; min-width: 0; }
+.computer-body h2 { font-size: 20px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+.computer-body p { color: var(--cf-muted); font-size: 15px; }
+.computer-acts { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; justify-content: flex-end; }
+.computer-remove { color: var(--cf-muted); font-size: 14px; }
+.computer-remove:hover { color: var(--cf-danger); }
+.site-banner { display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: center; justify-content: space-between; padding: 12px 16px; border-radius: 10px; background: var(--cf-surface); box-shadow: inset 0 0 0 1px var(--mg-h1); }
+.site-banner p { min-width: 0; flex: 1 1 24ch; }
+.site-picks { display: grid; gap: 2px; }
+.add-magnet { display: block; font: 13px/1.5 var(--cf-font-mono); color: var(--cf-muted); overflow-wrap: anywhere; }
+
+/* The app to get: one button for this system, the others under it. */
+.get-app { display: grid; gap: 12px; justify-items: start; }
+.get-app .infall-button { min-height: 52px; padding: 6px 20px; }
+.get-app-label { display: grid; justify-items: start; gap: 2px; }
+.get-app-label small { font-weight: 400; font-size: 13px; opacity: .8; }
+.get-app .fine { max-width: 52ch; }
+.get-app-others summary { min-height: 40px; display: inline-flex; align-items: center; cursor: pointer; color: var(--cf-muted); text-decoration: underline; text-underline-offset: 4px; }
+.get-app-others ul { display: grid; gap: 2px; padding-top: 4px; }
+.get-app-others a { display: flex; gap: 16px; justify-content: space-between; min-height: 36px; align-items: center; }
+.get-app-others a:hover span:first-child { text-decoration: underline; }
+
+/* Linking this browser: the code typed in place, the camera a link away. */
+.not-linked:focus { outline: none; }
+.not-linked-name { display: inline-block; max-width: 100%; overflow-wrap: anywhere; }
+.link-code { display: grid; gap: 8px; width: 100%; max-width: 460px; }
+.link-code label { font-weight: 500; }
+.link-code-input { flex: 1 1 12em; min-width: 0; min-height: 46px; padding: 0 14px; border: 1.5px solid var(--cf-line); border-radius: 10px; background: var(--cf-surface); color: var(--cf-ink); font-size: 17px; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
+.link-code-input:focus-visible { border-color: var(--cf-accent); }
+.link-code-input[aria-invalid="true"] { border-color: var(--cf-danger); }
+.link-camera { position: relative; width: 100%; max-width: 420px; aspect-ratio: 1; overflow: hidden; border-radius: 10px; background: #000; }
+.link-camera video { width: 100%; height: 100%; object-fit: cover; }
+.link-camera p { position: absolute; inset: 0; display: grid; place-items: center; background: rgb(0 0 0 / .7); color: #fff; }
+.site-dev-login { display: grid; gap: 6px; width: 100%; max-width: 420px; padding-top: 12px; border-top: 1px dashed var(--cf-warn); }
+.site-dev-login label { font-size: 13px; color: var(--cf-warn); }
+.site-dev-login input { flex: 1; min-width: 0; min-height: 38px; padding: 0 10px; border: 1px solid var(--cf-line); border-radius: 8px; background: var(--cf-surface); }
+
+/* Without scripts the page still says what it is. */
+.no-script { max-width: 640px; margin: 64px auto; padding: 0 16px; display: grid; gap: 14px; }
+.no-script a { text-decoration: underline; }
+
+@media (max-width: 720px) {
+  .site { --gut: 16px; }
+  .site-who { display: none; }
+  .home-hero { grid-template-columns: minmax(0, 1fr); gap: 28px; padding: 20px 0 28px; }
+  .home-text h1 { font-size: 25px; }
+  .site-lead { font-size: 17px; }
+  .hero-sky { min-height: 300px; margin-inline: calc(-1 * var(--gut)); }
+  .hero-sky::after { content: none; }
+  .home-three { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .site-page > h1 { font-size: 23px; }
+  .computer { grid-template-columns: auto minmax(0, 1fr); }
+  .computer-acts { grid-column: 2; justify-content: flex-start; }
+  .link-code-input { font-size: 16px; letter-spacing: 0; }
 }

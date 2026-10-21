@@ -1,6 +1,6 @@
 import { DOWNLOAD_STATUSES } from '@magnetar/protocol'
 import { describe, expect, test } from 'vitest'
-import { countViews, DEFAULT_DOWNLOAD_VIEW, DOWNLOAD_VIEWS, inView } from './downloadViews.ts'
+import { isActive, isRunning, isFinished, DEFAULT_DOWNLOAD_VIEW, DOWNLOAD_VIEWS, inView } from './downloadViews.ts'
 import { pickParam } from './urlState.ts'
 
 describe('the Downloads views', () => {
@@ -16,10 +16,10 @@ describe('the Downloads views', () => {
     for (const s of ['Completed', 'Seeding'] as const) expect(inView(s, 'finished')).toBe(true)
   })
 
-  test('counts add up per view', () => {
-    const list = ['Downloading', 'Paused', 'Error', 'Seeding', 'Completed', 'Completed'].map((status, id) => ({ id, status })) as { id: number; status: (typeof DOWNLOAD_STATUSES)[number] }[]
-    expect(countViews(list)).toEqual({ active: 3, finished: 3, all: 6 })
-    expect(countViews([])).toEqual({ active: 0, finished: 0, all: 0 })
+  test('pause eligibility and running counts distinguish seeding and attention states', () => {
+    expect(DOWNLOAD_STATUSES.filter(status => isActive({ status }))).toEqual(['Queued', 'FetchingMetadata', 'Downloading', 'Seeding'])
+    expect(DOWNLOAD_STATUSES.filter(status => isRunning({ status }))).toEqual(['Downloading'])
+    expect(DOWNLOAD_STATUSES.filter(status => isFinished({ status }))).toEqual(['Seeding', 'Completed'])
   })
 
   test('the page opens on Active, also for an address with an unknown view', () => {

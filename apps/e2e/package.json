@@ -9,7 +9,9 @@
   },
   "devDependencies": {
     "@codefusion-cc/features-page": "0.2.0",
+    "@codefusion-cc/testing": "0.1.8",
     "@codefusion-cc/ui": "0.2.4",
+    "@magnetar/protocol": "workspace:*",
     "@playwright/test": "1.63.0",
     "@types/node": "24.19.0",
     "typescript": "7.0.2"

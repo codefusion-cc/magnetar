@@ -10,7 +10,7 @@ export const en: FeaturesContent = {
     title: 'Magnetar features',
     description: 'Search six torrent sources at once, download on your own computer and follow it from any browser or phone, end-to-end encrypted. Free for macOS, Windows and Linux.',
   },
-  header: { language: 'Language', signIn: 'Sign in', devices: 'Your devices', home: 'Magnetar home' },
+  header: { language: 'Language', signIn: 'Sign in', devices: 'Your computers', home: 'Magnetar home' },
   hero: {
     title: 'Your downloads, from anywhere',
     lead: 'Magnetar searches six torrent sources at once, downloads on your own computer and follows your series. Open it from any browser or phone: everything between them is end-to-end encrypted. Every screenshot on this page is the real app.',
@@ -47,7 +47,7 @@ export const en: FeaturesContent = {
           points: [
             'Release tags from the title: resolution (480p to 4K), HDR or Dolby Vision, the codec (H.264, HEVC, AV1) and the source (BluRay, WEB, HDTV, DVD)',
             'Narrow by resolution and source; sort by seeders, newest, largest or smallest',
-            'A source that is slow or down never holds up the others: one that hasn\'t answered in 15 seconds is left out, and "Show sources" says what each one found',
+            'A slow or unavailable source never holds up the others. Above the results, a sentence and a count for each source show what answered, found nothing or failed.',
             'Mirrors take turns: when one doesn\'t answer within a second and a half, the next is asked, and the fastest is remembered',
             'Only titles with every word you typed, in any script; garbled titles are repaired',
             'Open a result for its details, copy its magnet link, or send it to any folder',
@@ -71,7 +71,7 @@ export const en: FeaturesContent = {
           points: [
             `.torrent files up to ${torrentMb} MB`,
             'On your computer Magnetar can become the handler for magnet links and .torrent files, so a click in the browser or the file manager adds them',
-            'On the website, the browser can send magnet links straight to your computer ("Open magnet links here" on the devices page)',
+            'On the website, the browser can send magnet links straight to your computer ("Open magnet links here" on Your computers)',
             'Pick another folder in the dialog, with a folder browser',
           ],
         },
@@ -83,7 +83,7 @@ export const en: FeaturesContent = {
             'Rules per series: resolution, minimum seeders, maximum size, words to prefer and to avoid',
             'Start from an episode you choose, from the latest one, or with new episodes only',
             'Checks every 15 minutes to once a day (every hour by default), at most 25 episodes at a time',
-            'Each card shows the next air date and how far along the series is',
+            'The season is an orbit with an arc per episode: held, downloading or waiting. A sentence says what comes next, and dated episodes approach today on a two-week line.',
           ],
         },
         watches: {
@@ -105,12 +105,12 @@ export const en: FeaturesContent = {
       features: {
         engine: {
           title: 'A download engine built in',
-          gain: 'Live progress, speed, peers and time left for every download, with nothing else to install.',
+          gain: 'Live progress, speed and time left for every download, with nothing else to install.',
           text: 'Downloads run inside Magnetar on librqbit, with DHT and trackers, and the dashboard updates once a second. Pausing, restarting or an update never reads finished pieces again.',
           points: [
-            'Active, Finished and All views with their counts, and an order of your choice (newest, oldest, name, size, progress), remembered on that device; each download shows when it was added and finished; pause, resume, retry or delete each one',
+            'Active, Finished and All views, an order remembered for each computer, and text buttons to pause, resume, try again or remove a download. A row that finishes stays in view until you change views.',
             'Deleting asks whether to keep the files',
-            'Total download and upload speed and the free space left, which turns to a warning below 5 GB',
+            'The summary names the computer, its running downloads, combined download speed and free space. Slow down or return to full speed there; schedules stay in Settings → Downloads.',
             'The router\'s port is opened by UPnP, and a torrent that finds no peers in three minutes says so instead of waiting forever',
             'A torrent of several files gets its own folder',
           ],
@@ -122,14 +122,14 @@ export const en: FeaturesContent = {
           points: [
             'The browser opens in the folder you used last, so saving to the same place twice is two taps',
             'Tick "Always save here, don\'t ask again" to make that folder the download folder and stop being asked; Settings → Downloads brings the question back',
-            'With asking off, Download adds to the download folder in one click, and the details dialog keeps a "Save to another folder…" link',
+            'With asking off, Download adds to the download folder in one click. Settings → Downloads lets you turn the folder question back on.',
             'Through the website only the download folder and folders added on the computer can be chosen, as everywhere else',
           ],
         },
         files: {
           title: 'Just the files you want',
           gain: 'Download one episode out of a season, or skip the extras, and follow each file on its own.',
-          text: 'A download\'s details list its files with a checkbox each and their progress, refreshed every two seconds while it runs, with its size, ratio, dates, source and folder.',
+          text: 'A download opens on its own page with a link back to all downloads, its lane, folder, dates, source and ratio. Files have checkboxes, sizes and progress that refreshes every two seconds while it runs. Edits stay selected when the list refreshes.',
           points: [
             'Change the selection at any time; one button saves it',
             '"Show in folder" opens Finder or Explorer at the file, on your computer',
@@ -148,7 +148,7 @@ export const en: FeaturesContent = {
         browse: {
           title: 'Your downloads, folder by folder',
           gain: 'See what landed where, play it, or pick a new download folder, from the computer or from your phone.',
-          text: 'Files shows the download folder and any folder you add on the computer running Magnetar: folders first, then files, with their sizes and dates. Files that came from a download can be played or opened in its details.',
+          text: 'Files opens the download folder, with your places as views and linked paths for going back. A folder is a cluster, a finished file a blue-white star, and a download still arriving an ember with its percentage. Sizes, dates, playback and download details remain beside each file.',
           points: [
             'Sorted as people read names: episode 2 before episode 10',
             'Make a folder, or use the one on screen as the download folder',
@@ -187,8 +187,8 @@ export const en: FeaturesContent = {
           gain: 'Start a download from your phone on the bus and it is waiting on your computer at home.',
           text: 'Sign in at magnetar.codefusion.cc and open any of your computers: search, downloads, the watchlist and settings work as they do at home. Your computer does the work; the website only connects you to it.',
           points: [
-            'Your devices with their online state, refreshed every 15 seconds',
-            'A phone gets a tab bar at the bottom, a computer a sidebar',
+            'Your computers with their online state, refreshed every 15 seconds',
+            'Tabs sit at the bottom on a phone and at the top on a computer',
             'What only makes sense at the computer (its folder picker, opening files) stays there',
             'Google sign-in; sessions last 30 days from your last visit, and signing out disconnects that browser from your computers at once',
           ],
@@ -215,7 +215,7 @@ export const en: FeaturesContent = {
         'device-addresses': {
           title: 'Each computer at its own address',
           gain: 'magnetar.codefusion.cc/MacBook-Pro/search: you can tell from the link which computer it opens.',
-          text: 'A computer\'s name is the first part of its pages\' addresses. Switch between computers from the name in the sidebar and stay on the same page.',
+          text: 'A computer\'s name is the first part of its pages\' addresses. Switch between computers from the name at the top and stay on the same page.',
           points: [
             `Names are letters and digits joined by hyphens, up to ${DEVICE_NAME_MAX_LENGTH} characters; any name you type is spelled that way ("Paweł's Mac" becomes Pawels-Mac)`,
             'Renaming a computer moves an open page to its new address',
@@ -225,7 +225,7 @@ export const en: FeaturesContent = {
         install: {
           title: 'Install the website as an app',
           gain: 'Magnetar on your phone\'s home screen, opening full screen like any other app.',
-          text: 'In Chrome and Edge an "Install app" button appears in the header; Safari adds it from the Share menu.',
+          text: 'In Chrome and Edge an "Install web app" button appears in the header; Safari adds it from the Share menu.',
           points: [
             'On iPhone and iPad, installing it is what lets the website show notifications',
           ],
@@ -270,7 +270,7 @@ export const en: FeaturesContent = {
           points: [
             'macOS (Apple silicon and Intel), Windows and Linux (x64 and ARM)',
             'Start at login on macOS and Windows',
-            'The light, dark or system theme, chosen per browser',
+            'Light or dark from a switch on every page, or as the system has it, kept per browser',
           ],
         },
         tray: {
@@ -318,7 +318,7 @@ export const en: FeaturesContent = {
         },
         languages: {
           title: 'In your language',
-          gain: 'The dashboard and this page in English, German, Spanish, French, Italian, Polish, Portuguese and Russian.',
+          gain: 'The dashboard and this page in English and Polish.',
           text: 'Pick a language in Settings → General; it applies to every browser that opens that computer. The website\'s own pages follow your browser\'s language.',
           points: ['Dates and times are written the way your language writes them'],
         },
@@ -328,7 +328,7 @@ export const en: FeaturesContent = {
   shots: {
     search: 'Search results with release tags, merged from every source',
     'search-phone': 'Search on a phone, with the resolution chips',
-    'search-sources': 'What each source found, and how fast',
+    'search-sources': 'What each source found and which did not answer',
     add: 'The Add dialog with magnet links pasted in',
     watchlist: 'The watchlist: series with their next episode',
     watches: 'Watches for releases, with how often each checks',
@@ -337,12 +337,12 @@ export const en: FeaturesContent = {
     details: 'A download\'s files, each with its progress',
     player: 'A freely licensed film playing in the browser, with its English subtitles',
     speed: 'Speed limits, slow mode and its schedule',
-    devices: 'Your devices on the website, with their online state',
+    devices: 'Your computers on the website, with their online state',
     'remote-phone': 'A computer\'s downloads on a phone, through the website',
     remote: 'Remote access in the app\'s settings, connected to an account',
     pair: 'Approving a computer on the website',
     'link-qr': 'A QR code that links a phone',
-    switcher: 'Switching between computers from the sidebar',
+    switcher: 'Switching between computers from the top row',
     notifications: 'Notification channels, each with a test button',
     settings: 'General settings: language, theme, start at login',
     about: 'The version and its update check',
@@ -367,7 +367,7 @@ export const en: FeaturesContent = {
     items: {
       client: { name: 'Rust', text: 'The app: one executable with the dashboard, the database (SQLite) and the engine inside.' },
       engine: { name: 'librqbit', text: 'The BitTorrent engine: DHT, trackers, UPnP, fast resume and streaming of unfinished files.' },
-      dashboard: { name: 'React and daisyUI', text: 'The dashboard, the same build on your computer and on the website.' },
+      dashboard: { name: 'React, Tailwind and @codefusion-cc/ui', text: 'The dashboard, the same build on your computer and on the website.' },
       worker: { name: 'Cloudflare Workers', text: 'The website: sign-in and devices in D1, and a Durable Object per computer that relays its encrypted connections.' },
       packages: { name: 'CodeFusion packages', text: 'Shared, tested code for sign-in, push, base58 ids, the theme, app updates and this page.' },
       console: { name: 'CodeFusion Console', text: 'Where errors are grouped by cause, and where the developer sees each deploy and what it changed.' },

@@ -1,5 +1,15 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 
+/** The wrapped next focus target for an arrow, Home or End; other keys leave it alone. `current` -1 is none yet. */
+export function nextFocusIndex(key: string, current: number, length: number): number | null {
+  if (length === 0) return null
+  if (key === 'Home') return 0
+  if (key === 'End') return length - 1
+  if (key === 'ArrowDown' || key === 'ArrowRight') return current < 0 ? 0 : (current + 1) % length
+  if (key === 'ArrowUp' || key === 'ArrowLeft') return current < 0 ? length - 1 : (current + length - 1) % length
+  return null
+}
+
 /**
  * A button that opens a list of choices, as the ARIA menu button pattern has it: the arrow keys,
  * Home and End move between items, Escape closes and returns to the button, Tab or a click outside
@@ -56,15 +66,11 @@ export function MenuButton({ label, button, items, placement = 'down', onOpen, c
   const onListKey = (event: KeyboardEvent) => {
     const all = entries()
     const at = all.indexOf(document.activeElement as HTMLElement)
-    const move = (index: number) => {
+    const next = nextFocusIndex(event.key, at, all.length)
+    if (next !== null) {
       event.preventDefault()
-      all[(index + all.length) % all.length]?.focus()
-    }
-    if (event.key === 'ArrowDown') move(at + 1)
-    else if (event.key === 'ArrowUp') move(at - 1)
-    else if (event.key === 'Home') move(0)
-    else if (event.key === 'End') move(all.length - 1)
-    else if (event.key === 'Escape') {
+      all[next]?.focus()
+    } else if (event.key === 'Escape') {
       event.preventDefault()
       close(true)
     } else if (event.key === 'Tab') close()
@@ -80,7 +86,7 @@ export function MenuButton({ label, button, items, placement = 'down', onOpen, c
       </button>
       {open && (
         <ul id={id} ref={list} role="menu" aria-label={label} onKeyDown={onListKey}
-          className={`menu absolute z-50 w-72 [&_[role=menuitem]]:min-h-11 max-w-[calc(100vw-2rem)] rounded-box border border-base-300 bg-base-100 p-2 shadow-lg ${
+          className={`infall-menu ${
             placement === 'up' ? 'bottom-full left-0 mb-2' : 'left-0 top-full mt-2'}`}>
           {items(() => close())}
         </ul>

@@ -1,22 +1,29 @@
 import { expect, test } from 'vitest'
-import { consolePage } from './consolePages.ts'
+import { consolePage, PUBLIC_PAGES } from './consolePages.ts'
 
 test('names the screen a path shows, never the device in it', () => {
-  expect(consolePage('/')).toBe('devices')
-  expect(consolePage('')).toBe('devices')
-  for (const page of ['about', 'login', 'pair', 'link', 'add', 'features'] as const) expect(consolePage(`/${page}`)).toBe(page)
-  expect(consolePage('/pair/abc')).toBe('pair')
-  expect(consolePage('/features/pl')).toBe('features')
-  expect(consolePage('/MacBook-Pro')).toBe('device-downloads')
-  expect(consolePage('/MacBook-Pro/')).toBe('device-downloads')
-  expect(consolePage('/MacBook-Pro/search/dragon')).toBe('device-search')
-  expect(consolePage('/MacBook-Pro/series/releases')).toBe('device-series')
-  expect(consolePage('/MacBook-Pro/settings/agents')).toBe('device-settings')
-  expect(consolePage('/MacBook-Pro/files')).toBe('device-files')
-  expect(consolePage('/MacBook-Pro/nope')).toBe('device-downloads')
+  expect(consolePage('/', true)).toBe('devices')
+  expect(consolePage('', true)).toBe('devices')
+  expect(consolePage('/', false)).toBe('home')
+  expect(consolePage('/login', false)).toBe('login')
+  for (const page of ['about', 'login', 'pair', 'link', 'add', 'features'] as const) expect(consolePage(`/${page}`, false)).toBe(page)
+  expect(consolePage('/pair/abc', true)).toBe('pair')
+  expect(consolePage('/features/pl', true)).toBe('features')
+  expect(consolePage('/MacBook-Pro', true)).toBe('device-downloads')
+  expect(consolePage('/MacBook-Pro/', true)).toBe('device-downloads')
+  expect(consolePage('/MacBook-Pro/search/dragon', true)).toBe('device-search')
+  expect(consolePage('/MacBook-Pro/series/releases', true)).toBe('device-series')
+  expect(consolePage('/MacBook-Pro/settings/agents', true)).toBe('device-settings')
+  expect(consolePage('/MacBook-Pro/files', true)).toBe('device-files')
+  expect(consolePage('/MacBook-Pro/nope', true)).toBe('device-downloads')
   // Addresses by id, before they move to the name.
-  expect(consolePage('/d/d_123/search')).toBe('device-search')
-  expect(consolePage('/d/d_123')).toBe('device-downloads')
+  expect(consolePage('/d/d_123/search', true)).toBe('device-search')
+  expect(consolePage('/d/d_123', true)).toBe('device-downloads')
   // A device named like a tab is still a device.
-  expect(consolePage('/search-box/settings')).toBe('device-settings')
+  expect(consolePage('/search-box/settings', true)).toBe('device-settings')
+})
+
+test('counts the pages someone signed out can open, and leaves those that send them to sign in to /login', () => {
+  for (const path of ['/', '/about', '/login', '/pair/abc', '/link', '/features/pl']) expect(PUBLIC_PAGES.has(consolePage(path, false)), path).toBe(true)
+  for (const path of ['/add', '/MacBook-Pro', '/d/d_123/search']) expect(PUBLIC_PAGES.has(consolePage(path, false)), path).toBe(false)
 })

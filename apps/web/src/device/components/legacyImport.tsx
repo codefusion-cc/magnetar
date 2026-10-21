@@ -1,5 +1,4 @@
 import type { LegacyImportStatusDto } from '@magnetar/protocol'
-import { HardDriveDownload, Upload } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useT } from '../../lib/i18n.tsx'
 import { useToast } from '../../ui/toast.tsx'
@@ -13,12 +12,14 @@ export function useLegacyImport() {
   const t = useT()
   const toast = useToast()
   const run = useRun()
-  const { connection } = useDevice()
+  const { connection, connectionState } = useDevice()
   const [status, setStatus] = useState<LegacyImportStatusDto | null>(null)
   const [busy, setBusy] = useState(false)
+  // Asked once the device answers: a page opened while connecting would otherwise ask too early and never again.
+  const open = connectionState.status === 'open'
   useEffect(() => {
-    void connection.call('legacy.status').then(setStatus).catch(() => {})
-  }, [connection])
+    if (open) void connection.call('legacy.status').then(setStatus).catch(() => {})
+  }, [connection, open])
 
   const runImport = async () => {
     setBusy(true)
@@ -53,17 +54,11 @@ export function LegacyImportBanner() {
     }
   }
   return (
-    <div className="surface mb-5 flex flex-col gap-4 border-primary/30 bg-primary/5 p-5 sm:flex-row sm:items-center">
-      <span className="grid size-10 shrink-0 place-items-center rounded-field bg-primary/10 text-primary"><HardDriveDownload size={20} /></span>
-      <div className="min-w-0 flex-1">
-        <div className="font-semibold">{t('import.bannerTitle')}</div>
-        <p className="muted mt-0.5 text-sm">{t('import.hint', status.downloads, status.seriesTasks)}</p>
-      </div>
-      <div className="flex gap-2">
-        <button type="button" className="btn btn-ghost btn-sm" onClick={dismiss}>{t('common.notNow')}</button>
-        <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => void runImport()}>
-          {busy ? <span className="loading loading-spinner loading-xs" /> : <Upload size={14} />}{t('import.button')}
-        </button>
+    <div className="update-bar">
+      <p><b className="font-semibold">{t('import.bannerTitle')}</b> {t('import.hint', status.downloads, status.seriesTasks)}</p>
+      <div className="infall-acts">
+        <button type="button" className="infall-button quiet sm" onClick={dismiss}>{t('common.notNow')}</button>
+        <button type="button" className="infall-button sm" disabled={busy} aria-busy={busy} onClick={() => void runImport()}>{t('import.button')}</button>
       </div>
     </div>
   )

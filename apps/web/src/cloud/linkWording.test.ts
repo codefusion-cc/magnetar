@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
 import { isInstalledApp } from '../lib/installedApp.ts'
-import { linkWording } from './linkWording.ts'
+import { linkTitle } from './linkWording.ts'
 
 /** A page whose display mode is `mode`, as `matchMedia` would answer. */
 const displayed = (mode: string) => ({ matchMedia: (query: string) => ({ matches: query === `(display-mode: ${mode})` }) })
@@ -27,26 +27,23 @@ describe('what the not-linked screen calls itself', () => {
   const languages = readdirSync(folder).filter(file => file.endsWith('.json')).map(file => file.slice(0, 2))
   const strings = (language: string) => (JSON.parse(readFileSync(join(folder, `${language}.json`), 'utf8')) as { strings: Record<string, string> }).strings
   const title = (language: string, page: Parameters<typeof isInstalledApp>[0]) =>
-    strings(language)[linkWording(isInstalledApp(page)).title]!.replace('{0}', 'Test-Mac')
+    strings(language)[linkTitle(isInstalledApp(page))]!.replace('{0}', 'Test-Mac')
 
   test('an app in the installed app, a browser in a tab', () => {
-    expect(title('en', displayed('standalone'))).toBe('This app isn’t linked to Test-Mac')
-    expect(title('en', displayed('browser'))).toBe('This browser isn’t linked to Test-Mac')
+    expect(title('en', displayed('standalone'))).toBe('This app is not linked to Test-Mac')
+    expect(title('en', displayed('browser'))).toBe('This browser is not linked to Test-Mac')
     expect(title('pl', { navigator: { standalone: true } })).toBe('Ta aplikacja nie jest połączona z Test-Mac')
     expect(title('pl', displayed('browser'))).toBe('Ta przeglądarka nie jest połączona z Test-Mac')
-    expect(strings('en')[linkWording(true).submit]).toBe('Link this app')
-    expect(strings('en')[linkWording(false).submit]).toBe('Link this browser')
   })
 
   test('every language has its own words for the app, and names the device in both titles', () => {
-    expect(languages).toHaveLength(8)
+    expect(languages).toEqual(['en', 'pl'])
     for (const language of languages) {
       const s = strings(language)
-      const [app, tab] = [linkWording(true), linkWording(false)]
-      expect(s[app.title], language).toContain('{0}')
-      expect(s[tab.title], language).toContain('{0}')
-      expect(s[app.title], language).not.toBe(s[tab.title])
-      expect(s[app.submit], language).not.toBe(s[tab.submit])
+      const [app, tab] = [s[linkTitle(true)], s[linkTitle(false)]]
+      expect(app, language).toContain('{0}')
+      expect(tab, language).toContain('{0}')
+      expect(app, language).not.toBe(tab)
     }
   })
 })

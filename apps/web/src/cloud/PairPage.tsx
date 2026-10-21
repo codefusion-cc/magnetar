@@ -1,14 +1,17 @@
 import type { PairApproveResponse, PairingInfoDto } from '@magnetar/protocol/cloud'
 import { base64UrlToBytes } from '@codefusion-cc/workers-crypto'
-import { Check, Laptop, Link2, ShieldCheck } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router'
 import { cloud } from '../lib/cloudApi.ts'
 import { errorMessage } from '../lib/errors.ts'
-import { useT } from '../lib/i18n.tsx'
+import { useLanguage, useT } from '../lib/i18n.tsx'
 import { adoptParkedKey, parkKey, parkedKey } from '../lib/keyStore.ts'
+import { Empty } from '../ui/Empty.tsx'
+import { Loading } from '../ui/Loading.tsx'
 import { useAccount } from './CloudApp.tsx'
 import { CloudFrame } from './CloudFrame.tsx'
+import { ComputerRow } from './ComputerRow.tsx'
+import { computerLine } from './computerLine.ts'
 import { devicePath } from './devicePaths.ts'
 
 /** Reads a key from `#i=<keyId>&k=<key>` into session storage and drops it from the address bar. */
@@ -30,6 +33,7 @@ export function captureFragmentKey(kind: 'pair' | 'link', target: (params: URLSe
  */
 export function PairPage() {
   const t = useT()
+  const language = useLanguage()
   const navigate = useNavigate()
   const { pairingId = '' } = useParams()
   const { account } = useAccount()
@@ -65,34 +69,25 @@ export function PairPage() {
   }
 
   return (
-    <CloudFrame>
-      <div className="surface mx-auto flex max-w-md flex-col items-center gap-5 px-6 py-10 text-center">
-        <div className="grid size-14 place-items-center rounded-box bg-primary/10 text-primary"><Link2 size={28} /></div>
-        <h1 className="text-2xl font-bold">{t('pair.title')}</h1>
-        {error && <div role="alert" className="alert alert-error alert-soft w-full text-sm">{error}</div>}
-        {!info && !error && <span className="loading loading-spinner loading-lg text-primary" />}
-        {info && info.state === 'pending' && (
-          <>
-            <div className="flex w-full items-center gap-3 rounded-box border border-base-300 bg-base-200 p-4 text-left">
-              <Laptop size={28} className="shrink-0 text-primary" />
-              <div className="min-w-0">
-                <div className="truncate font-semibold">{info.name}</div>
-                <div className="text-xs text-base-content/60">{info.platform} · Magnetar {info.version}</div>
+    <CloudFrame narrow>
+      {!info && !error ? <Loading text={t('pair.title')} /> : (
+        <Empty appearance="page" heading="h1" state={info?.state === 'pending' ? 'lit' : 'far'} title={t('pair.title')}
+          text={info?.state === 'pending' ? t('pair.question', account.email) : info?.state === 'expired' ? t('pair.expired') : info ? t('pair.alreadyApproved') : t('pair.failed')}>
+          {error && <p role="alert" className="setting-alert">{error}</p>}
+          {info && info.state === 'pending' && (
+            <>
+              <ComputerRow as="div" name={info.name} star="lit"
+                line={computerLine(t, language, { online: true, lastSeenAt: null, platform: info.platform, version: info.version }, true, null)} />
+              {!parkedKey('pair', pairingId) && <p className="setting-warn">{t('pair.noKey')}</p>}
+              <div className="infall-acts">
+                <button type="button" className="infall-button" disabled={busy} aria-busy={busy} onClick={() => void approve()}>{t('pair.approve')}</button>
+                <button type="button" className="infall-button quiet" onClick={() => navigate('/')}>{t('common.cancel')}</button>
               </div>
-            </div>
-            <p className="text-sm">{t('pair.question', account.email)}</p>
-            {!parkedKey('pair', pairingId) && <p className="text-xs text-warning">{t('pair.noKey')}</p>}
-            <div className="flex w-full gap-2">
-              <button type="button" className="btn btn-ghost flex-1" onClick={() => navigate('/')}>{t('common.cancel')}</button>
-              <button type="button" className="btn btn-primary flex-1" disabled={busy} onClick={() => void approve()}>
-                {busy ? <span className="loading loading-spinner loading-sm" /> : <Check size={16} />}{t('pair.approve')}
-              </button>
-            </div>
-            <p className="flex items-start gap-2 text-left text-xs text-base-content/60"><ShieldCheck size={16} className="mt-0.5 shrink-0 text-success" />{t('cloud.e2eNote')}</p>
-          </>
-        )}
-        {info && info.state !== 'pending' && <p className="text-sm text-base-content/70">{info.state === 'expired' ? t('pair.expired') : t('pair.alreadyApproved')}</p>}
-      </div>
+              <p className="fine">{t('cloud.e2eNote')}</p>
+            </>
+          )}
+        </Empty>
+      )}
     </CloudFrame>
   )
 }

@@ -5,20 +5,16 @@ export const DOWNLOAD_VIEWS = ['active', 'finished', 'all'] as const
 export type DownloadView = (typeof DOWNLOAD_VIEWS)[number]
 export const DEFAULT_DOWNLOAD_VIEW: DownloadView = 'active'
 
-/** Statuses in Finished: everything asked for is on disk, whether it still seeds or has stopped. */
-const FINISHED: readonly DownloadStatus[] = ['Seeding', 'Completed']
+/** A running transfer, excluding uploads from finished downloads. */
+export const isRunning = (d: { status: DownloadStatus }): boolean => d.status === 'Downloading'
 
-/** Whether a download with this status is in `view`. Everything not finished is Active, a failed one included: it needs attention. */
+/** A download whose work can be paused, including seeding. */
+export const isActive = (d: { status: DownloadStatus }): boolean => isRunning(d) || d.status === 'FetchingMetadata' || d.status === 'Queued' || d.status === 'Seeding'
+
+/** Everything asked for is on disk, whether it still seeds or has stopped. */
+export const isFinished = (d: { status: DownloadStatus }): boolean => d.status === 'Completed' || d.status === 'Seeding'
+
+/** Everything not finished is Active, a failed one included: it needs attention. */
 export function inView(status: DownloadStatus, view: DownloadView): boolean {
-  return view === 'all' || FINISHED.includes(status) === (view === 'finished')
-}
-
-/** The view a download is listed in, apart from All. */
-export const viewOf = (status: DownloadStatus): Exclude<DownloadView, 'all'> => (FINISHED.includes(status) ? 'finished' : 'active')
-
-/** How many downloads each view lists. */
-export function countViews(downloads: readonly { status: DownloadStatus }[]): Record<DownloadView, number> {
-  const counts = { active: 0, finished: 0, all: downloads.length }
-  for (const d of downloads) counts[viewOf(d.status)]++
-  return counts
+  return view === 'all' || isFinished({ status }) === (view === 'finished')
 }

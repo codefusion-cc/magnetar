@@ -1,12 +1,13 @@
 import AppKit
 import CoreGraphics
 
-// Magnetar icon: a violet tile with a white play triangle turned downwards over a tray —
-// media and download in one shape. Renders the macOS iconset, the Windows tray icon sizes, the
-// web icons (favicon, apple-touch, PWA and maskable) and monochrome menu-bar template images.
-// The same shape lives as SVG in apps/web/public/icon.svg and apps/web/src/ui/BrandMark.tsx.
+// Magnetar icon: the star everything falls into, on the night ground, inside the loops of its magnetic field. Renders the macOS iconset, the Windows tray icon sizes, the web icons (favicon, apple-touch, PWA and
+// maskable) and monochrome menu-bar template images. The same shape lives as SVG in apps/web/public/icon.svg and
+// apps/web/src/ui/BrandMark.tsx (there in the look's colours).
 //
 //   swift makeicon.swift <out dir>
+//   iconutil -c icns <out dir>/AppIcon.iconset -o AppIcon.icns
+//   magick <out dir>/tray/{16,20,24,32,40,48,64,256}.png TrayIcon.ico
 
 let args = CommandLine.arguments
 let outDir = args.count > 1 ? args[1] : "."
@@ -28,33 +29,68 @@ func rgb(_ hex: UInt32, _ alpha: CGFloat = 1) -> CGColor {
             blue: CGFloat(hex & 0xff) / 255, alpha: alpha)
 }
 
-/// The glyph in a 100-unit square (y down, like the SVG), placed into `rect`.
-func drawGlyph(_ c: CGContext, in rect: CGRect, color: CGColor) {
-    let u = rect.width / 100
-    let p = { (x: CGFloat, y: CGFloat) in CGPoint(x: rect.minX + x * u, y: rect.maxY - y * u) }
-    c.setFillColor(color)
-    c.setStrokeColor(color)
-    c.setLineJoin(.round)
-    c.setLineCap(.round)
-    c.setLineWidth(9 * u)
-    c.move(to: p(31, 30))
-    c.addLine(to: p(69, 30))
-    c.addLine(to: p(50, 58))
-    c.closePath()
-    c.drawPath(using: .fillStroke)
-    c.move(to: p(29, 76))
-    c.addLine(to: p(71, 76))
-    c.strokePath()
+/// One loop of the star's field, r = L sin²θ around an axis leaning left and towards the viewer, turned `a` round it
+/// (apps/web/src/ui/sky/draw.ts `fieldLoop`): its points around the centre, y down, and how near the viewer it lies.
+func fieldLoop(_ L: CGFloat, _ a: CGFloat, steps: Int = 40) -> (points: [CGPoint], depth: CGFloat) {
+    let axis = [sin(-0.42) * cos(0.5), -cos(-0.42) * cos(0.5), sin(0.5)]
+    let normal = [axis[1], -axis[0], 0.0]
+    let length = (normal[0] * normal[0] + normal[1] * normal[1]).squareRoot()
+    let u = normal.map { $0 / length }
+    let v = [axis[1] * u[2] - axis[2] * u[1], axis[2] * u[0] - axis[0] * u[2], axis[0] * u[1] - axis[1] * u[0]]
+    let d = (0..<3).map { u[$0] * cos(Double(a)) + v[$0] * sin(Double(a)) }
+    let points = (0...steps).map { k -> CGPoint in
+        let th = Double(k) / Double(steps) * .pi, r = Double(L) * pow(sin(th), 2), z = r * cos(th), q = r * sin(th)
+        return CGPoint(x: axis[0] * z + d[0] * q, y: axis[1] * z + d[1] * q)
+    }
+    return (points, CGFloat(d[2]))
 }
 
-/// The violet tile. `inset` leaves the margin macOS icons keep; `radius` is a fraction of the side.
+/// The star in a 100-unit square (y down, like the SVG), placed into `rect`: a glow, six loops of its field (nearer
+/// ones brighter) and the star on top. Lines keep at least a pixel, so the loops stay loops at 16 px.
+/// `template` draws it in black alone for the menu bar.
+func drawGlyph(_ c: CGContext, in rect: CGRect, template: Bool = false) {
+    let u = rect.width / 100
+    let p = { (x: CGFloat, y: CGFloat) in CGPoint(x: rect.midX + x * u, y: rect.midY - y * u) }
+    let center = p(0, 0)
+    let space = CGColorSpace(name: CGColorSpace.sRGB)!
+    if !template {
+        let glow = CGGradient(colorsSpace: space, colors: [rgb(0xff7832, 0.55), rgb(0xff7832, 0)] as CFArray, locations: [0, 1])!
+        c.drawRadialGradient(glow, startCenter: center, startRadius: 0, endCenter: center, endRadius: 35 * u, options: [])
+    }
+    c.setLineWidth(max((template ? 2.6 : 1.8) * u, 1))
+    c.setLineCap(.round)
+    c.setLineJoin(.round)
+    for j in 0..<6 {
+        let loop = fieldLoop(45, CGFloat(j) * .pi / 3 + 0.3)
+        let near = 0.35 + 0.55 * (loop.depth + 1) / 2
+        c.setStrokeColor(template ? rgb(0x000000, 0.45 + 0.55 * (loop.depth + 1) / 2) : rgb(0xffd08a, near))
+        c.addLines(between: loop.points.map { p($0.x, $0.y) })
+        c.strokePath()
+    }
+    let radius = (template ? 14 : 12) * u
+    let disc = CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
+    if template {
+        c.setFillColor(rgb(0x000000))
+        c.fillEllipse(in: disc)
+        return
+    }
+    let core = CGGradient(colorsSpace: space, colors: [rgb(0xffffff), rgb(0xfff3dc), rgb(0xffc27a)] as CFArray, locations: [0, 0.7, 1])!
+    c.saveGState()
+    c.addEllipse(in: disc)
+    c.clip()
+    let highlight = CGPoint(x: center.x - radius * 0.4, y: center.y + radius * 0.4)
+    c.drawRadialGradient(core, startCenter: highlight, startRadius: 0, endCenter: center, endRadius: radius, options: [.drawsAfterEndLocation])
+    c.restoreGState()
+}
+
+/// The night tile. `radius` is a fraction of the side; macOS icons keep a margin and a small shadow.
 func drawTile(_ c: CGContext, _ rect: CGRect, radius: CGFloat, shadow: Bool) {
     let path = CGPath(roundedRect: rect, cornerWidth: rect.width * radius, cornerHeight: rect.width * radius, transform: nil)
     if shadow {
         c.saveGState()
         c.setShadow(offset: CGSize(width: 0, height: -rect.width * 0.01), blur: rect.width * 0.03, color: rgb(0x000000, 0.3))
         c.addPath(path)
-        c.setFillColor(rgb(0x6d3df2))
+        c.setFillColor(rgb(0x070505))
         c.fillPath()
         c.restoreGState()
     }
@@ -62,7 +98,7 @@ func drawTile(_ c: CGContext, _ rect: CGRect, radius: CGFloat, shadow: Bool) {
     c.addPath(path)
     c.clip()
     let gradient = CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB)!,
-                              colors: [rgb(0x8057ff), rgb(0x6d3df2), rgb(0x5a2be0)] as CFArray, locations: [0, 0.55, 1])!
+                              colors: [rgb(0x1e1714), rgb(0x0d0908), rgb(0x070505)] as CFArray, locations: [0, 0.5, 1])!
     c.drawLinearGradient(gradient, start: CGPoint(x: rect.midX, y: rect.maxY), end: CGPoint(x: rect.midX, y: rect.minY), options: [])
     c.restoreGState()
 }
@@ -75,7 +111,7 @@ func drawIcon(_ size: Int, bleed: Bool = false, glyphScale: CGFloat = 1) -> CGCo
     let tile = bleed ? CGRect(x: 0, y: 0, width: side, height: side) : CGRect(x: 0, y: 0, width: side, height: side).insetBy(dx: side * 0.0742, dy: side * 0.0742)
     drawTile(c, tile, radius: bleed ? 0 : 0.225, shadow: !bleed && size >= 64)
     let glyph = tile.insetBy(dx: tile.width * (1 - glyphScale) / 2, dy: tile.height * (1 - glyphScale) / 2)
-    drawGlyph(c, in: glyph, color: rgb(0xffffff))
+    drawGlyph(c, in: glyph)
     return c
 }
 
@@ -84,16 +120,14 @@ func drawTray(_ size: Int) -> CGContext {
     let c = makeContext(size)
     let rect = CGRect(x: 0, y: 0, width: CGFloat(size), height: CGFloat(size))
     drawTile(c, rect, radius: 0.225, shadow: false)
-    drawGlyph(c, in: rect, color: rgb(0xffffff))
+    drawGlyph(c, in: rect)
     return c
 }
 
-/// Menu-bar template image: the glyph alone in black, enlarged to fill the small canvas.
+/// Menu-bar template image: the star alone in black, filling the small canvas.
 func drawTemplate(_ size: Int) -> CGContext {
     let c = makeContext(size)
-    let side = CGFloat(size) * 1.45
-    let rect = CGRect(x: (CGFloat(size) - side) / 2, y: (CGFloat(size) - side) / 2 - CGFloat(size) * 0.02, width: side, height: side)
-    drawGlyph(c, in: rect, color: rgb(0x000000))
+    drawGlyph(c, in: CGRect(x: 0, y: 0, width: CGFloat(size), height: CGFloat(size)), template: true)
     return c
 }
 

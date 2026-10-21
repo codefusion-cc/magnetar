@@ -1,26 +1,32 @@
+import { FanSky } from '../../ui/sky/Sky.tsx'
 import type { SearchResultDto, SourceOutcomeDto, TorrentDetailsDto } from '@magnetar/protocol'
-import { formatBytes } from '@magnetar/protocol/bytes'
-import { BellRing, Check, CircleAlert, Copy, Download, ExternalLink, SearchIcon, SearchX, Sprout, Telescope } from 'lucide-react'
-import { memo, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Spinner } from '@codefusion-cc/ui/react'
+import { ExternalLink, Sprout } from 'lucide-react'
+import { memo, useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { askingWhere } from '../../lib/downloadFlow.ts'
 import { noticeExtra, offersOtherFolder, startedNotice } from '../../lib/recentFolders.ts'
 import { errorMessage } from '../../lib/errors.ts'
-import { useFormatDate, useFormatRelative, useT } from '../../lib/i18n.tsx'
+import { useFormatBytes, useFormatDate, useFormatRelative, useLanguage, useT } from '../../lib/i18n.tsx'
 import { RESOLUTIONS } from '../../lib/quality.ts'
 import { readSearch, searchAddress, searchKey, type SearchChoices } from '../../lib/urlState.ts'
 import { askNotificationPermission } from '../../lib/notifications.ts'
+import { searchCount, searchSummary, outcomeTitle, outcomeCount } from '../../lib/searchPresentation.ts'
 import { releaseTags } from '../../lib/releaseTags.ts'
-import { PageHeader, Segmented } from '../../ui/controls.tsx'
-import { Empty } from '../../ui/Empty.tsx'
+import { Segmented } from '../../ui/controls.tsx'
+import { Loading } from '../../ui/Loading.tsx'
 import { Modal } from '../../ui/Modal.tsx'
-import { PAGE_SIZE, ShowMore } from '../../ui/ShowMore.tsx'
+import { Select } from '../../ui/Select.tsx'
+import { Tag } from '../../ui/Tag.tsx'
+import { WindowedRows } from '../../ui/WindowedRows.tsx'
 import { useCopy, useToast } from '../../ui/toast.tsx'
 import { useDevice, useSearch } from '../DeviceContext.tsx'
 import { resolutionOptions } from '../components/qualityFields.tsx'
 import { useDownloadFlow } from '../useDownloadFlow.tsx'
 import { useRun } from '../useRun.ts'
 
+
+let nextSearchRequest = 0
 
 type Sort = 'seeders' | 'newest' | 'largest' | 'smallest'
 const SORTS: Record<Sort, (a: SearchResultDto, b: SearchResultDto) => number> = {
@@ -56,18 +62,19 @@ function useStartDownload(onStarted: (result: SearchResultDto) => void) {
 
 export function SearchPage() {
   const t = useT()
-  const { connection, connectionState, sources, basePath, settings } = useDevice()
+  const language = useLanguage()
+  const sortId = useId()
+  const { connection, connectionState, sources, basePath, settings, deviceName } = useDevice()
   const { search, setSearch, setSearchAddress } = useSearch()
   const navigate = useNavigate()
   const run = useRun()
   const [details, setDetails] = useState<SearchResultDto | null>(null)
   const [added, setAdded] = useState<Set<string>>(new Set())
   const { ask } = askingWhere(settings)
-  const { request, browser } = useStartDownload(result => {
+  const { request, busy, browser } = useStartDownload(result => {
     setAdded(s => new Set(s).add(result.resultId))
     setDetails(null)
   })
-  const [shown, setShown] = useState(PAGE_SIZE)
   // The search on screen lives in the address bar (/search/dragon?res=720p&source=tpb&sort=new), so a
   // reload, a bookmark, a shared link or Back shows the same one.
   const [params] = useSearchParams()
@@ -85,13 +92,20 @@ export function SearchPage() {
   const proper = !settled || `/search${segment ? `/${segment}` : ''}${location.search}` === address
   const show = (change: Partial<typeof view>, how: { replace: boolean }) => navigate(basePath + searchAddress({ ...view, ...change }, choices), how)
 
+  const starting = useRef<string | null>(null)
   const start = async (target: typeof view) => {
+    const targetKey = searchKey(target)
+    if (starting.current === targetKey || (search.searching && search.ran === targetKey)) return
+    starting.current = targetKey
+    const own = ++nextSearchRequest
     if (search.searchId && search.searching) void connection.call('search.cancel', { searchId: search.searchId }).catch(() => {})
-    setShown(PAGE_SIZE)
-    setSearch(s => ({ ...s, query: target.query, ran: searchKey(target), searching: true, results: [], outcomes: [], searchId: null }))
+    setSearch(s => ({ ...s, query: target.query, ran: searchKey(target), searching: true, results: [], outcomes: [], searchId: null, requestId: own }))
     const query = [target.query, target.resolution].filter(Boolean).join(' ')
     const started = await run(() => connection.call('search.start', { query, source: target.source || undefined }), 'search.failed')
-    if (!started) return setSearch(s => ({ ...s, searching: false, results: null }))
+    if (starting.current === targetKey) starting.current = null
+    if (!started) return setSearch(s => s.requestId !== own ? s : ({ ...s, searching: false, results: [], outcomes: sources.filter(x => x.enabled && (!target.source || x.id === target.source)).map(x => ({ source: x.name, status: 'failed', returned: 0, filtered: 0, error: null })) }))
+    // A newer search took over while this one started: stop it on the computer, its answers would go nowhere.
+    if (nextSearchRequest !== own) return void connection.call('search.cancel', { searchId: started.searchId }).catch(() => {})
     setSearch(s => ({ ...s, searchId: started.searchId }))
   }
   const submit = (event: FormEvent) => {
@@ -116,62 +130,48 @@ export function SearchPage() {
     if (key && proper) setSearchAddress(address)
   }, [key, proper, address])
 
-  const results = useMemo(() => (search.results ? [...search.results].sort(SORTS[sort]) : null), [search.results, sort])
+  // One row per result id: a batch the computer sends twice must not list a result twice.
+  const results = useMemo(() => (search.results ? [...new Map(search.results.map(r => [r.resultId, r])).values()].sort(SORTS[sort]) : null), [search.results, sort])
+  const resultKey = useCallback((index: number) => results![index]!.resultId, [results])
   const downloadTo = useCallback((result: SearchResultDto) => request(result, true), [request])
+
+  // Stable between keystrokes, so the streams' picture repaints only when a source answers.
+  const outcomes = useMemo(() => sources.filter(s => s.enabled && (!view.source || s.id === view.source))
+    .map(s => ({ ...s, outcome: search.outcomes.find(o => o.source === s.name) })), [sources, view.source, search.outcomes])
+  const { line, allFailed } = searchSummary(t, language, { outcomes: outcomes.flatMap(s => s.outcome ? [s.outcome] : []), total: results?.length ?? 0, sourceCount: outcomes.length, searching: search.searching, ran: search.ran !== null, query: view.query })
 
   return (
     <>
-      <PageHeader title={t('search.title')} />
-      <form onSubmit={e => void submit(e)} className="mb-4 flex flex-col gap-3">
-        <div className="flex gap-2">
-          <label className="input input-lg min-w-0 flex-1">
-            <SearchIcon size={20} className="muted" />
-            <input type="search" enterKeyHint="search" placeholder={t('search.query')} aria-label={t('search.query')} value={search.query}
-              onChange={e => setSearch(s => ({ ...s, query: e.target.value }))} autoFocus={!search.results} />
-          </label>
-          <button type="submit" className="btn btn-primary btn-lg px-4 sm:px-6" disabled={search.searching || !search.query.trim()} aria-label={t('search.button')}>
-            {search.searching ? <span className="loading loading-spinner loading-sm" /> : <SearchIcon size={18} />}
-            <span className="hidden sm:inline">{search.searching ? t('search.searching') : t('search.button')}</span>
-          </button>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Segmented label={t('search.resolution')} value={view.resolution}
-            onChange={resolution => show({ resolution }, { replace: true })} options={resolutionOptions(t)} />
-          <select className="select select-sm w-auto rounded-full" aria-label={t('search.source')} value={view.source}
-            onChange={e => show({ source: e.target.value }, { replace: true })}>
-            <option value="">{t('search.allSources')}</option>
-            {sources.filter(s => s.enabled || s.id === view.source).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-          {results && results.length > 1 && (
-            <select className="select select-sm ml-auto w-auto rounded-full" aria-label={t('search.sort')} value={sort}
-              onChange={e => show({ sort: e.target.value as Sort }, { replace: true })}>
-              {SORT_NAMES.map(s => <option key={s} value={s}>{t(`search.sort.${s}`)}</option>)}
-            </select>
-          )}
-        </div>
+      <header className="downloads-heading"><h1>{t('search.title')}</h1></header>
+      <form aria-label={t('search.title')} onSubmit={submit} className="search-query">
+        <input type="search" enterKeyHint="search" autoComplete="off" aria-label={t('search.query')} value={search.query}
+          onChange={e => setSearch(s => ({ ...s, query: e.target.value }))} />
+        <button type="submit" className="infall-button" disabled={search.searching || !search.query.trim()}>{t('search.button')}</button>
       </form>
-
-      {search.outcomes.length > 0 && <Outcomes outcomes={search.outcomes} total={results?.length ?? 0} searching={search.searching}
-        onWatch={search.searching ? undefined : () => navigate(`${basePath}/series/releases`, {
-          state: { watch: { query: view.query, resolution: view.resolution || null } },
-        })} />}
-      {search.searching && !results?.length && <div className="flex justify-center py-16"><span className="loading loading-dots loading-lg text-primary" /></div>}
-
-      {results === null ? (
-        <Empty icon={<Telescope size={40} strokeWidth={1.5} className="text-primary" />} title={t('search.emptyTitle')} text={t('search.emptyPrompt')} />
-      ) : results.length === 0 ? (
-        search.searching ? null : <Empty icon={<SearchX size={40} strokeWidth={1.5} className="muted" />} title={t('search.noResults')} text={t('search.noResultsHint')} />
-      ) : (
-        <>
-          <ul className="flex flex-col gap-2">
-            {results.slice(0, shown).map(r => <ResultRow key={r.resultId} result={r} added={added.has(r.resultId)} onOpen={setDetails} onDownload={request} />)}
-          </ul>
-          {results.length > shown && <ShowMore remaining={results.length - shown} onMore={() => setShown(n => n + PAGE_SIZE)} />}
-        </>
-      )}
+      <div className="search-filters">
+        <Segmented label={t('search.resolution')} value={view.resolution}
+          onChange={resolution => show({ resolution }, { replace: true })} options={resolutionOptions(t)} />
+        <Select look="small" label={t('search.source')} value={view.source} onChange={source => show({ source }, { replace: true })} options={[
+          { value: '', label: t('search.allSources') },
+          ...sources.filter(s => s.enabled || s.id === view.source).map(s => ({ value: s.id, label: s.name })),
+        ]} />
+        <div className="search-sort"><label htmlFor={sortId}>{t('search.sort')}</label>
+          <Select id={sortId} look="small" value={sort} onChange={next => show({ sort: next }, { replace: true })}
+            options={SORT_NAMES.map(s => ({ value: s, label: t(`search.sort.${s}`) }))} />
+        </div>
+      </div>
+      <Outcomes list={outcomes} line={line} allFailed={allFailed} searching={search.searching} />
+      {!!results?.length && <WindowedRows label={t('search.title')} count={results.length} getKey={resultKey} className="search-results"
+        renderRow={i => <ResultRow result={results[i]!} best={i === 0} busy={busy} added={added.has(results[i]!.resultId)} onOpen={setDetails} onDownload={request} />} />}
+      {search.searching && <Loading rows={2} text={t('search.searching')} skeletonOnly />}
+      {search.ran && !search.searching && !results?.length && <>
+        <p className="search-hint">{t(allFailed ? 'search.networkHint' : 'search.noResultsHint', deviceName)}</p>
+        {allFailed && <p className="infall-acts"><button className="infall-button" onClick={() => void start(view)}>{t('common.retry')}</button></p>}
+      </>}
+      {search.ran && !search.searching && <button type="button" className="search-watch" onClick={() => navigate(`${basePath}/series/releases`, { state: { watch: { query: view.query, resolution: view.resolution || null } } })}>{t('watch.fromSearch')}</button>}
 
       <TorrentInfoDialog result={details} added={details ? added.has(details.resultId) : false} onClose={() => setDetails(null)}
-        onDownload={request} onDownloadTo={downloadTo} ask={ask} />
+        onDownload={request} onDownloadTo={downloadTo} ask={ask} busy={busy} />
       {browser}
     </>
   )
@@ -179,9 +179,9 @@ export function SearchPage() {
 
 function Health({ seeders }: { seeders: number }) {
   const t = useT()
-  const tone = seeders >= 10 ? 'text-success' : seeders > 0 ? 'text-warning' : 'text-error'
+  const tone = seeders >= 10 ? 'text-ok' : seeders > 0 ? 'text-warn' : 'text-danger'
   return (
-    <span className={`inline-flex items-center gap-1 font-medium tabular-nums ${tone}`} title={`${t('search.seeders', seeders)} — ${t('search.seedersHint')}`}
+    <span className={`inline-flex items-center gap-1 font-medium tabular-nums ${tone}`} title={`${t('search.seeders', seeders)}. ${t('search.seedersHint')}`}
       aria-label={t('search.seeders', seeders)}>
       <Sprout size={13} aria-hidden />{seeders}
     </span>
@@ -193,97 +193,76 @@ function Tags({ title }: { title: string }) {
   const list = [tags.resolution, tags.hdr, tags.codec, tags.source].filter(Boolean)
   if (list.length === 0) return null
   return (
-    <span className="inline-flex flex-wrap gap-1">
-      {list.map(tag => (
-        <span key={tag} className={`badge badge-sm font-semibold ${tag === tags.resolution ? 'badge-neutral' : 'badge-ghost border-base-300'}`}>{tag}</span>
-      ))}
+    <span className="inline-flex flex-wrap gap-1.5">
+      {list.map(tag => <Tag key={tag} tone={tag === tags.resolution ? 'accent' : 'muted'}>{tag}</Tag>)}
     </span>
   )
 }
 
-const ResultRow = memo(function ResultRow({ result: r, added, onOpen, onDownload }: {
+const ResultRow = memo(function ResultRow({ result: r, added, best, busy, onOpen, onDownload }: {
   result: SearchResultDto
   added: boolean
+  best: boolean
+  busy: boolean
   onOpen: (result: SearchResultDto) => void
   onDownload: (result: SearchResultDto) => void
 }) {
   const t = useT()
-  const formatRelative = useFormatRelative()
+  const formatBytes = useFormatBytes()
+  const formatRelative = useFormatRelative('long')
   const label = added ? t('search.added') : t('common.download')
+  const language = useLanguage()
+  const tags = releaseTags(r.title)
+  const tagLine = [tags.resolution, tags.hdr, tags.source, tags.codec].filter(Boolean).join(' ')
+  const merit = Math.min(1, Math.log(r.seeders + 1) / Math.log(125))
   return (
-    <li className="surface flex items-start gap-3 p-4 transition-colors hover:border-base-content/20">
-      <button type="button" className="min-w-0 flex-1 text-left" onClick={() => onOpen(r)}>
-        <div className="break-release font-medium leading-snug">{r.title}</div>
-        <div className="muted mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
-          <Tags title={r.title} />
-          <span className="tabular-nums">{formatBytes(r.sizeBytes)}</span>
-          <Health seeders={r.seeders} />
-          {r.publishedAt && <span>{formatRelative(r.publishedAt)}</span>}
-          <span>{r.source}</span>
-        </div>
-      </button>
-      <button type="button" className={`btn btn-sm shrink-0 ${added ? 'btn-ghost text-success' : 'btn-primary btn-soft'}`} disabled={added}
-        onClick={() => onDownload(r)} aria-label={label} title={label}>
-        {added ? <Check size={16} /> : <Download size={16} />}
-        <span className="hidden sm:inline">{label}</span>
-      </button>
-    </li>
+    <>
+      <i className="gl" style={{ '--m': merit } as React.CSSProperties} aria-hidden="true" />
+      <div className="res-b">
+        <h2><button type="button" title={r.title} onClick={() => onOpen(r)}>{r.title}</button></h2>
+        <p className="search-meta">{tagLine && <span className="tags">{tagLine}</span>}
+          <span>{formatBytes(r.sizeBytes)}</span><span>{searchCount(t, language, 'seeders', r.seeders)}</span>
+          {r.publishedAt && <span>{formatRelative(r.publishedAt)}</span>}<span>{r.source}</span>
+        </p>
+      </div>
+      <button type="button" className={`infall-button ${best && !added ? '' : 'quiet'}`} disabled={added || busy}
+        onClick={() => onDownload(r)} aria-label={`${label}: ${r.title}`}>{label}</button>
+    </>
   )
 })
 
-/**
- * How each source answered. A site that failed, or answered but had everything filtered out, would
- * otherwise look exactly like "nothing found".
- */
-function Outcomes({ outcomes, total, searching, onWatch }: { outcomes: SourceOutcomeDto[]; total: number; searching: boolean; onWatch?: () => void }) {
+/** A source stays visible while it is answering, including a failed or empty answer. */
+function Outcomes({ list, line, allFailed, searching }: {
+  list: { id: string; name: string; outcome: SourceOutcomeDto | undefined }[]
+  line: string; allFailed: boolean; searching: boolean
+}) {
   const t = useT()
-  const [open, setOpen] = useState(false)
-  const failed = outcomes.filter(o => o.status === 'failed')
-  const answered = outcomes.length - failed.length
-  return (
-    <div className="mb-4">
-      <div className="muted flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-        <span>{searching ? t('search.searching') : t('search.summary', total, answered, outcomes.length)}</span>
-        {failed.length > 0 && <span className="inline-flex items-center gap-1 text-warning"><CircleAlert size={14} />{t('search.failedCount', failed.length)}</span>}
-        <button type="button" className="link link-hover text-sm" aria-expanded={open} onClick={() => setOpen(o => !o)}>{open ? t('search.hideSources') : t('search.showSources')}</button>
-        {onWatch && (
-          <button type="button" className="btn btn-ghost btn-xs ml-auto gap-1" onClick={onWatch} title={t('watch.fromSearchHint')}>
-            <BellRing size={13} />{t('watch.fromSearch')}
-          </button>
-        )}
-      </div>
-      {open && (
-        <ul className="mt-2 flex flex-wrap gap-2">
-          {[...outcomes].sort((a, b) => a.source.localeCompare(b.source)).map(o => {
-            const kept = o.returned - o.filtered
-            const tip = o.status === 'failed' ? t('search.outcomeFailedDetail', o.error ?? '')
-              : o.filtered > 0 ? t('search.outcomeFiltered', kept, o.returned, o.filtered)
-              : t('search.outcomeOk', kept)
-            return (
-              <li key={o.source} className={`badge gap-1 ${o.status === 'failed' ? 'badge-warning badge-soft' : 'badge-ghost border-base-300'}`} title={tip}>
-                {o.source}: {o.status === 'failed' ? t('search.outcomeFailed') : kept}
-              </li>
-            )
-          })}
-        </ul>
-      )}
+  return <div className="search-sources">
+    <p role={allFailed ? 'alert' : 'status'} className={allFailed ? 'text-danger' : ''}>{line}</p>
+    <div className="source-figure">
+      <FanSky revision={list} />
+      <ul>{list.map(({ id, name, outcome }) => <li key={id} data-count={!outcome ? searching ? -2 : 0 : outcome.status === 'failed' ? -1 : Math.max(0, outcome.returned - outcome.filtered)} className={!outcome || outcome.status === 'failed' || outcome.returned === outcome.filtered ? 'none' : ''} title={outcomeTitle(t, outcome)}>
+        <span>{name}</span><b>{outcomeCount(t, outcome, searching)}</b>
+      </li>)}</ul>
     </div>
-  )
+  </div>
 }
 
 /** Sites that only give a day report it as midnight UTC; a time of day would be made up. */
 const isDayOnly = (iso: string | null) => iso !== null && /T00:00:00(\.0+)?(Z|\+00:00)$/.test(iso)
 
 /** Details fetched on demand: the only time a lazy source's detail page is loaded. */
-function TorrentInfoDialog({ result, added, onClose, onDownload, onDownloadTo, ask }: {
+function TorrentInfoDialog({ result, added, onClose, onDownload, onDownloadTo, ask, busy }: {
   result: SearchResultDto | null
   added: boolean
   onClose: () => void
   onDownload: (r: SearchResultDto) => void
   onDownloadTo: (r: SearchResultDto) => void
   ask: boolean
+  busy: boolean
 }) {
   const t = useT()
+  const formatBytes = useFormatBytes()
   const formatDate = useFormatDate()
   const copy = useCopy(t('info.copied'))
   const { connection } = useDevice()
@@ -305,7 +284,7 @@ function TorrentInfoDialog({ result, added, onClose, onDownload, onDownloadTo, a
   if (!result) return <Modal open={false} title="" onClose={onClose}>{null}</Modal>
   const row = details?.result ?? result
   const facts: [string, React.ReactNode][] = [
-    [t('info.size'), formatBytes(row.sizeBytes, 2)],
+    [t('info.size'), formatBytes(row.sizeBytes)],
     [t('info.seeders'), <Health key="h" seeders={row.seeders} />],
     [t('info.leechers'), row.leechers],
     [t('info.published'), formatDate(row.publishedAt, !isDayOnly(row.publishedAt))],
@@ -314,36 +293,31 @@ function TorrentInfoDialog({ result, added, onClose, onDownload, onDownloadTo, a
   return (
     <Modal open title={t('info.title')} onClose={onClose} wide
       actions={<>
-        {row.detailsUrl && <a className="btn btn-ghost btn-sm mr-auto" href={row.detailsUrl} target="_blank" rel="noreferrer noopener"><ExternalLink size={14} />{t('info.openPage')}</a>}
+        {row.detailsUrl && <a className="setting-link mr-auto" href={row.detailsUrl} target="_blank" rel="noreferrer noopener"><ExternalLink size={14} aria-hidden className="mr-1.5" />{t('info.openPage')}</a>}
         {offersOtherFolder(ask) && !added && (
-          <button type="button" className="link link-hover mr-1 text-sm" onClick={() => onDownloadTo(result)}>{t('info.saveElsewhere')}</button>
+          <button type="button" className="setting-link mr-1" disabled={busy} onClick={() => onDownloadTo(result)}>{t('info.saveElsewhere')}</button>
         )}
-        <button type="button" className="btn btn-primary btn-sm" disabled={added} onClick={() => onDownload(result)}>
-          {added ? <Check size={14} /> : <Download size={14} />}{added ? t('search.added') : t('common.download')}
+        <button type="button" className="infall-button" disabled={added || busy} aria-busy={busy} onClick={() => onDownload(result)}>
+          {added ? t('search.added') : t('common.download')}
         </button>
       </>}>
-      <p className="break-release mb-3 text-lg font-semibold leading-snug">{row.title}</p>
+      <p className="break-release mb-3 text-[17px] font-semibold leading-snug">{row.title}</p>
       <div className="mb-4"><Tags title={row.title} /></div>
-      <dl className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
-        {facts.map(([label, value]) => (
-          <div key={label} className="rounded-field bg-base-200 px-3 py-2">
-            <dt className="muted text-xs">{label}</dt>
-            <dd className="mt-0.5 text-sm font-medium tabular-nums">{value}</dd>
-          </div>
-        ))}
+      <dl className="download-facts mb-4 last:mb-0 grid-cols-2! sm:grid-cols-5!">
+        {facts.map(([label, value]) => <div key={label}><dt>{label}</dt><dd className="tabular-nums">{value}</dd></div>)}
       </dl>
-      {loading && <p className="muted mb-3 flex items-center gap-2 text-sm"><span className="loading loading-spinner loading-xs" />{t('info.resolving')}</p>}
+      {loading && <p role="status" className="muted mb-3 flex items-center gap-2"><Spinner />{t('info.resolving')}</p>}
       {details?.description && (
         <>
-          <h4 className="mb-1 text-sm font-semibold">{t('info.description')}</h4>
-          <pre className="mb-4 max-h-56 overflow-y-auto whitespace-pre-wrap rounded-field bg-base-200 p-3 font-sans text-sm">{details.description}</pre>
+          <h4 className="mb-1 font-semibold">{t('info.description')}</h4>
+          <pre className="mb-4 max-h-56 overflow-y-auto whitespace-pre-wrap rounded-ctl bg-raised p-3 font-sans text-[15px]">{details.description}</pre>
         </>
       )}
       {(row.infoHash || details?.magnetUri) && (
-        <div className="flex flex-col gap-2">
-          {row.infoHash && <p className="muted break-release font-mono text-xs">{t('info.infoHash')}: {row.infoHash}</p>}
+        <div className="flex flex-col items-start gap-2">
+          {row.infoHash && <p className="fine break-release setting-mono">{t('info.infoHash')}: {row.infoHash}</p>}
           {details?.magnetUri && (
-            <button type="button" className="btn btn-ghost btn-sm self-start" onClick={() => void copy(details.magnetUri!)}><Copy size={14} />{t('info.copyMagnet')}</button>
+            <button type="button" className="setting-link" onClick={() => void copy(details.magnetUri!)}>{t('info.copyMagnet')}</button>
           )}
         </div>
       )}
