@@ -113,3 +113,21 @@ export function DownloadApp() {
     </div>
   )
 }
+
+/**
+ * Opens Magnetar on this computer at Connect to your account, through the app's own magnetar://connect link.
+ * The website cannot tell whether the app is there, so after the click it says what should happen and what to
+ * do if nothing does. Not shown on a phone, where the app does not run.
+ */
+export function ConnectThisComputer({ className }: { className: string }) {
+  const t = useT()
+  const { platform } = useAppDownload()
+  const [asked, setAsked] = useState(false)
+  if (!platform) return null
+  return (
+    <>
+      <a className={className} href="magnetar://connect" onClick={() => setAsked(true)}>{t('connect.button')}</a>
+      <p className="fine connect-note" role="status">{asked ? t('connect.opening') : ''}</p>
+    </>
+  )
+}

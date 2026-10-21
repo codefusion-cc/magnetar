@@ -1002,7 +1002,6 @@ textarea.infall-field { min-height: 7rem; padding: 12px 14px; resize: vertical; 
 .site-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 18px; padding: 12px var(--gut); }
 .site-brand { display: flex; align-items: center; gap: 6px; min-height: 44px; font: 500 15px/1 var(--cf-font-display); }
 .site-grow { flex: 1; }
-.site-who { min-width: 0; max-width: 28ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; color: var(--cf-muted); }
 .site-main { flex: 1; width: 100%; max-width: 1120px; margin-inline: auto; padding: 0 var(--gut) 56px; }
 .site[data-narrow] .site-main { max-width: 640px; }
 .site-footer > div { display: flex; flex-wrap: wrap; align-items: center; gap: 0 20px; padding-block: 12px 20px; font-size: 14px; color: var(--cf-muted); }
@@ -1015,6 +1014,9 @@ textarea.infall-field { min-height: 7rem; padding: 12px 14px; resize: vertical; 
 .site-lead { font-size: 18px; line-height: 1.5; max-width: 58ch; }
 .site-add { display: grid; gap: 10px; justify-items: start; }
 .site-add p { max-width: 64ch; }
+.site-add-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.site-add-actions .connect-note { flex-basis: 100%; order: 1; }
+.site-add-actions .connect-note:empty { flex-basis: 0; }
 .infall-button.big { gap: 10px; }
 .google-logo { width: 20px; height: 20px; flex: none; }
 /* A control waiting for its answer says so with a turning ring after its words, or a still one without motion. */

@@ -16,7 +16,7 @@ import { CloudFrame } from './CloudFrame.tsx'
 import { ComputerRow } from './ComputerRow.tsx'
 import { computerLine, computerStar } from './computerLine.ts'
 import { devicePath } from './devicePaths.ts'
-import { DownloadApp, useGetApp } from './DownloadApp.tsx'
+import { ConnectThisComputer, DownloadApp, useGetApp } from './DownloadApp.tsx'
 import { useComputers } from './useComputers.ts'
 
 /** `/` signed in: the account's computers, each with how it is and the way to open or link it. */
@@ -50,6 +50,7 @@ export function DevicesPage() {
         ) : devices.length === 0 ? (
           <Empty appearance="page" state="out" title={t('devices.emptyTitle')} text={t('devices.emptyHint')}>
             <DownloadApp />
+            <div className="site-add-actions"><ConnectThisComputer className="infall-small sm" /></div>
           </Empty>
         ) : (
           <>
@@ -97,14 +98,17 @@ export function DevicesPage() {
   )
 }
 
-/** Under the list: how to add another computer, with the app for this one's system. */
+/** Under the list: how to add another computer, connecting this one, and the app for this one's system. */
 function AddComputer() {
   const t = useT()
   const { button } = useGetApp('infall-small sm')
   return (
     <div className="site-add">
       <p className="fine">{t('devices.addHint')}</p>
-      {button}
+      <div className="site-add-actions">
+        <ConnectThisComputer className="infall-small sm" />
+        {button}
+      </div>
     </div>
   )
 }

@@ -198,6 +198,7 @@ export const en: FeaturesContent = {
           gain: 'No codes to copy: the app opens the website, you approve, and the computer is yours.',
           text: 'In Settings → Remote access, "Connect to your account" opens the website with a pairing link. Sign in, approve, and the app collects its key. The device name you chose becomes its address.',
           points: [
+            'Or start on the website: Connect this computer, under your computers, opens the app here at that button',
             'A pairing link works for ten minutes, and the key is handed over once',
             'Up to 20 computers per account',
             'The website keeps only a hash of each computer\'s token',

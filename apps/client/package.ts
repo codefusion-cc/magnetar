@@ -123,6 +123,10 @@ function packageMacApp(): void {
       <key>CFBundleURLName</key><string>Magnet link</string>
       <key>CFBundleURLSchemes</key><array><string>magnet</string></array>
     </dict>
+    <dict>
+      <key>CFBundleURLName</key><string>Magnetar link</string>
+      <key>CFBundleURLSchemes</key><array><string>magnetar</string></array>
+    </dict>
   </array>
   <key>CFBundleDocumentTypes</key>
   <array>
