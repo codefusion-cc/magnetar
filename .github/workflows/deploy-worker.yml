@@ -61,9 +61,11 @@ jobs:
           # packages/release/release-version.ts reads tags, commits and trees, never file contents.
           filter: blob:none
       # Until the release this merge starts has published its version, the website is ahead of the downloads.
+      # The preview website shows Magnetar Preview's version of this commit, as the app it offers does.
       - uses: ./.github/actions/build-dashboard
         with:
           sha: ${{ github.sha }}
+          version: ${{ inputs.wrangler-env == 'preview' && 'preview' || 'display' }}
       # Before the Worker, so the new code never meets the old schema. Migrations only add, so the running Worker
       # keeps working on the new one meanwhile.
       - name: Apply D1 migrations
