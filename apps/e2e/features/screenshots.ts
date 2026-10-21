@@ -379,7 +379,7 @@ function scenes(website: Website): Scene<BrowserContext, Page>[] {
       run: async ({ page: open, shoot, wants }) => {
         const page = await open()
         await page.goto(`${local()}/settings/remote`)
-        await page.getByText('Connected', { exact: true }).first().waitFor()
+        await page.getByText(/^Connected to /).first().waitFor()
         await tidy(page)
         await shoot(page, 'remote')
         if (!wants('link-qr')) return
@@ -390,10 +390,10 @@ function scenes(website: Website): Scene<BrowserContext, Page>[] {
         await shoot(page, 'link-qr')
         // The QR code's browser never comes: revoke it, so the next mode's list is the same.
         await dialog(page, 'Link another browser').getByRole('button', { name: 'Done' }).click()
-        const row = page.locator('div').filter({ hasText: /^Pixel 9/ }).last()
-        await page.getByRole('button', { name: 'Revoke' }).last().click()
-        await page.locator('dialog[open]').getByRole('button', { name: 'Revoke' }).click()
-        await row.waitFor({ state: 'detached' }).catch(() => {})
+        const remove = page.getByRole('button', { name: 'Remove: Pixel 9', exact: true })
+        await remove.click()
+        await page.locator('dialog[open]').getByRole('button', { name: 'Remove', exact: true }).click()
+        await remove.waitFor({ state: 'detached' })
       },
     },
     {
@@ -462,6 +462,10 @@ try {
       busy: '[aria-busy="true"]',
       prepare: (context, { mode }) => context.addInitScript(value => {
         try { localStorage.setItem('magnetar-theme', value) } catch { /* about:blank */ }
+        // The app runs 1.1.0, so the update bar would come and go with each release check: no shot shows it.
+        document.addEventListener('DOMContentLoaded', () => {
+          document.head.append(Object.assign(document.createElement('style'), { textContent: '.update-bar { display: none }' }))
+        })
       }, mode),
       ...captureArgs(process.argv, process.env),
     })
