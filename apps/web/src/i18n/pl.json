@@ -757,6 +757,7 @@
     "home.private": "Tylko Ty to przeczytasz",
     "home.privateText": "Klucze mają Twoja przeglądarka i Twój komputer. Strona pomiędzy nimi przekazuje zaszyfrowane dane.",
     "footer.whatItDoes": "Co potrafi",
+    "site.languageFailed": "Nie udało się wczytać tego języka. Sprawdź połączenie.",
     "devices.loading": "Szukanie Twoich komputerów",
     "devices.failedTitle": "Nie udało się wczytać Twoich komputerów",
     "devices.failedText": "Strona nie odpowiedziała. Twoje komputery pobierają dalej.",

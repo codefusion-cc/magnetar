@@ -5,7 +5,7 @@ import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-route
 import { DeviceProvider, useDevice } from '../device/DeviceContext.tsx'
 import { DeviceRoutes } from '../device/DeviceRoutes.tsx'
 import { cloud } from '../lib/cloudApi.ts'
-import { browserLanguage, useT } from '../lib/i18n.tsx'
+import { useLanguage, useT } from '../lib/i18n.tsx'
 import { getDeviceKey, type StoredDeviceKey } from '../lib/keyStore.ts'
 import { RelayConnection } from '../lib/relayConnection.ts'
 import { Empty } from '../ui/Empty.tsx'
@@ -68,6 +68,8 @@ export function RemoteDevice() {
 function DeviceView({ device, onRenamed }: { device: CloudDeviceDto; onRenamed: (id: string, name: string) => void }) {
   const [key, setKey] = useState<StoredDeviceKey | null | undefined>(undefined)
   const [connection, setConnection] = useState<RelayConnection | null>(null)
+  // Until the device's settings name its language, its pages are in the website's.
+  const siteLanguage = useLanguage()
 
   useEffect(() => {
     let cancelled = false
@@ -95,7 +97,7 @@ function DeviceView({ device, onRenamed }: { device: CloudDeviceDto; onRenamed: 
   return (
     <DeviceProvider connection={connection} basePath={devicePath(device.name)} deviceName={device.name}>
       <FollowRename device={device} onRenamed={onRenamed} />
-      <DeviceRoutes fallbackLanguage={browserLanguage()}
+      <DeviceRoutes fallbackLanguage={siteLanguage}
         deviceMenu={(label, placement) => <DeviceSwitcher placement={placement}>{label}</DeviceSwitcher>} />
     </DeviceProvider>
   )
