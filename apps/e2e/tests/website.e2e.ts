@@ -119,6 +119,9 @@ test('each computer shows whether this browser can open it now, and how it is', 
     await expect(item.getByText(line, { exact: true })).toBeVisible()
     await expect(item.getByRole('link', { name: `${action}: ${name}`, exact: true })).toHaveAttribute('href', `/${name}`)
   }
+  // Another computer needs the app first: the download sits beside how to add one.
+  await expect(page.getByText('To add a computer, install Magnetar on it, then go to Settings, Remote access, Connect to your account.')).toBeVisible()
+  await expect(page.getByRole('link', { name: /^Download (for (macOS|Windows|Linux)|Magnetar)$/ })).toBeVisible()
   await row(page, 'MacBook-Pro').getByRole('link', { name: 'Link: MacBook-Pro' }).click()
   await expect(page.getByRole('heading', { name: 'This browser is not linked to MacBook-Pro' })).toBeVisible()
 })
@@ -185,6 +188,21 @@ test('a list that could not be read says so instead of looking empty, and Try ag
   await expect(row(page, 'Mac-Mini-M1')).toBeVisible()
   await expect(page.getByRole('alert')).toHaveCount(0)
   expect(site.deviceReads).toBeGreaterThanOrEqual(2)
+})
+
+test('the browser\'s install offer reads as the web app, apart from the app download, and asks the browser once', async ({ page }) => {
+  await serveWebsite(page)
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'Your computers', level: 1 })).toBeVisible()
+  await page.evaluate(() => {
+    const offer = Object.assign(new Event('beforeinstallprompt', { cancelable: true }), { prompt: async () => { (window as { asked?: number }).asked = ((window as { asked?: number }).asked ?? 0) + 1 } })
+    dispatchEvent(offer)
+  })
+  const install = page.getByRole('banner').getByRole('button', { name: 'Install web app', exact: true })
+  await install.click()
+  await expect(install).toHaveCount(0)
+  expect(await page.evaluate(() => (window as { asked?: number }).asked)).toBe(1)
+  await expect(page.getByRole('link', { name: /^Download (for (macOS|Windows|Linux)|Magnetar)$/ })).toBeVisible()
 })
 
 test('while the list is on its way the page says it is looking, and an account without computers says how to add one', async ({ page }) => {

@@ -1013,7 +1013,8 @@ textarea.infall-field { min-height: 7rem; padding: 12px 14px; resize: vertical; 
 .site-commit { font-family: var(--cf-font-mono); font-size: 13px; }
 .site-commit:hover { text-decoration: underline; }
 .site-lead { font-size: 18px; line-height: 1.5; max-width: 58ch; }
-.site-hint { max-width: 64ch; }
+.site-add { display: grid; gap: 10px; justify-items: start; }
+.site-add p { max-width: 64ch; }
 .infall-button.big { gap: 10px; }
 .google-logo { width: 20px; height: 20px; flex: none; }
 /* A control waiting for its answer says so with a turning ring after its words, or a still one without motion. */

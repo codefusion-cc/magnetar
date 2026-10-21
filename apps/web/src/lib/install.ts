@@ -22,7 +22,7 @@ export function captureInstallOffer(): void {
   })
 }
 
-/** "Install app", while the browser offers it: a function that shows the browser's own prompt. */
+/** "Install web app", while the browser offers it: a function that shows the browser's own prompt. */
 export function useInstallOffer(): (() => void) | null {
   const [, rerender] = useReducer((n: number) => n + 1, 0)
   useEffect(() => {

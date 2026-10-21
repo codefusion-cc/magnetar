@@ -16,7 +16,7 @@ import { CloudFrame } from './CloudFrame.tsx'
 import { ComputerRow } from './ComputerRow.tsx'
 import { computerLine, computerStar } from './computerLine.ts'
 import { devicePath } from './devicePaths.ts'
-import { DownloadApp } from './DownloadApp.tsx'
+import { DownloadApp, useGetApp } from './DownloadApp.tsx'
 import { useComputers } from './useComputers.ts'
 
 /** `/` signed in: the account's computers, each with how it is and the way to open or link it. */
@@ -66,7 +66,7 @@ export function DevicesPage() {
                 )
               })}
             </ul>
-            <p className="fine site-hint">{t('devices.addHint')}</p>
+            <AddComputer />
             {canHandleMagnets() && linked.size > 0 && (
               <div className="site-banner">
                 <p>{t('devices.magnetsHint')}</p>
@@ -94,5 +94,17 @@ export function DevicesPage() {
           }
         }} />
     </CloudFrame>
+  )
+}
+
+/** Under the list: how to add another computer, with the app for this one's system. */
+function AddComputer() {
+  const t = useT()
+  const { button } = useGetApp('infall-small sm')
+  return (
+    <div className="site-add">
+      <p className="fine">{t('devices.addHint')}</p>
+      {button}
+    </div>
   )
 }

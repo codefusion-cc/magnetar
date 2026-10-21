@@ -225,7 +225,7 @@ export const content: FeaturesContent = {
         install: {
           title: 'Zainstaluj stronę jako aplikację',
           gain: 'Magnetar na ekranie początkowym telefonu, otwierany na pełnym ekranie jak każda inna aplikacja.',
-          text: 'W Chrome i Edge w nagłówku pojawia się przycisk „Zainstaluj aplikację”; w Safari dodasz ją z menu Udostępnij.',
+          text: 'W Chrome i Edge w nagłówku pojawia się przycisk „Zainstaluj aplikację webową”; w Safari dodasz ją z menu Udostępnij.',
           points: [
             'Na iPhonie i iPadzie dopiero instalacja pozwala stronie wyświetlać powiadomienia',
           ],

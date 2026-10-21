@@ -225,7 +225,7 @@ export const en: FeaturesContent = {
         install: {
           title: 'Install the website as an app',
           gain: 'Magnetar on your phone\'s home screen, opening full screen like any other app.',
-          text: 'In Chrome and Edge an "Install app" button appears in the header; Safari adds it from the Share menu.',
+          text: 'In Chrome and Edge an "Install web app" button appears in the header; Safari adds it from the Share menu.',
           points: [
             'On iPhone and iPad, installing it is what lets the website show notifications',
           ],
