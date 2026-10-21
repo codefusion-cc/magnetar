@@ -14,7 +14,8 @@
  * Developer ID in MACOS_SIGNING_IDENTITY and notarized when APPLE_ID, APPLE_TEAM_ID and
  * APPLE_APP_PASSWORD are set, ad-hoc signed otherwise. On Windows the .exe is signed when
  * WINDOWS_CERTIFICATE is set.
- * The version and the release public key (release-public-key.txt) are compiled in by build.rs.
+ * The version and the update public key (release-public-key.txt, preview-public-key.txt for Magnetar Preview) are
+ * compiled in by build.rs.
  */
 import { execFileSync, execSync, type ExecFileSyncOptions } from 'node:child_process'
 import { chmodSync, cpSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
@@ -70,7 +71,7 @@ if (!values['skip-web']) {
   execSync('pnpm run build', { cwd: join(repo, 'apps', 'web'), env: { ...process.env, VITE_APP_VERSION: version }, stdio: 'inherit' })
 }
 if (!existsSync(join(repo, 'apps', 'web', 'dist', 'index.html'))) throw new Error('apps/web/dist is missing; build the dashboard first')
-if (!process.env.MAGNETAR_RELEASE_PUBLIC_KEY && !existsSync(join(root, 'release-public-key.txt'))) {
+if (!process.env.MAGNETAR_RELEASE_PUBLIC_KEY && !existsSync(join(root, preview ? 'preview-public-key.txt' : 'release-public-key.txt'))) {
   console.warn('No release public key: this build will open the release page instead of installing updates')
 }
 

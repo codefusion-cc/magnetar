@@ -62,6 +62,8 @@ jobs:
     name: Sign and publish
     needs: build
     runs-on: ubuntu-latest
+    # Its own key, readable only from main: Magnetar Preview trusts it (preview-public-key.txt), the released app never does.
+    environment: preview-signing
     permissions:
       contents: write
     steps:
@@ -73,10 +75,10 @@ jobs:
         with:
           name: preview-app
           path: assets
-      # The same signed manifest as a release's, so the preview app installs its updates the way the app does.
+      # A signed manifest as a release's, so the preview app installs its updates the way the app does.
       - name: Checksums and signature
         env:
-          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+          RELEASE_SIGNING_KEY: ${{ secrets.PREVIEW_SIGNING_KEY }}
         run: |
           cd assets && sha256sum Magnetar-* > SHA256SUMS.txt && cd ..
           node packages/release/sign-release.ts assets
