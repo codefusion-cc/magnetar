@@ -399,7 +399,6 @@
     "settings.startupRefresh": "Обновить статус",
     "import.bannerTitle": "Перенесите данные из MediaDownloader 1.x",
     "common.notNow": "Не сейчас",
-    "search.showMore": "Показать ещё (осталось {0})",
     "add.button": "Добавить",
     "add.title": "Добавить magnet-ссылки или торрент-файлы",
     "add.magnets": "Magnet-ссылки",

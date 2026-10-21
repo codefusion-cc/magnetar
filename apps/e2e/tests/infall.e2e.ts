@@ -68,7 +68,7 @@ test('one per-second push renders only its changed row', async ({ page }) => {
   expect(await rendered()).toEqual([[1]])
 })
 
-test('a 120-character title wraps on a phone and text actions remain reachable', async ({ page }) => {
+test('a 120-character title stays one line on a phone and text actions remain reachable', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 780 })
   const device = await serveDevice(page, { design: 'downloads' })
   await page.goto('/')

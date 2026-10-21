@@ -13,6 +13,7 @@ import { formatters, useFormatBytes, useFormatDate, useLanguage, useT } from '..
 import { useConnection, useDevice, useDownloads, useDownloadRead } from '../DeviceContext.tsx'
 import { useLockedRun, useRun } from '../useRun.ts'
 import { DownloadActions, DownloadFacts, ProgressBar, ratioOf } from './downloads.tsx'
+import { WindowedRows } from '../../ui/WindowedRows.tsx'
 import { PlayerDialog, subtitlesFor, type PlayTarget } from './player.tsx'
 
 /** While the download is running, the file list's progress is read again this often. */
@@ -108,6 +109,7 @@ const FileList = memo(function FileList({ id, status, hasMetadata, play, onPlaya
     return () => { cancelled = true; clearInterval(timer) }
   }, [connection, id, running, hasMetadata, retry, isBusy])
 
+  const fileKey = useCallback((index: number) => files![index]!.index, [files])
   const selected = useMemo(() => new Set(files?.filter(f => chosen.get(f.index) ?? f.selected).map(f => f.index)), [chosen, files])
   const dirty = files !== null && files.some(f => f.selected !== selected.has(f.index))
   const chosenBytes = files?.filter(f => selected.has(f.index)).reduce((sum, f) => sum + f.size, 0) ?? 0
@@ -146,23 +148,22 @@ const FileList = memo(function FileList({ id, status, hasMetadata, play, onPlaya
           </button>
         )}
       </div>
-      <>{files.length === 0 && <p className="muted">{t('details.filesPending')}</p>}{error && <p role="alert" className="text-error">{error}</p>}<ul className="download-files">
-        {files.map(file => {
+      {files.length === 0 && <p className="muted">{t('details.filesPending')}</p>}
+      {error && <p role="alert" className="text-error">{error}</p>}
+      {files.length > 0 && <WindowedRows label={t('details.filesHeading')} count={files.length} getKey={fileKey} className="download-files" rowClassName="download-file"
+        renderRow={index => {
+          const file = files[index]!
           const percent = file.size > 0 ? Math.round((file.done / file.size) * 100) : 100
-          return (
-            <li key={file.index} className="download-file">
-              <div className="download-file-label">
-                <input type="checkbox" disabled={saving} checked={selected.has(file.index)}
-                  aria-label={t('details.fileChoose', file.path)} onChange={() => toggle(file.index)} />
-              {file.media && file.selected && (file.done > 0 || running) ? <button type="button" className="break-release text-left hover:underline" aria-label={t('player.play', file.path)} onClick={() => setPlaying({ downloadId: id, file, subtitles: subtitlesFor(file, files) })}>{file.path}</button> : <span className="break-release">{file.path}</span>}</div>
-              <div className="download-file-size">
-                {formatBytes(file.size)}
-              </div>
-              <span className="download-file-state">{!selected.has(file.index) ? t('details.skipped') : percent === 100 ? t('details.fileDone') : `${percent}%`}</span>
-            </li>
-          )
-        })}
-      </ul></>
+          return <>
+            <div className="download-file-label">
+              <input type="checkbox" disabled={saving} checked={selected.has(file.index)}
+                aria-label={t('details.fileChoose', file.path)} onChange={() => toggle(file.index)} />
+              {file.media && file.selected && (file.done > 0 || running) ? <button type="button" className="text-left hover:underline" title={file.path} aria-label={t('player.play', file.path)} onClick={() => setPlaying({ downloadId: id, file, subtitles: subtitlesFor(file, files) })}>{file.path}</button> : <span title={file.path}>{file.path}</span>}
+            </div>
+            <div className="download-file-size">{formatBytes(file.size)}</div>
+            <span className="download-file-state">{!selected.has(file.index) ? t('details.skipped') : percent === 100 ? t('details.fileDone') : `${percent}%`}</span>
+          </>
+        }} />}
       {dirty && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <span className="muted flex-1 text-sm">{selected.size === 0 ? t('details.chooseOne') : t('details.chosenSize', selected.size, formatBytes(chosenBytes))}</span>

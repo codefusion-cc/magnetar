@@ -1,5 +1,5 @@
 import type { DownloadDto, DownloadStatus } from '@magnetar/protocol'
-import { Component, createRef, memo, useState, type ReactNode } from 'react'
+import { memo, useState, type ReactNode } from 'react'
 import { formatters, useFormatBytes, useFormatRate, useFormatEta, useFormatDate, useLanguage, useT } from '../../lib/i18n.tsx'
 import { isActive, isFinished } from '../../lib/downloadViews.ts'
 import { downloadDay, noPeersError } from '../../lib/downloadPresentation.ts'
@@ -22,7 +22,7 @@ export function ProgressBar({ download: d }: { download: DownloadDto }) {
     aria-valuenow={d.status === 'FetchingMetadata' ? undefined : progress} />
 }
 
-export function DownloadFacts({ download: d, down, up, eta }: { download: DownloadDto; down: number; up: number; eta: number | null }) {
+export function DownloadFacts({ download: d, down, up, eta, series }: { download: DownloadDto; down: number; up: number; eta: number | null; series?: string }) {
   const t = useT()
   const language = useLanguage()
   const date = useFormatDate()
@@ -31,6 +31,7 @@ export function DownloadFacts({ download: d, down, up, eta }: { download: Downlo
   const etaText = useFormatEta()
   const done = isFinished(d)
   return <div className="download-meta">
+    {series && <span className="download-series">{series}</span>}
     <span className="download-status" data-status={d.status}>{d.status === 'Error' ? (noPeersError(d.error) ? t('downloads.noPeers') : d.error || t(STATUS.Error)) : t(STATUS[d.status])}</span>
     {(d.status === 'Downloading' || d.status === 'Paused') && <span>{formatters(language).number(d.progress, { maximumFractionDigits: 1 })}%</span>}
     {d.totalBytes > 0 && <span>{done ? bytes(d.totalBytes) : t('downloads.sizeOf', bytes(d.totalBytes * d.progress / 100), bytes(d.totalBytes))}</span>}
@@ -44,39 +45,17 @@ export function DownloadFacts({ download: d, down, up, eta }: { download: Downlo
   </div>
 }
 
-/** Unchanged row objects and scalar speeds let memo skip rows untouched by a push. */
+/** A row's contents for a windowed list, one fixed height: unchanged row objects and scalar speeds let memo skip rows a push leaves alone. */
 export const DownloadRow = memo(function DownloadRow({ download, down, up, eta, seriesName, onOpen }: {
   download: DownloadDto; down: number; up: number; eta: number | null; seriesName?: string; onOpen: (id: number) => void
 }) {
-  return <DownloadItem download={download}>
-    <h2><button type="button" className="break-release" onClick={() => onOpen(download.id)}>{download.name}</button></h2>
-    {seriesName && <p className="muted text-xs">{seriesName}</p>}
+  return <>
+    <h2><button type="button" title={download.name} onClick={() => onOpen(download.id)}>{download.name}</button></h2>
     <ProgressBar download={download} />
-    <DownloadFacts download={download} down={down} up={up} eta={eta} />
+    <DownloadFacts download={download} down={down} up={up} eta={eta} series={seriesName} />
     <DownloadActions download={download} onPlay={onOpen} />
-  </DownloadItem>
+  </>
 })
-
-/** Capture the old height before the facts shorten, including after a viewport resize. */
-class DownloadItem extends Component<{ download: DownloadDto; children: ReactNode }> {
-  private element = createRef<HTMLLIElement>()
-
-  override getSnapshotBeforeUpdate(previous: Readonly<{ download: DownloadDto }>): number | null {
-    return !isFinished(previous.download) && isFinished(this.props.download)
-      ? this.element.current?.getBoundingClientRect().height ?? null : null
-  }
-
-  override componentDidUpdate(_previous: unknown, _state: unknown, height: number | null) {
-    const element = this.element.current
-    if (!element) return
-    if (height !== null) element.style.minHeight = `${height}px`
-    else if (!isFinished(this.props.download)) element.style.removeProperty('min-height')
-  }
-
-  override render() {
-    return <li ref={this.element} className="download-row" data-download-id={this.props.download.id}>{this.props.children}</li>
-  }
-}
 
 /** Pending calls lock synchronously, including clicks before React paints the disabled state. */
 export function DownloadActions({ download, onPlay, remove = true, between, prominent = false }: { download: DownloadDto; onPlay?: (id: number) => void; remove?: boolean; between?: ReactNode; prominent?: boolean }) {

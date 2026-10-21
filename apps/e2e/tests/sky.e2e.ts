@@ -75,9 +75,9 @@ test('on a 200-row list the canvas stays the height of the screen, and the lanes
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/?view=all')
   await expect(page.locator('.download-row')).not.toHaveCount(0)
-  const more = page.getByRole('button', { name: /more/i })
-  while (await more.count()) await more.first().click()
-  await expect(page.locator('.download-row')).toHaveCount(200)
+  // Windowed: the list is 200 rows long, a screenful of them in the page.
+  await expect(page.locator('.download-row').first()).toHaveAttribute('aria-setsize', '200')
+  expect(await page.locator('.download-row').count()).toBeLessThan(20)
   const viewport = page.viewportSize()!
   expect((await lanes(page).boundingBox())!.height).toBeLessThanOrEqual(viewport.height)
 

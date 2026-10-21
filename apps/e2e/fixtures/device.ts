@@ -1,4 +1,4 @@
-import type { DownloadDto, DownloadFileDto, RpcEvents, RpcResults, SettingsDto } from '@magnetar/protocol'
+import type { DownloadDto, DownloadFileDto, FolderEntryDto, RpcEvents, RpcResults, SettingsDto } from '@magnetar/protocol'
 import type { Page, WebSocketRoute } from '@playwright/test'
 import { acceptBrowserHandshake, decodeHandshake, encodeHandshake, FRAME_HANDSHAKE, importBrowserKey, type E2ESession } from '@magnetar/protocol/e2e'
 import { seedDeviceKeys } from './keys.ts'
@@ -15,6 +15,8 @@ export async function serveDevice(page: Page, { name = 'Test computer', language
   const heldLists = new Set<() => void>()
   let files: DownloadFileDto[] = design ? infallFiles() : []
   let listFails = design === 'downloads-fail'
+  /** A folder served a page at a time, as the app pages a long listing. */
+  let folder: { path: string; entries: FolderEntryDto[]; pageSize: number } | null = null
   const settings: SettingsDto = {
     language, downloadFolder: design ? '/Users/alex/Movies' : '/downloads', postDownloadAction: 'StopSeeding', seedRatio: 1,
     disabledProviders: [], downloadLimit: 0, uploadLimit: 0, altDownloadLimit: 0, altUploadLimit: 0,
@@ -133,6 +135,9 @@ export async function serveDevice(page: Page, { name = 'Test computer', language
       else if (method === 'series.checkNow' || method === 'watches.checkNow') {
         if (delay) await new Promise(resolve => setTimeout(resolve, delay))
         result = {found:false}
+      } else if (method === 'fs.browse' && folder && params.path === folder.path) {
+        const offset = Number(params.offset ?? 0)
+        result = { path: folder.path, root: folder.path, separator: '/', entries: folder.entries.slice(offset, offset + folder.pageSize), offset, total: folder.entries.length, truncated: false }
       } else if (method === 'fs.browse' && design) result = infallFolder(params.path)
       else if (method === 'downloads.list') {
         result = structuredClone(downloads)
@@ -191,6 +196,10 @@ export async function serveDevice(page: Page, { name = 'Test computer', language
     /** Fails the next call of `method`, or only the next one whose parameters `when` picks. */
     failNext: (method: string, message: string, code = 'test_failure', when?: (params: Record<string, any>) => boolean) => failures.set(method, { message, code, when }),
     setFiles: (next: DownloadFileDto[]) => { files = next },
+    /** Serves `entries` at `path`, `pageSize` at a time by offset. */
+    setFolder: (path: string, entries: FolderEntryDto[], pageSize = 100) => { folder = { path, entries, pageSize } },
+    /** Replaces the downloads the device lists, before the page asks or with a `downloads.changed` push. */
+    setDownloads: (next: DownloadDto[]) => { downloads = next },
     downloads: () => downloads,
     settings: () => settings,
     disconnect: () => {

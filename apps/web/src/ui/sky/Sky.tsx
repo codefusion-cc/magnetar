@@ -79,8 +79,12 @@ export function LanesSky({ children, one = false }: { children: ReactNode; one?:
   useLayoutEffect(repaint)
   useEffect(() => {
     document.addEventListener('scroll', repaint, { capture: true, passive: true })
-    return () => document.removeEventListener('scroll', repaint, true)
-  }, [repaint])
+    // The windowed list mounts the rows a scroll brings in a frame after the scroll, without rendering this picture:
+    // repaint once they are in, or a still picture keeps the lanes of the rows that left.
+    const mounted = new MutationObserver(records => { if (records.some(r => r.target instanceof Element && r.target.classList.contains('download-list'))) repaint() })
+    if (element) mounted.observe(element, { childList: true, subtree: true })
+    return () => { document.removeEventListener('scroll', repaint, true); mounted.disconnect() }
+  }, [repaint, element])
   return <div className="sky-lanes" ref={hostRef} onPointerDown={() => scene.current?.touch()}>
     <div className="sky-pin"><canvas ref={canvas} className="sky lanes-sky" aria-hidden="true" /></div>
     <div className="sky-content">{children}</div>
@@ -97,7 +101,8 @@ export function FanSky({ revision }: { revision: unknown }) {
       const r = li.getBoundingClientRect()
       return { x: r.right - b.left + 12, y: r.top - b.top + r.height / 2, n: Number(li.dataset.count) }
     })
-    const btn = host.closest('main')?.querySelector('.search-results li .infall-button')?.getBoundingClientRect()
+    // The best result's Download; once it scrolls out of the window it is unmounted, and the star stays by the sources.
+    const btn = host.closest('main')?.querySelector('.search-results li[aria-posinset="1"] .infall-button')?.getBoundingClientRect()
     const aim = frame.width >= 520 && btn && btn.top - b.top < frame.height - 10 ? [btn.left - b.left - 30, btn.top - b.top + btn.height / 2] as const : undefined
     drawFan(frame, rows, aim)
   }, [])

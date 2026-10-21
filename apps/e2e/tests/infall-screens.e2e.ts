@@ -103,21 +103,25 @@ test('Files keeps deep Unicode paths readable on a phone, bounds a 5000-item fol
   const device = await serveDevice(page)
   const deep = '/downloads/' + Array.from({length:12},(_,i)=>`مجلد-é-${i}`).join('/')
   device.setReply('fs.browse',{path:deep,root:'/downloads',separator:'/',entries:Array.from({length:250},(_,i)=>({name:`ملف-é-${i}.txt`,kind:'file',size:1,modified:null,media:null,download:null})),offset:0,total:5000,truncated:false})
+  // A long folder is windowed: 250 entries read, a screenful of them in the page.
+  const windowed = async () => {
+    await expect(page.getByRole('list', { name: /^Contents of / }).getByRole('listitem').first()).toHaveAttribute('aria-setsize', '250')
+    expect(await page.getByRole('list', { name: /^Contents of / }).getByRole('listitem').count()).toBeLessThan(30)
+  }
   await page.goto('/files')
-  await expect(page.getByRole('list', { name: /^Contents of / }).getByRole('listitem')).toHaveCount(250)
+  await windowed()
   await page.evaluate(path => history.replaceState({ ...history.state, usr: { path } }, ''), deep)
   await page.reload()
-  await expect(page.getByRole('list', { name: /^Contents of / }).getByRole('listitem')).toHaveCount(250)
+  await windowed()
   await expect(page.getByRole('navigation',{name:'Folder path'})).toContainText('مجلد-é-11')
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390)
-  await expect(page.getByRole('button',{name:/Show.*4750/})).toBeVisible()
-  // Refresh sits under the list on a phone: getting to it brings Show more into view, which may read more first.
+  // Refresh sits under the list on a phone: getting to it brings the list's end near, which may read more first.
   device.failNext('fs.browse','Folder was removed','test_failure',params => params.offset === undefined)
   await page.getByRole('button',{name:'Refresh',exact:true}).click()
   await expect(page.getByRole('alert')).toBeVisible()
   await expect(page.getByRole('alert')).toContainText('Folder was removed')
   await page.getByRole('button',{name:'Try again',exact:true}).click()
-  await expect(page.getByRole('list', { name: /^Contents of / }).getByRole('listitem')).toHaveCount(250)
+  await windowed()
 })
 
 for (const theme of ['dark','light'] as const) test(`new pages stay usable by keyboard in ${theme}`, async ({ page }) => {

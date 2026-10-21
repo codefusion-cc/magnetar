@@ -113,6 +113,9 @@ download speed and free space; **Slow down** and **Full speed** change the limit
 in **Settings → Downloads**. Open a download for its own page (`/downloads/<id>`, after the computer name on the
 website), with a link back to all downloads, its facts and selectable files. A row finishing in the current Active
 view stays in place until you change views. File selection edits survive progress refreshes.
+Long lists (downloads, search results, a folder in Files, a download's files) keep only the rows on screen in the
+page, so thousands of rows scroll as lightly as ten; a long title ends in an ellipsis and shows in full on hover.
+The browser's find-in-page therefore finds only rows on screen: use the page's own search, views and sort instead.
 
 Revoke a browser, rename the device or disconnect it from the same Settings section, or remove a device from the
 website's device list. How the encryption works is described in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#end-to-end-encryption).

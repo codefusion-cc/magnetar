@@ -314,6 +314,10 @@ body {
 }
 
 @media (max-width: 720px) {
+  /* A control reached by Tab is scrolled clear of the fixed tab bar, not under it. */
+  :root {
+    scroll-padding-bottom: calc(65px + env(safe-area-inset-bottom));
+  }
   .shell-header {
     grid-template-columns: auto minmax(0, 1fr);
     gap: 8px;
@@ -738,13 +742,31 @@ body {
   flex-shrink: 1;
 }
 
-.download-list-many .download-row {
-  min-height: 100px;
+/* A windowed list keeps the reader's row in place itself. The browser's own scroll anchoring would pick whatever
+   follows the list (a count, a button) and carry the reader to the end each time a page of rows is appended. */
+:root { overflow-anchor: none; }
+/* Windowed lists (`ui/WindowedRows.tsx`) give every row one height per breakpoint: a title takes one line and ends
+   in an ellipsis, facts take the lines the height has room for, and the facts that wrap past them are left out. */
+.download-list { --row-height: 101px; }
+.download-row h2 button, .search-results h2 button, .file-entry h2 :is(button, span), .download-file-label > :is(button, span) {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  vertical-align: top;
 }
+.download-row .download-meta { max-height: 21px; overflow: hidden; }
+.search-results { --row-height: 73px; }
+.search-results .search-meta, .file-entry .file-meta { max-height: 21px; overflow: hidden; }
+.folder-entries { --row-height: 64px; }
+.download-files { --row-height: 49px; }
 @media (max-width: 720px) {
-  .download-list-many .download-row {
-    min-height: 176px;
-  }
+  .download-list { --row-height: 168px; }
+  .download-row .download-meta, .search-results .search-meta { max-height: 42px; }
+  .search-results { --row-height: 140px; }
+  .folder-entries.with-actions { --row-height: 106px; }
+  .folder-entries .file-entry { align-content: center; }
 }
 
 @media (max-width: 720px) {
@@ -813,9 +835,9 @@ body {
 .file-entry h2 button { cursor: pointer; text-align: left; min-height: 26px; }
 .file-star { display: grid; place-items: center; width: 30px; height: 30px; }
 .file-star i { display: block; width: calc(4px + var(--z)*7px); aspect-ratio: 1; border-radius: 50%; background: var(--cf-ok); box-shadow: 0 0 calc(4px + var(--z)*8px) 0 var(--cf-ok); }
-.dir .file-star i { width: 5px; background: var(--cf-muted); box-shadow: 8px -5px 0 0 var(--cf-muted),7px 6px 0 -1px var(--cf-muted),-4px 8px 0 -1px var(--cf-muted); }
-.part .file-star i { background: var(--mg-h1); box-shadow: 0 0 10px 1px var(--mg-h1); }
-.part.dir .file-star i { box-shadow: 8px -5px 0 0 var(--cf-muted),7px 6px 0 -1px var(--cf-muted),-4px 8px 0 -1px var(--cf-muted); }
+.file-star.dir i { width: 5px; background: var(--cf-muted); box-shadow: 8px -5px 0 0 var(--cf-muted),7px 6px 0 -1px var(--cf-muted),-4px 8px 0 -1px var(--cf-muted); }
+.file-star.part i { background: var(--mg-h1); box-shadow: 0 0 10px 1px var(--mg-h1); }
+.file-star.part.dir i { box-shadow: 8px -5px 0 0 var(--cf-muted),7px 6px 0 -1px var(--cf-muted),-4px 8px 0 -1px var(--cf-muted); }
 .still-arriving { color: var(--cf-info); font-weight: 500; }
 .folder-empty { margin: 18px 0; color: var(--cf-muted); }
 .folder-count { border-top: 1px solid var(--cf-line); padding-top: 12px; font-size: 14px; color: var(--cf-muted); }

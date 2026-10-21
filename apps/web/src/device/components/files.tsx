@@ -10,7 +10,7 @@ import { useFormatBytes, useFormatDate, useLanguage, useT } from '../../lib/i18n
 import { RpcError } from '../../lib/rpcClient.ts'
 import { Field } from '../../ui/fields.tsx'
 import { ConfirmDialog } from '../../ui/Modal.tsx'
-import { ShowMore } from '../../ui/ShowMore.tsx'
+import { WindowedRows } from '../../ui/WindowedRows.tsx'
 import { Empty } from '../../ui/Empty.tsx'
 import { Loading } from '../../ui/Loading.tsx'
 import { downloadDay } from '../../lib/downloadPresentation.ts'
@@ -46,10 +46,10 @@ export function rootLabel(root: Pick<FolderRootDto, 'kind' | 'path'>, separator:
 type FolderState =
   | { status: 'loading'; path: string }
   | { status: 'error'; path: string; message: string; code: string }
-  | { status: 'ready'; page: FolderPageDto; entries: FolderEntryDto[]; next: number; more: 'idle' | 'loading' }
+  | { status: 'ready'; page: FolderPageDto; entries: FolderEntryDto[]; next: number; more: 'idle' | 'loading' | 'failed' }
 
 /**
- * A folder's entries as its pages arrive: the first on opening, the next on asking. Answers for a folder left in the
+ * A folder's entries as its pages arrive: the first on opening, the next as the list's end comes near. Answers for a folder left in the
  * meantime are dropped, and a folder that failed for want of a connection is read again once it is back.
  */
 function useFolder(path: string | null, foldersOnly: boolean) {
@@ -89,9 +89,10 @@ function useFolder(path: string | null, foldersOnly: boolean) {
         if (id !== latest.current) return
         const now = current.current
         if (now?.status !== 'ready') return
-        setState(page
+        // A page that failed is not asked for again by itself; the list offers to try again.
+        setState(current.current = page
           ? { ...now, page, entries: appendPage(now.entries, page.entries), next: now.next + page.entries.length, more: 'idle' }
-          : { ...now, more: 'idle' })
+          : { ...now, more: 'failed' })
       })
   }, [connection, foldersOnly, run])
 
@@ -216,6 +217,7 @@ export function FolderPanel({ path, roots, foldersOnly = false, onOpen, onHome, 
     const facts = [entry.size !== null ? formatBytes(entry.size) : null, entry.modified && downloadDay(language, entry.modified, modifiedToday, new Date(), 'file')].filter(Boolean) as string[]
     return { entry, facts, title: entry.modified ? formatDate(entry.modified, true) : undefined }
   }) ?? [], [entries, formatBytes, formatDate, language])
+  const entryKey = useCallback((index: number) => rows[index]!.entry.name, [rows])
   const openEntry = useCallback((name: string) => onOpen(joinPath(page?.path ?? path, name, separator)), [onOpen, page?.path, path, separator])
   // Before the page says, the outermost root holding the folder, as the device picks it.
   const root = page?.root ?? roots.filter(r => isWithin(path, r.path, separator)).sort((a, b) => a.path.length - b.path.length)[0]?.path ?? path
@@ -281,19 +283,23 @@ export function FolderPanel({ path, roots, foldersOnly = false, onOpen, onHome, 
           {state.page.truncated && <p className="muted text-xs">{t('files.truncated', state.page.total)}</p>}
           {state.entries.length === 0
             ? <p className="folder-empty">{t(foldersOnly ? 'files.noFolders' : 'files.empty')}</p>
-            : (
-              <ul aria-label={t('files.contents', name)} aria-busy={state.more === 'loading'}
-                className={`folder-entries ${compact ? 'max-h-80 overflow-y-auto' : ''}`}>
-                {rows.map(row => <EntryRow key={row.entry.name} {...row} onOpen={openEntry} fileActions={fileActions} />)}
-              </ul>
-            )}
+            : compact
+              // A dialog scrolls its own box, which a windowed list does not follow: the picker lists folders a page at
+              // a time and asks for the next as its end scrolls near.
+              ? <ul aria-label={t('files.contents', name)} aria-busy={state.more === 'loading'} className="folder-entries max-h-80 overflow-y-auto"
+                  onScroll={event => { const box = event.currentTarget; if (state.more === 'idle' && box.scrollHeight - box.scrollTop - box.clientHeight < 200) loadMore() }}>
+                  {rows.map(row => <li key={row.entry.name} className="file-entry"><EntryRow {...row} onOpen={openEntry} fileActions={fileActions} /></li>)}
+                </ul>
+              : <WindowedRows label={t('files.contents', name)} busy={state.more === 'loading'} count={rows.length} getKey={entryKey}
+                  className={`folder-entries ${fileActions && rows.some(row => row.entry.download) ? 'with-actions' : ''}`} rowClassName="file-entry"
+                  renderRow={index => <>
+                    <EntryRow {...rows[index]!} onOpen={openEntry} fileActions={fileActions} />
+                    {index === rows.length - 1 && state.more === 'idle' && state.next < state.page.total && <WhenShown onShown={loadMore} />}
+                  </>} />}
           {state.entries.length === 0 && header && trail.length > 1 && toolbar?.(state.page)}
           {header && state.entries.length > 0 && <p className="folder-count">{count}</p>}
-          {state.next < state.page.total && (
-            state.more === 'loading'
-              ? <div className="flex justify-center py-3"><span className="loading loading-spinner loading-sm text-primary" /></div>
-              : <ShowMore remaining={state.page.total - state.next} onMore={loadMore} />
-          )}
+          {state.more === 'loading' && <div className="flex justify-center py-3"><span className="loading loading-spinner loading-sm text-primary" /></div>}
+          {state.more === 'failed' && <p className="infall-acts py-3"><button type="button" className="infall-small" onClick={loadMore}>{t('common.retry')}</button></p>}
         </>
       )}
     </section>
@@ -306,20 +312,28 @@ function DownloadEntry({ entry, children }: { entry: FolderEntryDto; children: (
   return children(download && download.progress < 100 ? download.progress : null)
 }
 
+/** Runs `onShown` once as it mounts: the last loaded row of a windowed list mounts as the list's end comes near. */
+function WhenShown({ onShown }: { onShown: () => void }) {
+  useEffect(() => { onShown() }, [onShown])
+  return null
+}
+
+/** One entry's contents inside its fixed-height row: a folder as a cluster, a file as a star, one still arriving as an ember. */
 const EntryRow = memo(function EntryRow({ entry, facts, title, onOpen, fileActions }: {
   entry: FolderEntryDto; facts: string[]; title?: string
   onOpen: (name: string) => void; fileActions?: (entry: FolderEntryDto) => ReactNode
 }) {
   const t = useT()
-  const render = (percent: number | null) => <li className={`file-entry ${entry.kind === 'folder' ? 'dir' : ''} ${percent !== null ? 'part' : ''}`} style={{ '--z': Math.max(.15, Math.min(1, Math.log10(Math.max((entry.size ?? 1e8) / 1e6, 1)) / 4)) } as React.CSSProperties}>
-    <span className="file-star" aria-hidden="true"><i /></span>
-    <div className="file-body"><h2>{entry.kind === 'folder' ? <button type="button" onClick={() => onOpen(entry.name)}>{entry.name}</button> : entry.name}</h2>
+  const render = (percent: number | null) => <>
+    <span className={`file-star ${entry.kind === 'folder' ? 'dir' : ''} ${percent !== null ? 'part' : ''}`} aria-hidden="true"
+      style={{ '--z': Math.max(.15, Math.min(1, Math.log10(Math.max((entry.size ?? 1e8) / 1e6, 1)) / 4)) } as React.CSSProperties}><i /></span>
+    <div className="file-body"><h2>{entry.kind === 'folder' ? <button type="button" title={entry.name} onClick={() => onOpen(entry.name)}>{entry.name}</button> : <span title={entry.name}>{entry.name}</span>}</h2>
       <p className="file-meta" title={title}>{facts.map(f => <span key={f}>{f}</span>)}
         {percent !== null && <span className="still-arriving">{t('files.arriving', Math.round(percent))}</span>}
       </p>
     </div>
     {entry.download && <div className="file-actions">{fileActions?.(entry)}</div>}
-  </li>
+  </>
   return entry.download ? <DownloadEntry entry={entry}>{render}</DownloadEntry> : render(null)
 })
 

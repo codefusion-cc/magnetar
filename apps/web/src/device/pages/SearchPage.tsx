@@ -16,7 +16,7 @@ import { Segmented } from '../../ui/controls.tsx'
 import { Loading } from '../../ui/Loading.tsx'
 import { Modal } from '../../ui/Modal.tsx'
 import { Select } from '../../ui/Select.tsx'
-import { PAGE_SIZE, ShowMore } from '../../ui/ShowMore.tsx'
+import { WindowedRows } from '../../ui/WindowedRows.tsx'
 import { useCopy, useToast } from '../../ui/toast.tsx'
 import { useDevice, useSearch } from '../DeviceContext.tsx'
 import { resolutionOptions } from '../components/qualityFields.tsx'
@@ -73,7 +73,6 @@ export function SearchPage() {
     setAdded(s => new Set(s).add(result.resultId))
     setDetails(null)
   })
-  const [shown, setShown] = useState(PAGE_SIZE)
   // The search on screen lives in the address bar (/search/dragon?res=720p&source=tpb&sort=new), so a
   // reload, a bookmark, a shared link or Back shows the same one.
   const [params] = useSearchParams()
@@ -98,7 +97,6 @@ export function SearchPage() {
     starting.current = targetKey
     const own = ++nextSearchRequest
     if (search.searchId && search.searching) void connection.call('search.cancel', { searchId: search.searchId }).catch(() => {})
-    setShown(PAGE_SIZE)
     setSearch(s => ({ ...s, query: target.query, ran: searchKey(target), searching: true, results: [], outcomes: [], searchId: null, requestId: own }))
     const query = [target.query, target.resolution].filter(Boolean).join(' ')
     const started = await run(() => connection.call('search.start', { query, source: target.source || undefined }), 'search.failed')
@@ -130,7 +128,9 @@ export function SearchPage() {
     if (key && proper) setSearchAddress(address)
   }, [key, proper, address])
 
-  const results = useMemo(() => (search.results ? [...search.results].sort(SORTS[sort]) : null), [search.results, sort])
+  // One row per result id: a batch the computer sends twice must not list a result twice.
+  const results = useMemo(() => (search.results ? [...new Map(search.results.map(r => [r.resultId, r])).values()].sort(SORTS[sort]) : null), [search.results, sort])
+  const resultKey = useCallback((index: number) => results![index]!.resultId, [results])
   const downloadTo = useCallback((result: SearchResultDto) => request(result, true), [request])
 
   // Stable between keystrokes, so the streams' picture repaints only when a source answers.
@@ -159,12 +159,8 @@ export function SearchPage() {
         </div>
       </div>
       <Outcomes list={outcomes} line={line} allFailed={allFailed} searching={search.searching} />
-      {!!results?.length && <>
-        <ul aria-label={t('search.title')} className="search-results">
-          {results.slice(0, shown).map((r, i) => <ResultRow key={r.resultId} result={r} best={i === 0} busy={busy} added={added.has(r.resultId)} onOpen={setDetails} onDownload={request} />)}
-        </ul>
-        {results.length > shown && <ShowMore remaining={results.length - shown} onMore={() => setShown(n => n + PAGE_SIZE)} />}
-      </>}
+      {!!results?.length && <WindowedRows label={t('search.title')} count={results.length} getKey={resultKey} className="search-results"
+        renderRow={i => <ResultRow result={results[i]!} best={i === 0} busy={busy} added={added.has(results[i]!.resultId)} onOpen={setDetails} onDownload={request} />} />}
       {search.searching && <Loading rows={2} text={t('search.searching')} skeletonOnly />}
       {search.ran && !search.searching && !results?.length && <>
         <p className="search-hint">{t(allFailed ? 'search.networkHint' : 'search.noResultsHint', deviceName)}</p>
@@ -220,10 +216,10 @@ const ResultRow = memo(function ResultRow({ result: r, added, best, busy, onOpen
   const tagLine = [tags.resolution, tags.hdr, tags.source, tags.codec].filter(Boolean).join(' ')
   const merit = Math.min(1, Math.log(r.seeders + 1) / Math.log(125))
   return (
-    <li style={{ '--m': merit } as React.CSSProperties}>
-      <i className="gl" aria-hidden="true" />
+    <>
+      <i className="gl" style={{ '--m': merit } as React.CSSProperties} aria-hidden="true" />
       <div className="res-b">
-        <h2><button type="button" onClick={() => onOpen(r)}>{r.title}</button></h2>
+        <h2><button type="button" title={r.title} onClick={() => onOpen(r)}>{r.title}</button></h2>
         <p className="search-meta">{tagLine && <span className="tags">{tagLine}</span>}
           <span>{formatBytes(r.sizeBytes)}</span><span>{searchCount(t, language, 'seeders', r.seeders)}</span>
           {r.publishedAt && <span>{formatRelative(r.publishedAt)}</span>}<span>{r.source}</span>
@@ -231,7 +227,7 @@ const ResultRow = memo(function ResultRow({ result: r, added, best, busy, onOpen
       </div>
       <button type="button" className={`infall-button ${best && !added ? '' : 'quiet'}`} disabled={added || busy}
         onClick={() => onDownload(r)} aria-label={`${label}: ${r.title}`}>{label}</button>
-    </li>
+    </>
   )
 })
 

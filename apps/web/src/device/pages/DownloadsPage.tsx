@@ -11,9 +11,9 @@ import { Segmented } from '../../ui/controls.tsx'
 import { Empty } from '../../ui/Empty.tsx'
 import { LanesSky } from '../../ui/sky/Sky.tsx'
 import { Loading } from '../../ui/Loading.tsx'
+import { WindowedRows } from '../../ui/WindowedRows.tsx'
 import { magnetsIn } from '../../lib/magnets.ts'
 import { useSteadySpeeds } from '../../lib/steadySpeed.ts'
-import { PAGE_SIZE, ShowMore } from '../../ui/ShowMore.tsx'
 import { useDevice, useDownloads, useDownloadRead, useSearchLink } from '../DeviceContext.tsx'
 import { AddDownloadDialog, DropOverlay, useAddShortcuts, type PendingAdd } from '../components/addDownload.tsx'
 import { DownloadRow } from '../components/downloads.tsx'
@@ -90,23 +90,17 @@ export function DownloadsPage() {
   </div></LanesSky></>)
 }
 
-/** Downloads in rows, limited a page at a time; series callers reuse the same list. */
+/** Downloads in fixed-height rows, only those on screen mounted; series callers reuse the same list. */
 export function DownloadList({ downloads, hideSeries = false }: { downloads: DownloadDto[]; hideSeries?: boolean }) {
   const t = useT()
   const { series, basePath } = useDevice()
   const navigate = useNavigate()
-  const [limit, setLimit] = useState(PAGE_SIZE)
   const names = useMemo(() => new Map(series.map(s => [s.id, s.name])), [series])
   const unknown = t('downloads.unknownSeries')
   const seriesName = (d: DownloadDto) => (d.seriesTaskId === null || hideSeries ? undefined : names.get(d.seriesTaskId) || unknown)
   const open = useCallback((id: number) => navigate(`${basePath}/downloads/${id}`), [navigate, basePath])
   const speeds = useSteadySpeeds(downloads)
-  return (
-    <>
-      <ul aria-label={t('downloads.title')} className={`download-list${downloads.length > PAGE_SIZE ? ' download-list-many' : ''}`}>
-        {downloads.slice(0, limit).map(d => <DownloadRow key={d.id} download={d} {...speeds.get(d.id)!} seriesName={seriesName(d)} onOpen={open} />)}
-      </ul>
-      {downloads.length > limit && <ShowMore remaining={downloads.length - limit} onMore={() => setLimit(n => n + PAGE_SIZE)} />}
-    </>
-  )
+  const getKey = useCallback((index: number) => downloads[index]!.id, [downloads])
+  return <WindowedRows label={t('downloads.title')} count={downloads.length} getKey={getKey} className="download-list" rowClassName="download-row"
+    renderRow={index => { const d = downloads[index]!; return <DownloadRow download={d} {...speeds.get(d.id)!} seriesName={seriesName(d)} onOpen={open} /> }} />
 }
