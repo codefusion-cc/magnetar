@@ -320,7 +320,7 @@ export const en: FeaturesContent = {
         languages: {
           title: 'In your language',
           gain: 'The dashboard and this page in English and Polish.',
-          text: 'Pick a language in Settings → General; it applies to every browser that opens that computer. The website\'s own pages follow your browser\'s language.',
+          text: 'Pick a language in Settings → General; it applies to every browser that opens that computer. The website\'s own pages follow your browser\'s language, or the one you pick at the bottom of the page.',
           points: ['Dates and times are written the way your language writes them'],
         },
       },

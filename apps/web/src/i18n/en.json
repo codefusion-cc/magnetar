@@ -757,6 +757,7 @@
     "home.private": "Only you can read it",
     "home.privateText": "Your browser and your computer hold the keys. The website between them passes sealed data along.",
     "footer.whatItDoes": "What it does",
+    "site.languageFailed": "Couldn't load that language. Check your connection.",
     "devices.loading": "Looking for your computers",
     "devices.failedTitle": "Could not load your computers",
     "devices.failedText": "The website did not answer. Your computers keep downloading.",

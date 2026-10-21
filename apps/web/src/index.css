@@ -1009,6 +1009,9 @@ textarea.infall-field { min-height: 7rem; padding: 12px 14px; resize: vertical; 
 .site-footer .setting-link { min-height: 36px; color: var(--cf-muted); }
 .site-head .setting-link { min-height: 44px; }
 .site-footer .setting-link:hover { color: var(--cf-ink); }
+/* The languages end the row; the one shown is in the page's ink, without the link's line. */
+.site-languages { display: inline-flex; gap: 16px; margin-inline-start: auto; }
+.site-languages .setting-link:is([aria-pressed="true"], [aria-current]) { color: var(--cf-ink); text-decoration: none; cursor: default; }
 .site-commit { font-family: var(--cf-font-mono); font-size: 13px; }
 .site-commit:hover { text-decoration: underline; }
 .site-lead { font-size: 18px; line-height: 1.5; max-width: 58ch; }

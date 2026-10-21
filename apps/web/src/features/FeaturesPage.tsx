@@ -1,5 +1,5 @@
 /**
- * The features page, /features (in the browser's language) and /features/<language>: what Magnetar does, open to
+ * The features page, /features (in the website's language) and /features/<language>: what Magnetar does, open to
  * everyone, with screenshots of the real app in the viewer's theme. The page is @codefusion-cc/features-page's;
  * the words are content/*.ts over outline.ts, the screenshots shots/ (apps/e2e/features/screenshots.ts).
  */
@@ -16,7 +16,8 @@ import { useAccount } from '../cloud/CloudApp.tsx'
 import { SiteFooter } from '../cloud/CloudFrame.tsx'
 import { ThemeToggle } from '../ui/ThemeToggle.tsx'
 import { DownloadApp } from '../cloud/DownloadApp.tsx'
-import { browserLanguage, I18nProvider, LANGUAGES } from '../lib/i18n.tsx'
+import { I18nProvider, LANGUAGES } from '../lib/i18n.tsx'
+import { useSiteLanguage } from '../cloud/SiteLanguage.tsx'
 import { Select } from '../ui/Select.tsx'
 import { BrandMark } from '../ui/BrandMark.tsx'
 import { Loading } from '../ui/Loading.tsx'
@@ -48,15 +49,18 @@ const ROWS: FeatureClassNames = {
 /** The short entries (what it keeps, what it is built on): a title and a line under it. */
 const ENTRIES: FeatureClassNames = { list: 'fp-entries', item: 'fp-entry', title: 'fp-entry-title', text: 'fp-text' }
 
-/** The language the address names (null for one the page isn't written in), else the browser's. */
-function pageLanguage(param: string | undefined): string | null {
-  if (param === undefined) return browserLanguage()
+/** The language the address names (null for one the page isn't written in), else the website's. */
+function pageLanguage(param: string | undefined, site: string): string | null {
+  if (param === undefined) return site
   return FEATURE_LANGUAGES.includes(param) ? param : null
 }
 
+/** A language's address of this page. */
+const featuresPath = (code: string) => `/features/${code}`
+
 export default function FeaturesRoute() {
   const { lang } = useParams()
-  const language = pageLanguage(lang)
+  const language = pageLanguage(lang, useSiteLanguage().language)
   // What the page shows for the language asked for: in it, or in English when it could not be loaded.
   const [shown, setShown] = useState<{ asked: string; language: string; content: FeaturesContent } | null>(() => {
     const ready = language ? loadedContent(language) : undefined
@@ -154,7 +158,7 @@ function FeaturesView({ language, content }: { language: string; content: Featur
             <Closing content={content} />
           </div>
         </main>
-        <SiteFooter column="fp-wrap" />
+        <SiteFooter column="fp-wrap" languageHref={featuresPath} />
       </div>
     </ShotsProvider>
   )
@@ -168,6 +172,7 @@ function useAccountLink(content: FeaturesContent) {
 
 function Header({ language, content }: { language: string; content: FeaturesContent }) {
   const navigate = useNavigate()
+  const { choose } = useSiteLanguage()
   const account = useAccountLink(content)
   return (
     <header className="fp-header">
@@ -176,7 +181,7 @@ function Header({ language, content }: { language: string; content: FeaturesCont
           <BrandMark />
           <span className="font-display text-[15px]">Magnetar</span>
         </Link>
-        <Select look="small" label={content.header.language} value={language} onChange={next => navigate(`/features/${next}`, { replace: true })}
+        <Select look="small" label={content.header.language} value={language} onChange={next => { void choose(next); navigate(featuresPath(next), { replace: true }) }}
           options={LANGUAGES.map(l => ({ value: l.code, label: l.name, lang: l.code }))} />
         <Link to={account.to} className="infall-button fp-account" aria-label={account.label}>
           {account.signedIn ? <ArrowRight size={16} aria-hidden /> : <LogIn size={16} aria-hidden />}
