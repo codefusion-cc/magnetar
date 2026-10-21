@@ -365,7 +365,7 @@ fn rows(s: &Snapshot) -> Vec<Row> {
     // Updates.
     let updates = &s.updates;
     rows.push(Row::Separator);
-    let build = format!("Magnetar {}", build_label());
+    let build = format!("{APP_NAME} {}", build_label());
     if updates.installing {
         rows.push(Row::Label(build));
         rows.push(Row::Label("Installing update…".into()));
@@ -389,7 +389,7 @@ fn rows(s: &Snapshot) -> Vec<Row> {
         });
     }
     rows.push(item("What's New…", Command::OpenSettings(Some("about"))));
-    rows.push(item("Quit Magnetar", Command::Quit));
+    rows.push(item(format!("Quit {APP_NAME}"), Command::Quit));
     rows
 }
 

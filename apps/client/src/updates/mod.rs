@@ -503,7 +503,7 @@ impl UpdateService {
     fn notify_channels(&self, release: &Release) {
         self.notifications.notify(
             "update",
-            format!("Magnetar {} is available", release.info.tag),
+            format!("{APP_NAME} {} is available", release.info.tag),
             format!(
                 "You are running {VERSION}. Install it from Settings or the menu-bar icon, or download it from {}",
                 release.info.url
@@ -519,7 +519,7 @@ impl UpdateService {
         let (action, label) = UPDATE_BUTTONS[if installs { 0 } else { 1 }];
         notify::show(Notice {
             kind: "update",
-            title: format!("Magnetar {} is available", release.info.version),
+            title: format!("{APP_NAME} {} is available", release.info.version),
             body: summary(release),
             actions: vec![(action, label.to_owned())],
         });
@@ -1255,6 +1255,56 @@ echo "$version" >> "$here/started"
         assert_eq!(swap.read("started"), "");
         assert_eq!(swap.read("Mac Apps/Magnetar.app/version"), "old");
         assert_eq!(swap.read("work/Replacement.app/version"), "new");
+    }
+
+    /// A bundle signed ad hoc as `identifier`, the way `package.ts` signs one without a certificate.
+    #[cfg(target_os = "macos")]
+    fn signed_app(app: &std::path::Path, identifier: &str) {
+        std::fs::create_dir_all(app.join("Contents/MacOS")).unwrap();
+        std::fs::copy("/usr/bin/true", app.join("Contents/MacOS/Magnetar")).unwrap();
+        let plist = format!(
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<plist version=\"1.0\"><dict><key>CFBundleExecutable</key><string>Magnetar</string><key>CFBundleIdentifier</key><string>{identifier}</string></dict></plist>\n"
+        );
+        std::fs::write(app.join("Contents/Info.plist"), plist).unwrap();
+        let signed = std::process::Command::new("/usr/bin/codesign")
+            .args(["--force", "--sign", "-", "--identifier", identifier])
+            .arg(app)
+            .output()
+            .unwrap();
+        assert!(signed.status.success(), "{}", String::from_utf8_lossy(&signed.stderr));
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn a_downloaded_bundle_replaces_the_app_only_when_signed_as_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path();
+        signed_app(&path.join("Mac Apps/Magnetar Preview.app"), "cc.codefusion.magnetar.preview");
+        signed_app(&path.join("download/Magnetar Preview.app"), "cc.codefusion.magnetar.preview");
+        signed_app(&path.join("download/Magnetar.app"), "cc.codefusion.magnetar");
+        std::fs::write(path.join("install.sh"), MAC_INSTALL_SCRIPT).unwrap();
+        let mut runs = 0;
+        let mut prepare = |app: &str, identifier: Option<&str>| {
+            runs += 1;
+            let work = path.join(format!("work-{runs}"));
+            std::fs::create_dir_all(&work).unwrap();
+            let mut command = std::process::Command::new("/bin/bash");
+            command
+                .arg(path.join("install.sh"))
+                .arg("prepare")
+                .arg(path.join("Mac Apps/Magnetar Preview.app"))
+                .arg(path.join("download").join(app))
+                .arg(&work);
+            command.args(identifier);
+            command.status().unwrap().success()
+        };
+        assert!(prepare("Magnetar Preview.app", Some("cc.codefusion.magnetar.preview")));
+        // Magnetar's own bundle never replaces Magnetar Preview, nor the other way round.
+        assert!(!prepare("Magnetar.app", Some("cc.codefusion.magnetar.preview")));
+        assert!(!prepare("Magnetar Preview.app", Some("cc.codefusion.magnetar")));
+        // An identifier that would widen the requirement to both is refused before codesign reads it.
+        assert!(!prepare("Magnetar.app", Some("cc.codefusion.magnetar.preview\" or identifier \"cc.codefusion.magnetar")));
+        assert!(!prepare("Magnetar Preview.app", None));
     }
 
     #[test]

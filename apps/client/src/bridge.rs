@@ -12,12 +12,12 @@ use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::sync::Mutex;
 
 use crate::api::agent_access::EndpointFile;
+use crate::config::APP_NAME;
 use crate::http::mcp::error;
 use crate::paths::Paths;
 
 /// How long a freshly started app gets to answer.
 const START_WAIT: Duration = Duration::from_secs(20);
-const NOT_RUNNING: &str = "Magnetar isn't running. Open it on this computer, then try again.";
 
 /// Passes messages until `input` ends. `mcp_url` is read again for every message, so a restarted
 /// app on another port is found; `start_app` is tried once, when the app can't be reached. The app
@@ -83,13 +83,15 @@ async fn relay(
             response = attempt().await;
         }
     }
-    let Some(response) = response else { return fail(NOT_RUNNING) };
+    let Some(response) = response else {
+        return fail(&format!("{APP_NAME} isn't running. Open it on this computer, then try again."));
+    };
     let status = response.status();
     let body: Value = response.json().await.unwrap_or(Value::Null);
     match status.as_u16() {
         200 => Some(body),
         202 => None,
-        _ => fail(&body["error"].as_str().map_or_else(|| format!("Magnetar answered {status}"), str::to_owned)),
+        _ => fail(&body["error"].as_str().map_or_else(|| format!("{APP_NAME} answered {status}"), str::to_owned)),
     }
 }
 
