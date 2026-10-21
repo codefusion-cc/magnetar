@@ -8,9 +8,13 @@ use crate::error::{ApiError, ApiResult};
 use crate::protocol::LoginStartupStatus;
 
 #[cfg(target_os = "macos")]
-const MAC_LABEL: &str = "cc.codefusion.magnetar.start-at-login";
+const MAC_LABEL: &str = if crate::config::PREVIEW {
+    "cc.codefusion.magnetar.preview.start-at-login"
+} else {
+    "cc.codefusion.magnetar.start-at-login"
+};
 #[cfg(windows)]
-const WINDOWS_VALUE: &str = "Magnetar";
+const WINDOWS_VALUE: &str = crate::config::APP_NAME;
 #[cfg(windows)]
 const RUN_KEY: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
 

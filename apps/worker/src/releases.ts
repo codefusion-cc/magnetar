@@ -1,4 +1,4 @@
-import { fetchGitHubReleases, latestRelease, type Release, type ReleasesFailure } from '@codefusion-cc/app-update'
+import { fetchGitHubReleases, latestRelease, parseVersion, type Release, type ReleasesFailure } from '@codefusion-cc/app-update'
 import { json, jsonError } from '@codefusion-cc/workers-http'
 import { MAGNETAR_REPO, type LatestReleaseDto, type ReleaseArch, type ReleasePlatform, type ReleasesDto, type ReleasesProblem } from '@magnetar/protocol/cloud'
 import type { Env } from './env.ts'
@@ -12,9 +12,13 @@ const PER_PAGE = 20
 const MAX_NOTES = 64 * 1024
 const MAX_CHANGELOG = 256 * 1024
 
+/** A build of Magnetar Preview (`1.2.9-preview.412`), which CI publishes from main as a pre-release. */
+export const isPreviewBuild = (version: string) => parseVersion(version)?.prerelease[0] === 'preview'
+
 export function toLatestRelease(release: Release): LatestReleaseDto {
   return {
     version: release.version,
+    ...(isPreviewBuild(release.version) ? { preview: true as const } : {}),
     publishedAt: release.publishedAt,
     pageUrl: release.url,
     assets: release.assets.flatMap(asset => {
@@ -37,7 +41,8 @@ const cached = { 'cache-control': `public, max-age=${CACHE_SECONDS}` }
 /**
  * The app's releases for visitors to the website: the newest one's downloads (`/api/releases/latest`) and what each
  * brings (`/api/releases`, the changelog and the "your app is outdated" notice). One GitHub list answers both, asked
- * at most every ten minutes per data centre; the page's own CSP keeps it from calling GitHub directly. A
+ * at most every ten minutes per data centre; the page's own CSP keeps it from calling GitHub directly. The preview
+ * website's downloads are Magnetar Preview's newest build; no changelog lists those builds. A
  * `GITHUB_TOKEN` secret, when set, raises GitHub's rate limit for the Worker's shared addresses.
  */
 export async function handleReleases(request: Request, env: Env, path: string, send: typeof fetch = fetch): Promise<Response | null> {
@@ -49,12 +54,13 @@ export async function handleReleases(request: Request, env: Env, path: string, s
     fetch: send,
     init: { cf: { cacheTtl: CACHE_SECONDS, cacheEverything: true } } as RequestInit,
   })
-  const releases = result.ok ? result.releases : []
+  const listed = result.ok ? result.releases : []
   if (path === '/api/releases/latest') {
-    const latest = latestRelease(releases)
+    const latest = env.APP_ENV === 'preview' ? listed.find(release => isPreviewBuild(release.version)) : latestRelease(listed)
     if (latest) return json(toLatestRelease(latest), { headers: cached })
     return result.ok || result.reason === 'not-found' ? jsonError(404, 'No release yet') : jsonError(502, `GitHub could not be read (${result.reason})`)
   }
+  const releases = listed.filter(release => !isPreviewBuild(release.version))
   const problem = result.ok || result.reason === 'not-found' ? null : PROBLEMS[result.reason]
   let budget = MAX_CHANGELOG
   const body: ReleasesDto = {

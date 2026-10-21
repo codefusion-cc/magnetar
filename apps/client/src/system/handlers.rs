@@ -13,6 +13,7 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
+use crate::config::LINK_SCHEME;
 use crate::error::{ApiError, ApiResult};
 use crate::protocol::encoding::encode_uri_component;
 
@@ -34,9 +35,6 @@ pub enum OpenTarget {
     /// It only opens the page, so a site that sends someone here cannot connect anything by itself.
     Connect,
 }
-
-/// The scheme of the app's own links.
-const LINK_SCHEME: &str = "magnetar";
 
 impl OpenTarget {
     /// A command-line argument, or a URL macOS hands over.
@@ -79,7 +77,7 @@ impl OpenTarget {
 }
 
 #[cfg(target_os = "macos")]
-const BUNDLE_ID: &str = "cc.codefusion.magnetar";
+use crate::config::BUNDLE_ID;
 
 pub fn status() -> HandlerStatus {
     platform::status()
@@ -217,12 +215,15 @@ mod platform {
         }
     }
 
+    /// The class .torrent files point at; Magnetar Preview's own, so it never takes over the released app's.
+    const TORRENT_CLASS: &str = if crate::config::PREVIEW { "MagnetarPreview.torrent" } else { "Magnetar.torrent" };
+
     pub fn register() -> ApiResult<()> {
         let exe = installed_exe().expect("checked by status");
         let open = command(&exe);
         let icon = format!("\"{}\",0", exe.display());
         let magnet = format!(r"{CLASSES}\magnet");
-        let torrent = format!(r"{CLASSES}\Magnetar.torrent");
+        let torrent = format!(r"{CLASSES}\{TORRENT_CLASS}");
         let steps: Vec<Vec<String>> = vec![
             vec![magnet.clone(), "/ve".into(), "/d".into(), "URL:Magnet link".into()],
             vec![magnet.clone(), "/v".into(), "URL Protocol".into(), "/d".into(), String::new()],
@@ -231,7 +232,7 @@ mod platform {
             vec![torrent.clone(), "/ve".into(), "/d".into(), "Torrent file".into()],
             vec![format!(r"{torrent}\DefaultIcon"), "/ve".into(), "/d".into(), icon],
             vec![format!(r"{torrent}\shell\open\command"), "/ve".into(), "/d".into(), open],
-            vec![format!(r"{CLASSES}\.torrent"), "/ve".into(), "/d".into(), "Magnetar.torrent".into()],
+            vec![format!(r"{CLASSES}\.torrent"), "/ve".into(), "/d".into(), TORRENT_CLASS.into()],
         ];
         for step in steps {
             let args: Vec<&str> =
@@ -245,7 +246,7 @@ mod platform {
         let Some(exe) = installed_exe() else { return Ok(()) };
         let class = format!(r"{CLASSES}\{}", super::LINK_SCHEME);
         let steps: [Vec<String>; 3] = [
-            vec![class.clone(), "/ve".into(), "/d".into(), "URL:Magnetar".into()],
+            vec![class.clone(), "/ve".into(), "/d".into(), format!("URL:{}", crate::config::APP_NAME)],
             vec![class.clone(), "/v".into(), "URL Protocol".into(), "/d".into(), String::new()],
             vec![format!(r"{class}\shell\open\command"), "/ve".into(), "/d".into(), command(&exe)],
         ];
@@ -264,7 +265,7 @@ mod platform {
     use crate::error::{ApiError, ApiResult};
     use crate::system::hidden_command;
 
-    const DESKTOP_FILE: &str = "magnetar.desktop";
+    const DESKTOP_FILE: &str = if crate::config::PREVIEW { "magnetar-preview.desktop" } else { "magnetar.desktop" };
     const TYPES: [&str; 2] = ["x-scheme-handler/magnet", "application/x-bittorrent"];
 
     fn applications() -> std::path::PathBuf {
@@ -285,7 +286,8 @@ mod platform {
     pub fn register() -> ApiResult<()> {
         let exe = installed_exe().expect("checked by status");
         let entry = format!(
-            "[Desktop Entry]\nType=Application\nName=Magnetar\nExec={} %u\nTerminal=false\nNoDisplay=true\nMimeType={};\n",
+            "[Desktop Entry]\nType=Application\nName={}\nExec={} %u\nTerminal=false\nNoDisplay=true\nMimeType={};\n",
+            crate::config::APP_NAME,
             super::exec_argument(&exe.display().to_string()),
             TYPES.join(";")
         );
@@ -304,11 +306,12 @@ mod platform {
 
     /// A desktop entry of its own, so it never offers the app for magnet links the user has not given it.
     pub fn register_link() -> anyhow::Result<()> {
-        const LINK_FILE: &str = "magnetar-link.desktop";
+        const LINK_FILE: &str = if crate::config::PREVIEW { "magnetar-preview-link.desktop" } else { "magnetar-link.desktop" };
         let Some(exe) = installed_exe() else { return Ok(()) };
         let mime = format!("x-scheme-handler/{}", super::LINK_SCHEME);
         let entry = format!(
-            "[Desktop Entry]\nType=Application\nName=Magnetar\nExec={} %u\nTerminal=false\nNoDisplay=true\nMimeType={mime};\n",
+            "[Desktop Entry]\nType=Application\nName={}\nExec={} %u\nTerminal=false\nNoDisplay=true\nMimeType={mime};\n",
+            crate::config::APP_NAME,
             super::exec_argument(&exe.display().to_string())
         );
         let folder = applications();

@@ -11,6 +11,8 @@ const GITHUB_LABEL = /\b(ubuntu|macos|windows)-[\w.-]+/
 const staying: Record<string, RegExp> = {
   'release.yml': /./,
   'provider-health.yml': /./,
+  // Magnetar Preview is a macOS app, signed on macOS.
+  'preview-app.yml': /^\s+runs-on: macos-14$/,
   // The check jobs keep the names the ruleset requires; only macOS and Windows run on GitHub's machines.
   'ci.yml': /^\s+- \{ check: [\w.-]+, runner: ((macos|windows)-[\w.-]+|'\$\{\{ vars\.CI_RUNNER_HEAVY \}\}') \}$/,
 }

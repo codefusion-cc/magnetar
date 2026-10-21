@@ -18,7 +18,9 @@ use sha2::{Digest, Sha256};
 use tokio_util::sync::CancellationToken;
 
 use self::version::{is_outdated, parse as parse_version, precedence};
-use crate::config::{ARCH, COMMIT, DEFAULT_PORT, GITHUB_REPO, IS_DEV, PLATFORM, RELEASE_PUBLIC_KEY, VERSION};
+use crate::config::{
+    APP_NAME, ARCH, BUNDLE_ID, COMMIT, DEFAULT_PORT, GITHUB_REPO, IS_DEV, PLATFORM, PREVIEW, RELEASE_PUBLIC_KEY, VERSION,
+};
 use crate::db::KeyValue;
 use crate::downloads::DownloadManager;
 use crate::events::EventBus;
@@ -178,9 +180,18 @@ fn read_releases(list: Vec<serde_json::Value>) -> Vec<Release> {
     releases.into_iter().map(|(_, release)| release).collect()
 }
 
-/// The release to offer someone running `running`: the newest that is not a pre-release, when newer.
-fn newer_release<'a>(releases: &'a [Release], running: &str) -> Option<&'a Release> {
-    releases.iter().find(|r| !r.info.prerelease).filter(|latest| is_outdated(running, &latest.info.version))
+/// Whether `version` is a build of Magnetar Preview (`1.2.9-preview.42`), which CI publishes from main as a pre-release.
+fn is_preview_build(version: &str) -> bool {
+    parse_version(version).is_some_and(|v| v.pre.as_str().starts_with("preview."))
+}
+
+/// The release to offer someone running `running`, when newer: the newest that is not a pre-release, or for
+/// Magnetar Preview (`preview`) the newest preview build.
+fn newer_release<'a>(releases: &'a [Release], running: &str, preview: bool) -> Option<&'a Release> {
+    releases
+        .iter()
+        .find(|r| if preview { is_preview_build(&r.info.version) } else { !r.info.prerelease })
+        .filter(|latest| is_outdated(running, &latest.info.version))
 }
 
 /// What a notice about `release` says in a line: its first changes, from notes like the release
@@ -371,7 +382,7 @@ impl UpdateService {
                     state.retry_at = error.retry_at.clone();
                 }
             }
-            state.available = newer_release(&state.releases, VERSION).cloned();
+            state.available = newer_release(&state.releases, VERSION, PREVIEW).cloned();
             match state.available.clone() {
                 Some(release) if state.notified_version.as_deref() != Some(release.info.version.as_str()) => {
                     state.notified_version = Some(release.info.version.clone());
@@ -445,7 +456,7 @@ impl UpdateService {
         Ok(())
     }
 
-    /// The releases for the changelog, newest first, at most `MAX_CHANGELOG` of notes; read from
+    /// The releases for the changelog, newest first, at most `MAX_CHANGELOG` of notes, preview builds left out; read from
     /// GitHub when none were yet, after a check under way. Reading them tells nobody of a new
     /// version: that stays the checks' (`check`, the background one with its notice).
     pub async fn releases(&self) -> ReleasesDto {
@@ -457,7 +468,7 @@ impl UpdateService {
                 match self.fetch_releases().await {
                     Ok(()) => {
                         let mut state = self.state();
-                        state.available = newer_release(&state.releases, VERSION).cloned();
+                        state.available = newer_release(&state.releases, VERSION, PREVIEW).cloned();
                     }
                     Err(error) => problem = Some(error.problem),
                 }
@@ -469,6 +480,7 @@ impl UpdateService {
         let releases = state
             .releases
             .iter()
+            .filter(|release| !is_preview_build(&release.info.version))
             .map(|release| {
                 let ReleaseDto { version, tag, name, notes, published_at, prerelease, url } = &release.info;
                 let notes = cut(notes, budget);
@@ -693,8 +705,8 @@ impl MacInstaller {
     async fn prepare(zip: &Path, staging: &Path) -> anyhow::Result<Self> {
         let bundle = mac_app_bundle().expect("checked by can_self_install");
         run("/usr/bin/ditto", &["-x".as_ref(), "-k".as_ref(), zip.as_os_str(), staging.as_os_str()]).await?;
-        let new_app = staging.join("Magnetar.app");
-        anyhow::ensure!(new_app.join("Contents/MacOS/Magnetar").exists(), "The downloaded bundle has no Magnetar executable");
+        let new_app = staging.join(format!("{APP_NAME}.app"));
+        anyhow::ensure!(new_app.join("Contents/MacOS/Magnetar").exists(), "The downloaded bundle has no {APP_NAME} executable");
         // Copy beside the destination and validate it while this app still runs; the helper only
         // renames bundles once we have exited.
         let work = bundle.parent().unwrap_or(Path::new("/Applications")).join(format!(".Magnetar-update-{}", random_id(6)));
@@ -703,8 +715,15 @@ impl MacInstaller {
         crate::db::write_private(&script, MAC_INSTALL_SCRIPT.as_bytes(), false)?;
         #[cfg(unix)]
         std::fs::set_permissions(&script, std::os::unix::fs::PermissionsExt::from_mode(0o700))?;
-        run("/bin/bash", &[script.as_os_str(), "prepare".as_ref(), bundle.as_os_str(), new_app.as_os_str(), work.as_os_str()])
-            .await?;
+        let args = [
+            script.as_os_str(),
+            "prepare".as_ref(),
+            bundle.as_os_str(),
+            new_app.as_os_str(),
+            work.as_os_str(),
+            BUNDLE_ID.as_ref(),
+        ];
+        run("/bin/bash", &args).await?;
         Ok(Self { script, bundle, work })
     }
 
@@ -880,6 +899,37 @@ mod tests {
             manifest_url: None,
             signature_url: None,
         }
+    }
+
+    /// The releases GitHub lists, by tag, newest first as `read_releases` sorts them.
+    fn listed(tags: &[&str]) -> Vec<Release> {
+        let list = tags
+            .iter()
+            .map(|tag| serde_json::json!({ "tag_name": tag, "html_url": "", "prerelease": tag.contains('-') }))
+            .collect();
+        read_releases(list)
+    }
+
+    fn offered(releases: &[Release], running: &str, preview: bool) -> Option<String> {
+        newer_release(releases, running, preview).map(|r| r.info.version.clone())
+    }
+
+    #[test]
+    fn the_released_app_never_takes_a_preview_build_and_the_preview_app_takes_only_those() {
+        let releases = listed(&["v1.2.8", "v1.2.9-preview.41", "v1.2.9-preview.40", "v1.3.0-rc.1", "v1.2.9-preview"]);
+        assert_eq!(offered(&releases, "1.2.7", false).as_deref(), Some("1.2.8"));
+        assert_eq!(offered(&releases, "1.2.8", false), None);
+        // The newest preview build, never a release or another pre-release, whatever its version.
+        assert_eq!(offered(&releases, "1.2.9-preview.40", true).as_deref(), Some("1.2.9-preview.41"));
+        assert_eq!(offered(&releases, "1.2.9-preview.41", true), None);
+        assert_eq!(offered(&releases, "1.2.9-preview.100", true), None, "builds count as numbers, not text");
+        assert_eq!(offered(&listed(&["v1.2.8", "v1.3.0"]), "1.2.9-preview.41", true), None);
+        // After a release the next preview builds count on from it.
+        assert_eq!(
+            offered(&listed(&["v1.2.9", "v1.2.10-preview.43"]), "1.2.9-preview.41", true).as_deref(),
+            Some("1.2.10-preview.43")
+        );
+        assert!(!is_preview_build("1.2.9-preview") && !is_preview_build("1.2.9-rc.1") && !is_preview_build("preview"));
     }
 
     #[test]

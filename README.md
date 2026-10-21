@@ -234,6 +234,22 @@ with a pre-release (`v2.1.0-rc.1`) publishes a pre-release, which installed apps
 certificates as secrets (see [deployment](docs/DEPLOY.md#code-signing)) the builds are also code-signed and the macOS
 app notarized.
 
+### Magnetar Preview
+
+Every merge to `main`, released or held, is also built as Magnetar Preview for Apple silicon Macs
+(`.github/workflows/preview-app.yml`), which [preview.magnetar.codefusion.cc](https://preview.magnetar.codefusion.cc) offers
+for trying changes before they ship. It runs beside Magnetar with its own name, data folder, download folder, port (47826)
+and `magnetar-preview://` links, talks only to the preview website, and updates itself from the newest preview build. Each
+build is a pre-release `v<next release>-preview.<commit number>`, which Magnetar never takes and the changelogs leave out;
+only the newest one is kept.
+
+On another system, build it yourself from a checkout of `main`:
+
+```bash
+pnpm install
+pnpm run build:client --preview
+```
+
 ## License
 
 [MIT](LICENSE)

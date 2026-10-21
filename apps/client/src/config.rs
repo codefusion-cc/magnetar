@@ -31,27 +31,48 @@ pub const PLATFORM: &str = if cfg!(target_os = "macos") {
 
 pub const ARCH: &str = if cfg!(target_arch = "aarch64") { "arm64" } else { "x64" };
 
-pub const DEFAULT_PORT: u16 = 47820;
+/// Whether this is Magnetar Preview: main's newest build, which CI publishes for trying changes on the preview website before
+/// they are released (`package.ts --preview`). Its own name, data, port, links and updates let it run beside the released app.
+pub const PREVIEW: bool = option_env!("MAGNETAR_PREVIEW").is_some();
+
+pub const APP_NAME: &str = if PREVIEW { "Magnetar Preview" } else { "Magnetar" };
+
+/// The macOS bundle identifier, and the prefix of the app's other macOS names (notifications, the login item).
+pub const BUNDLE_ID: &str = if PREVIEW { "cc.codefusion.magnetar.preview" } else { "cc.codefusion.magnetar" };
+
+/// The scheme of the app's own links (`magnetar://connect`).
+pub const LINK_SCHEME: &str = if PREVIEW { "magnetar-preview" } else { "magnetar" };
+
+pub const DEFAULT_PORT: u16 = if PREVIEW { 47826 } else { 47820 };
 
 pub const DEFAULT_CLOUD_URL: &str = "https://magnetar.codefusion.cc";
+
+/// The preview Worker, where Magnetar Preview signs in and is reached.
+pub const PREVIEW_CLOUD_URL: &str = "https://preview.magnetar.codefusion.cc";
+
+/// The Worker a build talks to unless told otherwise.
+pub const HOME_CLOUD_URL: &str = if PREVIEW { PREVIEW_CLOUD_URL } else { DEFAULT_CLOUD_URL };
 
 pub static IS_DEV: LazyLock<bool> =
     LazyLock::new(|| option_env!("MAGNETAR_VERSION").is_none() || std::env::var("MAGNETAR_DEV").as_deref() == Ok("1"));
 
-/// Where the dashboard and relay live: production, or the Worker `MAGNETAR_CLOUD_URL` names (see `cloud_url`).
-pub static CLOUD_URL: LazyLock<String> =
-    LazyLock::new(|| cloud_url(option_env!("MAGNETAR_VERSION").is_some(), std::env::var("MAGNETAR_CLOUD_URL").ok().as_deref()));
+/// Where the dashboard and relay live: production (the preview Worker for Magnetar Preview), or the Worker
+/// `MAGNETAR_CLOUD_URL` names (see `cloud_url`).
+pub static CLOUD_URL: LazyLock<String> = LazyLock::new(|| {
+    cloud_url(option_env!("MAGNETAR_VERSION").is_some(), HOME_CLOUD_URL, std::env::var("MAGNETAR_CLOUD_URL").ok().as_deref())
+});
 
-/// The Worker a build talks to. A dev build (`cargo run`) takes any `configured` one: the preview Worker, a branch Preview, or
-/// `wrangler dev`. A released build takes only a Worker on this computer (end-to-end runs of a packaged app), so a
-/// released app never reaches the preview Worker or a Preview, whose data is for testing and whose code nobody released.
-pub fn cloud_url(released: bool, configured: Option<&str>) -> String {
+/// The Worker a build talks to: `home` unless `configured` names another. A dev build (`cargo run`) takes any
+/// `configured` one: the preview Worker, a branch Preview, or `wrangler dev`. A packaged build takes only a Worker on this
+/// computer (end-to-end runs of a packaged app), so a released app never reaches the preview Worker or a Preview, whose
+/// data is for testing and whose code nobody released, and Magnetar Preview never reaches production.
+pub fn cloud_url(released: bool, home: &str, configured: Option<&str>) -> String {
     let Some(url) = configured.map(|url| url.trim().trim_end_matches('/')).filter(|url| !url.is_empty()) else {
-        return DEFAULT_CLOUD_URL.to_owned();
+        return home.to_owned();
     };
     if released && !is_loopback(url) {
-        eprintln!("MAGNETAR_CLOUD_URL is ignored: a released build talks to {DEFAULT_CLOUD_URL} or a Worker on this computer");
-        return DEFAULT_CLOUD_URL.to_owned();
+        eprintln!("MAGNETAR_CLOUD_URL is ignored: this build talks to {home} or a Worker on this computer");
+        return home.to_owned();
     }
     url.to_owned()
 }
@@ -104,7 +125,7 @@ mod tests {
             (Some("https://feat-x.preview.magnetar.codefusion.cc"), "https://feat-x.preview.magnetar.codefusion.cc"),
             (Some(" http://localhost:8790// "), "http://localhost:8790"),
         ] {
-            assert_eq!(cloud_url(false, configured), expected, "{configured:?}");
+            assert_eq!(cloud_url(false, DEFAULT_CLOUD_URL, configured), expected, "{configured:?}");
         }
     }
 
@@ -125,9 +146,19 @@ mod tests {
             "localhost:8790",
             "not a url",
         ] {
-            assert_eq!(cloud_url(true, Some(configured)), DEFAULT_CLOUD_URL, "{configured}");
+            assert_eq!(cloud_url(true, DEFAULT_CLOUD_URL, Some(configured)), DEFAULT_CLOUD_URL, "{configured}");
         }
-        assert_eq!(cloud_url(true, None), DEFAULT_CLOUD_URL);
+        assert_eq!(cloud_url(true, DEFAULT_CLOUD_URL, None), DEFAULT_CLOUD_URL);
+    }
+
+    #[test]
+    fn the_preview_app_stays_on_the_preview_worker() {
+        for configured in
+            [None, Some(DEFAULT_CLOUD_URL), Some("https://feat-x.preview.magnetar.codefusion.cc"), Some("https://example.com")]
+        {
+            assert_eq!(cloud_url(true, PREVIEW_CLOUD_URL, configured), PREVIEW_CLOUD_URL, "{configured:?}");
+        }
+        assert_eq!(cloud_url(true, PREVIEW_CLOUD_URL, Some("http://localhost:8790")), "http://localhost:8790");
     }
 
     #[test]
@@ -135,7 +166,7 @@ mod tests {
         for configured in
             ["http://localhost:8790", "http://127.0.0.1:9", "http://127.8.0.1:8790/", "http://[::1]:8790", "https://localhost"]
         {
-            assert_eq!(cloud_url(true, Some(configured)), configured.trim_end_matches('/'), "{configured}");
+            assert_eq!(cloud_url(true, DEFAULT_CLOUD_URL, Some(configured)), configured.trim_end_matches('/'), "{configured}");
         }
     }
 }

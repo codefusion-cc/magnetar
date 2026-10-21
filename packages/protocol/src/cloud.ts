@@ -95,9 +95,14 @@ export interface ReleaseAssetDto {
 
 export type { ReleaseDto, ReleasesDto, ReleasesProblem } from './model.ts'
 
-/** `/api/releases/latest`: the app's newest release, for the website's download buttons. */
+/**
+ * `/api/releases/latest`: the app's newest release, for the website's download buttons; on the preview website, the
+ * newest build of Magnetar Preview (`preview`), which only Apple silicon Macs get.
+ */
 export interface LatestReleaseDto {
   version: string
+  /** Magnetar Preview: main's newest build, which talks to the preview website and opens `magnetar-preview://` links. */
+  preview?: true
   publishedAt: string | null
   pageUrl: string
   assets: ReleaseAssetDto[]

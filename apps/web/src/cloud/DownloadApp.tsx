@@ -1,4 +1,5 @@
-import type { ReleaseArch, ReleaseAssetDto, ReleasePlatform } from '@magnetar/protocol/cloud'
+import { isOutdated } from '@codefusion-cc/app-update'
+import { MAGNETAR_REPO, type ReleaseArch, type ReleaseAssetDto, type ReleasePlatform } from '@magnetar/protocol/cloud'
 import { formatBytes } from '@magnetar/protocol/bytes'
 import { useEffect, useState, type ReactNode } from 'react'
 import { formatters, useLanguage, useT } from '../lib/i18n.tsx'
@@ -38,6 +39,12 @@ const ARCH_NAMES: Record<ReleasePlatform, Record<ReleaseArch, string>> = {
   linux: { arm64: 'ARM64', x64: 'x64' },
 }
 
+/** The first release that opens `magnetar://connect`; with an older one, Connect this computer would open nothing. */
+const CONNECT_SINCE = '1.2.9'
+
+/** Magnetar Preview for a computer the preview website has no build for: how to build it. */
+const BUILD_FROM_SOURCE = `https://github.com/${MAGNETAR_REPO}#magnetar-preview`
+
 /** One asset per system: the .zip for macOS rather than the bare executable. */
 function pick(assets: ReleaseAssetDto[], platform: ReleasePlatform, arch: ReleaseArch): ReleaseAssetDto | undefined {
   const matching = assets.filter(a => a.platform === platform && a.arch === arch)
@@ -62,6 +69,14 @@ export function useGetApp(className: string): { button: ReactNode; note: string 
   const language = useLanguage()
   const { release, platform, main } = useAppDownload()
   const others = (['macos', 'windows', 'linux'] as const).filter(p => p !== platform).map(p => PLATFORM_NAMES[p])
+  if (release?.preview) {
+    return {
+      button: main
+        ? <a className={className} href={main.url}>{t('get.preview')}</a>
+        : <a className={className} href={BUILD_FROM_SOURCE} target="_blank" rel="noreferrer noopener">{t('get.fromSource')}</a>,
+      note: t('get.previewNote'),
+    }
+  }
   return {
     button: main && platform
       ? <a className={className} href={main.url}>{t('get.for', PLATFORM_NAMES[platform])}</a>
@@ -81,6 +96,23 @@ export function DownloadApp() {
     .filter(o => o.asset && o.asset !== main) : []
 
   if (release === undefined) return <Loading />
+  if (release?.preview) {
+    return (
+      <div className="get-app">
+        {main ? (
+          <a className="infall-button" href={main.url}>
+            <span className="get-app-label">
+              <span>{t('get.preview')}</span>
+              <small>{ARCH_NAMES.macos.arm64}, v{release.version}, {formatBytes(main.size)}</small>
+            </span>
+          </a>
+        ) : (
+          <a className="infall-button" href={BUILD_FROM_SOURCE} target="_blank" rel="noreferrer noopener">{t('get.fromSource')}</a>
+        )}
+        <p className="fine">{main ? t('get.first.preview') : t('get.previewNote')}</p>
+      </div>
+    )
+  }
   return (
     <div className="get-app">
       {main && platform ? (
@@ -117,17 +149,22 @@ export function DownloadApp() {
 /**
  * Opens Magnetar on this computer at Connect to your account, through the app's own magnetar://connect link.
  * The website cannot tell whether the app is there, so after the click it says what should happen and what to
- * do if nothing does. Not shown on a phone, where the app does not run.
+ * do if nothing does. On the preview website it opens Magnetar Preview (`magnetar-preview://connect`). Shown only
+ * where an app to download opens it: not on a phone, not before a release does, and on the preview website only
+ * where it offers Magnetar Preview.
  */
 export function ConnectThisComputer({ className }: { className: string }) {
   const t = useT()
-  const { platform } = useAppDownload()
+  const { release, platform, main } = useAppDownload()
   const [asked, setAsked] = useState(false)
-  if (!platform) return null
+  const opens = release && (release.preview ? main !== undefined : !isOutdated(release.version, CONNECT_SINCE))
+  if (!platform || !opens) return null
   return (
     <>
-      <a className={className} href="magnetar://connect" onClick={() => setAsked(true)}>{t('connect.button')}</a>
-      <p className="fine connect-note" role="status">{asked ? t('connect.opening') : ''}</p>
+      <a className={className} href={release.preview ? 'magnetar-preview://connect' : 'magnetar://connect'} onClick={() => setAsked(true)}>
+        {t('connect.button')}
+      </a>
+      <p className="fine connect-note" role="status">{asked ? t('connect.opening', release.preview ? 'Magnetar Preview' : 'Magnetar') : ''}</p>
     </>
   )
 }

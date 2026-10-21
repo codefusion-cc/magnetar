@@ -15,7 +15,7 @@ use tray_icon::menu::{CheckMenuItem, IsMenuItem, Menu, MenuEvent, MenuId, MenuIt
 use tray_icon::{Icon, TrayIcon, TrayIconBuilder, TrayIconEvent};
 
 use crate::app::App;
-use crate::config::build_label;
+use crate::config::{APP_NAME, build_label};
 use crate::protocol::bytes::{format_bytes, format_rate};
 use crate::protocol::{
     AltSpeedMode, DownloadDto, DownloadStatus, EngineState, LoginStartupStatus, SettingsPatch, TransferStatusDto, UpdateStatusDto,
@@ -126,7 +126,7 @@ impl MenuContent {
         Self {
             rows: rows(s),
             title: if down > 0 { rate(down) } else { String::new() },
-            tooltip: if headline == "Idle" { "Magnetar".into() } else { format!("Magnetar — {headline}") },
+            tooltip: if headline == "Idle" { APP_NAME.into() } else { format!("{APP_NAME} — {headline}") },
         }
     }
 }
@@ -650,7 +650,7 @@ pub fn run(app: Arc<App>, dashboard_url: String, runtime: tokio::runtime::Handle
                 Ok(TrayIconBuilder::new()
                     .with_icon(icon)
                     .with_icon_as_template(cfg!(target_os = "macos"))
-                    .with_tooltip("Magnetar")
+                    .with_tooltip(APP_NAME)
                     .with_menu_on_left_click(cfg!(target_os = "macos"))
                     .build()?)
             });

@@ -112,6 +112,7 @@ async fn a_newer_release_is_offered_with_what_it_brings_and_told_about_once() {
             release(&format!("v{}", running()), json!({})),
             release(&format!("v{newer}"), json!({})),
             release(&format!("v{ahead}-rc.1"), json!({ "prerelease": true })),
+            release(&format!("v{ahead}-preview.9"), json!({ "prerelease": true })),
             release(&format!("v{ahead}"), json!({ "draft": true })),
             release("nightly", json!({})),
             json!({ "tag_name": 42 }),
@@ -125,7 +126,7 @@ async fn a_newer_release_is_offered_with_what_it_brings_and_told_about_once() {
     assert_eq!(status["currentVersion"], VERSION);
     assert_eq!(status["lastCheckProblem"], Value::Null);
 
-    // The changelog: newest first, the pre-release marked, drafts and other tags left out.
+    // The changelog: newest first, the pre-release marked, drafts, preview builds and other tags left out.
     let changelog = serde_json::to_value(app.updates.releases().await).unwrap();
     let versions: Vec<&str> = changelog["releases"].as_array().unwrap().iter().map(|r| r["version"].as_str().unwrap()).collect();
     assert_eq!(versions, [format!("{ahead}-rc.1"), newer.clone(), running()]);

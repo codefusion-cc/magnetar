@@ -29,6 +29,7 @@ describe('the changelog (/api/releases)', () => {
   test('lists what each release brings, newest version first, for ten minutes', async () => {
     const { send, requests } = github(() => Response.json([
       release('v1.0.0'), release('v1.2.0-rc.1', { prerelease: true }), release('v1.1.0'), release('v2.0.0', { draft: true }), release('nightly'),
+      release('v1.1.1-preview.40', { prerelease: true }),
     ]))
     const response = (await ask('/api/releases', send))!
     expect(response.status).toBe(200)
@@ -111,6 +112,21 @@ describe('the downloads (/api/releases/latest)', () => {
       ['Magnetar-2.1.0-windows-x64.exe', 'windows', 'x64'],
       ['Magnetar-2.1.0-linux-arm64', 'linux', 'arm64'],
     ])
+  })
+
+  test("are Magnetar Preview's newest build on the preview website, and never on the website itself", async () => {
+    const build = (version: string) => release(`v${version}`, { prerelease: true, assets: [asset(`v${version}`, `Magnetar-${version}-macos-arm64.zip`)] })
+    const { send } = github(() => Response.json([
+      release('v1.2.8', { assets: [asset('v1.2.8', 'Magnetar-1.2.8-macos-arm64.zip')] }), build('1.2.9-preview.40'), build('1.2.9-preview.41'),
+      release('v1.3.0-rc.1', { prerelease: true }),
+    ]))
+    const preview = await (await ask('/api/releases/latest', send, { APP_ENV: 'preview' }))!.json() as LatestReleaseDto
+    expect([preview.version, preview.preview, preview.assets.map(a => [a.name, a.platform, a.arch])])
+      .toEqual(['1.2.9-preview.41', true, [['Magnetar-1.2.9-preview.41-macos-arm64.zip', 'macos', 'arm64']]])
+    const production = await (await ask('/api/releases/latest', send, { APP_ENV: 'production' }))!.json() as LatestReleaseDto
+    expect([production.version, 'preview' in production]).toEqual(['1.2.8', false])
+    // Before the first build the preview website has nothing to offer, as before the first release.
+    expect((await ask('/api/releases/latest', github(() => Response.json([release('v1.2.8')])).send, { APP_ENV: 'preview' }))!.status).toBe(404)
   })
 
   test('are a 404 before the first release, and a 502 the page falls back from when GitHub fails', async () => {

@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
 
+use crate::config::{APP_NAME, BUNDLE_ID, PREVIEW};
+
 /// Per-user writable data. Separate from the legacy .NET app's folder, so both can run side by side
 /// and the legacy database is only ever read (by the importer).
 #[derive(Clone, Debug)]
@@ -75,20 +77,20 @@ pub fn xdg_data_home() -> PathBuf {
 
 fn default_data_dir() -> PathBuf {
     if cfg!(target_os = "macos") {
-        home_dir().join("Library/Application Support/cc.codefusion.magnetar")
+        home_dir().join("Library/Application Support").join(BUNDLE_ID)
     } else if cfg!(windows) {
-        local_app_data().join("CodeFusion").join("Magnetar")
+        local_app_data().join("CodeFusion").join(APP_NAME)
     } else {
-        xdg_data_home().join("magnetar")
+        xdg_data_home().join(if PREVIEW { "magnetar-preview" } else { "magnetar" })
     }
 }
 
 /// `MAGNETAR_DOWNLOAD_FOLDER` (test and scratch runs keep out of the user's folder), or
-/// ~/Downloads/Magnetar.
+/// ~/Downloads/Magnetar (Magnetar Preview's own folder for the preview app).
 pub fn default_download_folder() -> PathBuf {
     match std::env::var_os("MAGNETAR_DOWNLOAD_FOLDER") {
         Some(configured) => std::path::absolute(configured).unwrap_or_else(|_| PathBuf::from("Magnetar")),
-        None => home_dir().join("Downloads").join("Magnetar"),
+        None => home_dir().join("Downloads").join(APP_NAME),
     }
 }
 
