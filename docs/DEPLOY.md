@@ -156,15 +156,29 @@ through `sh -c '…'`. Once on the Mac: `pnpm add -g @codefusion-cc/console && c
 
 ## Release signing
 
-Once, from the repo root:
+Installed apps only take an update whose `SHA256SUMS.txt` is signed by the key their build compiled in. Each flavour
+has its own pair: Magnetar `apps/client/release-public-key.txt`, Magnetar Preview `apps/client/preview-public-key.txt`.
+Each build refuses to compile in the other's key, and `sign-release.ts` refuses a secret that is not the private half
+of the key the app trusts. A new pair, in a terminal from the repo root:
 
 ```bash
 node packages/release/release-key.ts
+node packages/release/release-key.ts --preview
 ```
 
-Commit `apps/client/release-public-key.txt` and save the printed private key as the repository secret
-`RELEASE_SIGNING_KEY`. Keep no other copy: losing it means shipping a release with a new public key, which older
-installs will not auto-install (they fall back to opening the release page).
+It puts the private key on the clipboard, never the terminal or a file. Paste it as the secret it names,
+`RELEASE_SIGNING_KEY` in the `release-signing` environment or `PREVIEW_SIGNING_KEY` in `preview-signing`, then press
+Enter. Once GitHub shows that secret saved, it writes the public key file to commit; any other key, or the key pasted
+into the terminal, stops it with nothing written. Either way it clears the clipboard. Only `main` deploys to either
+environment, and the Sign jobs install nothing, so a pull request's own workflow never reads a signing key
+(`packages/release/signing.test.ts` holds every workflow to this). The secret belongs to the environment only: a
+repository secret of the same name would be readable everywhere, so delete it if one exists (Settings, Secrets and
+variables, Actions).
+
+Keep no other copy: a new pair means installs of the builds before it don't install the next update by themselves
+(they open the release page instead), so each of them is downloaded once by hand. Merge the new public key only once
+the secret is set: a release signs before it tags, so a missing or wrong key fails the run without using up the
+version.
 
 ## Code signing
 

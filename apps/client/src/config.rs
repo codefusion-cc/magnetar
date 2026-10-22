@@ -116,6 +116,18 @@ mod tests {
     use super::*;
 
     #[test]
+    fn updates_are_checked_against_this_builds_own_key() {
+        let read = |file: &str| std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(file)).unwrap();
+        let (own, other) = if PREVIEW {
+            ("preview-public-key.txt", "release-public-key.txt")
+        } else {
+            ("release-public-key.txt", "preview-public-key.txt")
+        };
+        assert_eq!(RELEASE_PUBLIC_KEY, read(own).trim());
+        assert_ne!(RELEASE_PUBLIC_KEY, read(other).trim());
+    }
+
+    #[test]
     fn a_dev_build_talks_to_the_worker_it_is_given() {
         for (configured, expected) in [
             (None, DEFAULT_CLOUD_URL),

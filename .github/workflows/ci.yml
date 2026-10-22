@@ -43,6 +43,12 @@ jobs:
       - run: pnpm run lint
       - run: pnpm run typecheck
       - run: pnpm test
+      # pnpm test builds the released flavour; Magnetar Preview (preview-app.yml) must trust preview-public-key.txt only.
+      - name: Magnetar Preview's update key
+        if: runner.os == 'macOS'
+        env:
+          MAGNETAR_PREVIEW: '1'
+        run: cargo test --locked -p magnetar --lib config::tests::updates_are_checked_against_this_builds_own_key
       - name: Build the executable for this runner
         run: pnpm --filter @magnetar/client run build --version 0.0.0-ci --profile ci
       - name: Smoke-test the executable

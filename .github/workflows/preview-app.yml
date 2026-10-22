@@ -56,12 +56,14 @@ jobs:
           path: apps/client/dist/*.zip
           if-no-files-found: error
 
-  # Signed apart from the build, as a release is: the release key never shares a machine with the crates, build
+  # Signed apart from the build, as a release is: the signing key never shares a machine with the crates, build
   # scripts and actions above, and this job runs nothing but the repository's own code and Node.
   publish:
     name: Sign and publish
     needs: build
     runs-on: ubuntu-latest
+    # Its own key, readable only from main: Magnetar Preview trusts it (preview-public-key.txt), the released app never does.
+    environment: preview-signing
     permissions:
       contents: write
     steps:
@@ -73,13 +75,13 @@ jobs:
         with:
           name: preview-app
           path: assets
-      # The same signed manifest as a release's, so the preview app installs its updates the way the app does.
+      # A signed manifest as a release's, so the preview app installs its updates the way the app does.
       - name: Checksums and signature
         env:
-          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+          RELEASE_SIGNING_KEY: ${{ secrets.PREVIEW_SIGNING_KEY }}
         run: |
           cd assets && sha256sum Magnetar-* > SHA256SUMS.txt && cd ..
-          node packages/release/sign-release.ts assets
+          node packages/release/sign-release.ts assets --public-key apps/client/preview-public-key.txt
       # Builds run one at a time, but a later merge whose checks finished first may have published already: an older
       # build then leaves it standing. A run that was cut short left its release unfinished (files missing, or a
       # draft), so running it again completes that release. Once the new build is out, the older ones go.
