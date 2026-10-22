@@ -8,6 +8,7 @@ import { BrandMark } from '../ui/BrandMark.tsx'
 import { BuildVersion, CommitLink } from '@codefusion-cc/app-update/react'
 import { BUILD } from '../lib/updates.ts'
 import { MAGNETAR_REPO } from '@magnetar/protocol/cloud'
+import { LanguageSwitch } from './SiteLanguage.tsx'
 
 /**
  * The website's own pages (first page, sign-in, the computers, linking): the mark, Features and Sign in, or the
@@ -48,8 +49,11 @@ export function CloudFrame({ children, narrow = false }: { children: ReactNode; 
   )
 }
 
-/** The website's footer: the build, what the app does, what's new and the source. `column` sizes its row like the page's. */
-export function SiteFooter({ column }: { column: string }) {
+/**
+ * The website's footer: the build, what the app does, what's new, the source and the languages. `column` sizes its row
+ * like the page's; `languageHref` is for a page whose address names its language.
+ */
+export function SiteFooter({ column, languageHref }: { column: string; languageHref?: (code: string) => string }) {
   const t = useT()
   return (
     <footer className="site-footer">
@@ -58,6 +62,7 @@ export function SiteFooter({ column }: { column: string }) {
         <Link to="/features" className="setting-link">{t('footer.whatItDoes')}</Link>
         <Link to="/about" className="setting-link">{t('footer.whatsNew')}</Link>
         <a href={`https://github.com/${MAGNETAR_REPO}`} className="setting-link" target="_blank" rel="noreferrer noopener">GitHub</a>
+        <LanguageSwitch href={languageHref} />
       </div>
     </footer>
   )

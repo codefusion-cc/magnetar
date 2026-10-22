@@ -214,7 +214,7 @@ mod tests {
         }
 
         #[test]
-        fn wrapping_a_value_deeper_than_the_limit_is_refused(bytes in value(4), extra in MAX_DEPTH..MAX_DEPTH * 4) {
+        fn wrapping_a_value_deeper_than_the_limit_is_refused(bytes in value(4), extra in MAX_DEPTH + 1..MAX_DEPTH * 4) {
             let wrapped = [vec![b'l'; extra], bytes, vec![b'e'; extra]].concat();
             prop_assert_eq!(check(&wrapped, BIG), Err(Refused::TooDeep));
         }

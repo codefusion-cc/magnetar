@@ -420,3 +420,164 @@ for (const signedIn of [false, true]) {
     await expect(controls.last()).toHaveAccessibleName('Switch to dark mode')
   })
 }
+
+test.describe('the footer’s languages', () => {
+  const languages = (page: Page) => page.getByRole('contentinfo').getByRole('group', { name: /^(Language|Język)$/ })
+
+  test('switching on the first page changes its words and the document’s language at once, and is kept', async ({ browser }) => {
+    const context = await browser.newContext({ locale: 'en-US', baseURL: test.info().project.use.baseURL })
+    const page = await context.newPage()
+    await serveWebsite(page, { signedIn: false })
+    await page.goto('/')
+    const heading = page.getByRole('heading', { level: 1 })
+    await expect(heading).toHaveText('Search and download on your computer at home. Look in from anywhere.')
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+    const switcher = languages(page)
+    await expect(switcher.getByRole('button')).toHaveText(['English', 'Polski'])
+    await expect(switcher.getByRole('button', { name: 'English' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(switcher.getByRole('button', { name: 'English' })).toHaveAttribute('lang', 'en')
+    await expect(switcher.getByRole('button', { name: 'Polski' })).toHaveAttribute('lang', 'pl')
+
+    // No reload: what the page holds survives the switch.
+    await page.evaluate(() => { (window as unknown as { kept: boolean }).kept = true })
+    await switcher.getByRole('button', { name: 'Polski' }).click()
+    await expect(heading).toHaveText('Szukaj i pobieraj na swoim komputerze w domu. Zaglądaj z dowolnego miejsca.')
+    await expect(page.locator('html')).toHaveAttribute('lang', 'pl')
+    await expect(languages(page)).toHaveAccessibleName('Język')
+    await expect(languages(page).getByRole('button', { name: 'Polski' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(languages(page).getByRole('button', { name: 'English' })).toHaveAttribute('aria-pressed', 'false')
+    expect(await page.evaluate(() => (window as unknown as { kept?: boolean }).kept)).toBe(true)
+
+    // Kept over a reload and on the next page, though the browser speaks English; the wait for the account too.
+    await page.reload()
+    await expect(heading).toHaveText(/^Szukaj i pobieraj/)
+    await page.getByRole('contentinfo').getByRole('link', { name: 'Co nowego' }).click()
+    await expect(page).toHaveURL(/\/about$/)
+    await expect(page.getByRole('heading', { name: 'O Magnetarze' })).toBeVisible()
+    await expect(page.locator('html')).toHaveAttribute('lang', 'pl')
+
+    // And back.
+    await languages(page).getByRole('button', { name: 'English' }).click()
+    await expect(page.getByRole('heading', { name: 'About Magnetar' })).toBeVisible()
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+    await context.close()
+  })
+
+  test('nothing is shown in the browser’s language first when another was chosen', async ({ browser }) => {
+    const context = await browser.newContext({ locale: 'en-US', baseURL: test.info().project.use.baseURL })
+    const page = await context.newPage()
+    await page.addInitScript(() => localStorage.setItem('magnetar.siteLanguage', 'pl'))
+    await serveWebsite(page, { signedIn: false })
+    // Every language the document is given from its first script on.
+    await page.addInitScript(() => {
+      const seen: string[] = ((window as unknown as { seen: string[] }).seen = [])
+      // The document may have no <html> yet: watch it whole.
+      new MutationObserver(() => void seen.push(document.documentElement.lang))
+        .observe(document, { attributes: true, subtree: true, attributeFilter: ['lang'] })
+    })
+    await page.goto('/')
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(/^Szukaj i pobieraj/)
+    const seen = await page.evaluate(() => (window as unknown as { seen: string[] }).seen)
+    expect(seen.length).toBeGreaterThan(0)
+    expect(seen.filter(lang => lang !== 'pl')).toEqual([])
+    await context.close()
+  })
+
+  test('a browser that blocks storage still switches, for as long as the page is open', async ({ browser }) => {
+    const context = await browser.newContext({ locale: 'en-US', baseURL: test.info().project.use.baseURL })
+    const page = await context.newPage()
+    await page.addInitScript(() => Object.defineProperty(window, 'localStorage', { get: () => { throw new DOMException('Blocked', 'SecurityError') } }))
+    await serveWebsite(page, { signedIn: false })
+    await page.goto('/')
+    await languages(page).getByRole('button', { name: 'Polski' }).click()
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(/^Szukaj i pobieraj/)
+    await context.close()
+  })
+
+  test('a language whose words can’t be loaded says so, and leaves the page and the choice as they were', async ({ browser }) => {
+    const context = await browser.newContext({ locale: 'en-US', baseURL: test.info().project.use.baseURL })
+    const page = await context.newPage()
+    await serveWebsite(page, { signedIn: false })
+    await page.route(/\/assets\/pl-[\w-]+\.js$/, route => route.abort('internetdisconnected'))
+    await page.goto('/')
+    // A missing script first reads as a newer website (the page reloads for it); missing again, it is said.
+    await languages(page).getByRole('button', { name: 'Polski' }).click()
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+    await expect(async () => {
+      await languages(page).getByRole('button', { name: 'Polski' }).click({ timeout: 1000 })
+      await expect(page.getByText("Couldn't load that language. Check your connection.")).toBeVisible({ timeout: 1000 })
+    }).toPass({ timeout: 10_000 })
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(/^Search and download/)
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+    await expect(languages(page).getByRole('button', { name: 'English' })).toHaveAttribute('aria-pressed', 'true')
+    expect(await page.evaluate(() => localStorage.getItem('magnetar.siteLanguage'))).toBeNull()
+    // Back online (the browser keeps a failed script failed until the page loads again), the same click works.
+    await page.unroute(/\/assets\/pl-[\w-]+\.js$/)
+    await page.reload()
+    await languages(page).getByRole('button', { name: 'Polski' }).click()
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(/^Szukaj i pobieraj/)
+    expect(await page.evaluate(() => localStorage.getItem('magnetar.siteLanguage'))).toBe('pl')
+    await context.close()
+  })
+
+  test('works from the keyboard', async ({ page }) => {
+    await serveWebsite(page, { signedIn: false })
+    await page.goto('/about')
+    const polski = languages(page).getByRole('button', { name: 'Polski' })
+    await expectVisibleTabStops(page)
+    // Tab from the footer's last link reaches English, then Polski.
+    await page.getByRole('contentinfo').getByRole('link', { name: 'GitHub' }).focus()
+    await page.keyboard.press('Tab')
+    await expect(languages(page).getByRole('button', { name: 'English' })).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(polski).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(page.getByRole('heading', { name: 'O Magnetarze' })).toBeVisible()
+    // Focus stays on the choice just made.
+    await expect(polski).toBeFocused()
+    await expect(polski).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  test('on the features page a choice goes to that language’s address, and is kept', async ({ page }) => {
+    await serveWebsite(page, { signedIn: false })
+    await page.goto('/features/en')
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Your downloads, from anywhere')
+    const switcher = languages(page)
+    await expect(switcher.getByRole('link')).toHaveText(['English', 'Polski'])
+    await expect(switcher.getByRole('link', { name: 'English' })).toHaveAttribute('aria-current', 'true')
+    await expect(switcher.getByRole('link', { name: 'Polski' })).toHaveAttribute('href', '/features/pl')
+    await switcher.getByRole('link', { name: 'Polski' }).click()
+    await expect(page).toHaveURL(/\/features\/pl$/)
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Twoje pobierania z dowolnego miejsca')
+    await expect(page.locator('html')).toHaveAttribute('lang', 'pl')
+    await expect(languages(page).getByRole('link', { name: 'Polski' })).toHaveAttribute('aria-current', 'true')
+    await expect(languages(page).getByRole('link', { name: 'English' })).not.toHaveAttribute('aria-current')
+    // The plain address and the rest of the website follow the choice.
+    await page.goto('/features')
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Twoje pobierania z dowolnego miejsca')
+    await page.goto('/')
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(/^Szukaj i pobieraj/)
+  })
+
+  for (const scheme of ['light', 'dark'] as const) {
+    test(`fits a phone in ${scheme} mode, in both languages`, async ({ browser }) => {
+      const context = await browser.newContext({ viewport: { width: 360, height: 740 }, colorScheme: scheme, baseURL: test.info().project.use.baseURL })
+      const page = await context.newPage()
+      await serveWebsite(page, { signedIn: false })
+      for (const [path, name] of [['/', 'Polski'], ['/about', 'English'], ['/features/en', 'Polski']] as const) {
+        await page.goto(path)
+        const choice = languages(page).getByRole(path.startsWith('/features') ? 'link' : 'button', { name })
+        await choice.click()
+        await expect(page.locator('html')).toHaveAttribute('lang', name === 'Polski' ? 'pl' : 'en')
+        expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth), path).toBeLessThanOrEqual(0)
+        const box = await languages(page).boundingBox()
+        expect(box!.x + box!.width, path).toBeLessThanOrEqual(360)
+        // The current one is in the page's ink, the other muted, so it reads as chosen in either scheme (not hovered).
+        await page.mouse.move(0, 0)
+        const colors = await languages(page).locator('a, button').evaluateAll(els => els.map(el => getComputedStyle(el).color))
+        expect(new Set(colors).size, path).toBe(2)
+      }
+      await context.close()
+    })
+  }
+})

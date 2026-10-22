@@ -9,7 +9,6 @@ import { cloud } from '../lib/cloudApi.ts'
 import { reporting } from '../lib/console.ts'
 import { updates, UpdatesOnNavigation } from '../lib/updates.ts'
 import { errorMessage } from '../lib/errors.ts'
-import { browserLanguage, I18nProvider } from '../lib/i18n.tsx'
 import { Loading } from '../ui/Loading.tsx'
 import { useToast } from '../ui/toast.tsx'
 import { AddRedirect } from './AddRedirect.tsx'
@@ -20,6 +19,7 @@ import { AboutPage } from './AboutPage.tsx'
 import { LoginPage } from './LoginPage.tsx'
 import { PairPage } from './PairPage.tsx'
 import { DeviceIdRedirect, RemoteDevice } from './RemoteDevice.tsx'
+import { SiteLanguageProvider } from './SiteLanguage.tsx'
 
 interface AccountState {
   account: AccountDto | null
@@ -86,27 +86,27 @@ export default function CloudApp({ config }: { config: AppConfig }) {
   useEffect(() => void refresh(), [refresh])
 
   // The wait for the account is in the page's language too, and its words load meanwhile.
-  if (account === undefined) return <I18nProvider language={browserLanguage()}><Loading screen /></I18nProvider>
-
   return (
-    <AccountContext.Provider value={{ account, config, refresh, signOut }}>
-      <I18nProvider language={browserLanguage()}>
-        <BrowserRouter>
-          <ConsolePageTracker signedIn={account !== null} />
-          <UpdatesOnNavigation />
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/pair/:pairingId" element={<PairPage />} />
-            <Route path="/link" element={<LinkPage />} />
-            <Route path="/about" element={<AboutPage />} />
-            <Route path="/features/:lang?" element={<Suspense fallback={<Loading screen />}><FeaturesPage /></Suspense>} />
-            <Route path="/add" element={<RequireAccount><AddRedirect /></RequireAccount>} />
-            <Route path="/d/:deviceId/*" element={<RequireAccount><DeviceIdRedirect /></RequireAccount>} />
-            <Route path="/:deviceName/*" element={<RequireAccount><RemoteDevice /></RequireAccount>} />
-            <Route path="/" element={account ? <DevicesPage /> : <HomePage />} />
-          </Routes>
-        </BrowserRouter>
-      </I18nProvider>
-    </AccountContext.Provider>
+    <SiteLanguageProvider>
+      {account === undefined ? <Loading screen /> : (
+        <AccountContext.Provider value={{ account, config, refresh, signOut }}>
+          <BrowserRouter>
+            <ConsolePageTracker signedIn={account !== null} />
+            <UpdatesOnNavigation />
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/pair/:pairingId" element={<PairPage />} />
+              <Route path="/link" element={<LinkPage />} />
+              <Route path="/about" element={<AboutPage />} />
+              <Route path="/features/:lang?" element={<Suspense fallback={<Loading screen />}><FeaturesPage /></Suspense>} />
+              <Route path="/add" element={<RequireAccount><AddRedirect /></RequireAccount>} />
+              <Route path="/d/:deviceId/*" element={<RequireAccount><DeviceIdRedirect /></RequireAccount>} />
+              <Route path="/:deviceName/*" element={<RequireAccount><RemoteDevice /></RequireAccount>} />
+              <Route path="/" element={account ? <DevicesPage /> : <HomePage />} />
+            </Routes>
+          </BrowserRouter>
+        </AccountContext.Provider>
+      )}
+    </SiteLanguageProvider>
   )
 }

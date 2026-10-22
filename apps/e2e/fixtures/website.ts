@@ -1,8 +1,13 @@
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 import type { Page } from '@playwright/test'
 import type { AppConfig, CloudDeviceDto, LatestReleaseDto } from '@magnetar/protocol/cloud'
 import { acceptBrowserHandshake, decodeHandshake, encodeHandshake, FRAME_HANDSHAKE, importBrowserKey } from '@magnetar/protocol/e2e'
 import { linkCodeKey } from '@magnetar/protocol/link-code'
 import { seedDeviceKeys } from './keys.ts'
+
+/** The website's build: the app leaves out the features page's files, which only the website serves. */
+const WEB_DIST = join(import.meta.dirname, '../../web/dist')
 
 /** The code each fake computer accepts from a browser linking itself; any other is refused as the relay does. */
 export const LINK_CODE = '7K2QM-4XPDR-9TBVN-3HWJC'
@@ -31,7 +36,7 @@ export const PREVIEW_BUILD: LatestReleaseDto = {
 
 /**
  * The website at its network edge: who is signed in, the account's computers (or a list that fails or never comes),
- * the newest release, and the relay for linking a browser by code. Every page and the browser's key store stay real.
+ * the newest release, the features page's files, and the relay for linking a browser by code. Every page and the browser's key store stay real.
  */
 export async function serveWebsite(page: Page, { signedIn = true, devices = COMPUTERS, linked = ['mini', 'pc'], devicesFail = 0, holdDevices = false, release = RELEASE, previewApp }: {
   signedIn?: boolean
@@ -52,6 +57,10 @@ export async function serveWebsite(page: Page, { signedIn = true, devices = COMP
   let failing = devicesFail
   /** From now on every read of the list answers with this status (503: the website is down; 401: signed out). */
   let failWith: number | null = null
+  await page.route('**/assets/features/**', route => {
+    const file = join(WEB_DIST, decodeURIComponent(new URL(route.request().url()).pathname))
+    return existsSync(file) ? route.fulfill({ path: file }) : route.fulfill({ status: 404 })
+  })
   await page.route('**/app-config.json', route => route.fulfill({ json: { mode: 'cloud', googleClientId: 'test-client', previewApp } }))
   await page.route('**/api/releases/latest', route => release ? route.fulfill({ json: release }) : route.fulfill({ status: 404, json: { error: 'No release yet' } }))
   await page.route('**/api/me', route => signedIn
