@@ -18,7 +18,8 @@ use http::{FetchError, describe_failure};
 use relevance::matches_query;
 use types::{Provider, SharedResult, TorrentSearchResult};
 
-/// One row per info hash, keeping the best-seeded, sorted by seeders. Rows without a hash (lazy
+/// One row per info hash, keeping the best-seeded, sorted by seeders. Its date is the earliest any source gave: the
+/// upload, where an index such as Torrents-CSV dates a torrent by when it took it in. Rows without a hash (lazy
 /// sources not resolved yet) pass through: grouping blanks would merge unrelated torrents.
 pub fn merge_results(rows: Vec<TorrentSearchResult>) -> Vec<TorrentSearchResult> {
     let mut hashless = Vec::new();
@@ -30,8 +31,13 @@ pub fn merge_results(rows: Vec<TorrentSearchResult>) -> Vec<TorrentSearchResult>
             continue;
         }
         match index.get(&row.info_hash.to_lowercase()) {
-            Some(&i) if row.seeders > by_hash[i].seeders => by_hash[i] = row,
-            Some(_) => {}
+            Some(&i) => {
+                let earliest = [by_hash[i].published_at, row.published_at].into_iter().flatten().min();
+                if row.seeders > by_hash[i].seeders {
+                    by_hash[i] = row;
+                }
+                by_hash[i].published_at = earliest;
+            }
             None => {
                 index.insert(row.info_hash.to_lowercase(), by_hash.len());
                 by_hash.push(row);
@@ -180,5 +186,29 @@ mod tests {
         };
         let merged = merge_results(vec![row("a", "AAAA", 5), row("a2", "aaaa", 9), row("lazy", "", 1), row("lazy2", "", 3)]);
         assert_eq!(merged.iter().map(|r| r.title.as_str()).collect::<Vec<_>>(), ["a2", "lazy2", "lazy"]);
+    }
+
+    #[test]
+    fn a_torrent_found_by_several_sources_keeps_the_earliest_date_any_gave() {
+        use chrono::TimeZone;
+        let day = |d: u32| Some(chrono::Utc.with_ymd_and_hms(2026, 9, d, 12, 0, 0).unwrap());
+        let row = |source: &str, seeders, published_at| TorrentSearchResult {
+            info_hash: "EC778232".into(),
+            seeders,
+            published_at,
+            ..TorrentSearchResult::new("Mushoku Tensei S3 - 13", source)
+        };
+        // Torrents-CSV dates a torrent by when its index took it in, weeks after the upload the others give.
+        for rows in [
+            vec![row("Nyaa", 1005, day(20)), row("Torrents-CSV", 1665, day(30)), row("Knaben", 1077, None)],
+            vec![row("Torrents-CSV", 1665, day(30)), row("Knaben", 1077, None), row("Nyaa", 1005, day(20))],
+            vec![row("Knaben", 1077, None), row("Nyaa", 1005, day(20)), row("Torrents-CSV", 1665, day(30))],
+        ] {
+            let merged = merge_results(rows);
+            assert_eq!(merged.len(), 1);
+            assert_eq!((merged[0].source.as_str(), merged[0].seeders, merged[0].published_at), ("Torrents-CSV", 1665, day(20)));
+        }
+        let merged = merge_results(vec![row("Knaben", 9, None), row("Torrents-CSV", 3, None)]);
+        assert_eq!((merged[0].source.as_str(), merged[0].published_at), ("Knaben", None));
     }
 }
