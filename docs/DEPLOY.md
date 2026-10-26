@@ -159,18 +159,11 @@ through `sh -c '…'`. Once on the Mac: `pnpm add -g @codefusion-cc/console && c
 Installed apps only take an update whose `SHA256SUMS.txt` is signed by the key their build compiled in. Each flavour
 has its own pair: Magnetar `apps/client/release-public-key.txt`, Magnetar Preview `apps/client/preview-public-key.txt`.
 Each build refuses to compile in the other's key, and `sign-release.ts` refuses a secret that is not the private half
-of the key the app trusts. A new pair, in a terminal from the repo root:
-
-```bash
-node packages/release/release-key.ts
-node packages/release/release-key.ts --preview
-```
-
-It puts the private key on the clipboard, never the terminal or a file. Paste it as the secret it names,
-`RELEASE_SIGNING_KEY` in the `release-signing` environment or `PREVIEW_SIGNING_KEY` in `preview-signing`, then press
-Enter. Once GitHub shows that secret saved, it writes the public key file to commit; any other key, or the key pasted
-into the terminal, stops it with nothing written. Either way it clears the clipboard. Only `main` deploys to either
-environment, and the Sign jobs install nothing, so a pull request's own workflow never reads a signing key
+of the key the app trusts. A new pair comes from CodeFusion Console: `key.make` (an `infra_change`, kind `ed25519`,
+target this repository's `release-signing` or `preview-signing` environment, `rotate` to replace a key) makes it on the
+owner's tap, writes the private key as `RELEASE_SIGNING_KEY` or `PREVIEW_SIGNING_KEY`, and answers with only the public
+key, which goes into the public key file in a pull request. Nobody sees or pastes the private key. Only `main` deploys
+to either environment, and the Sign jobs install nothing, so a pull request's own workflow never reads a signing key
 (`packages/release/signing.test.ts` holds every workflow to this). The secret belongs to the environment only: a
 repository secret of the same name would be readable everywhere, so delete it if one exists (Settings, Secrets and
 variables, Actions).

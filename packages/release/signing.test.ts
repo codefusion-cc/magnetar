@@ -4,7 +4,6 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
-import { generateKeyPair } from './release-key.ts'
 
 // Magnetar and Magnetar Preview each sign their updates with a key of their own, readable only from main, and each
 // trusts only its own: a preview build's key can never sign an update the released app installs.
@@ -18,7 +17,17 @@ const SIGNING_KEYS: Record<string, string> = { RELEASE_SIGNING_KEY: 'release-sig
 const CODE_SIGNING = ['MACOS_CERTIFICATE', 'MACOS_CERTIFICATE_PASSWORD', 'MACOS_SIGNING_IDENTITY', 'APPLE_ID', 'APPLE_TEAM_ID', 'APPLE_APP_PASSWORD', 'WINDOWS_CERTIFICATE', 'WINDOWS_CERTIFICATE_PASSWORD']
 const SIGNING_SECRETS: Record<string, string> = { ...SIGNING_KEYS, ...Object.fromEntries(CODE_SIGNING.map((secret) => [secret, 'code-signing'])) }
 const SIGNING_ENVIRONMENTS = new Set(Object.values(SIGNING_SECRETS))
-const workflows = readdirSync(join(repo, '.github/workflows')).filter((name) => /\.ya?ml$/.test(name))
+
+/** A pair as the console's key.make makes one for these secrets: the private key PKCS8, the public key raw, both base64url. */
+async function generateKeyPair(): Promise<{ publicKey: string; privateKey: string }> {
+  const pair = (await crypto.subtle.generateKey('Ed25519', true, ['sign', 'verify'])) as CryptoKeyPair
+  return {
+    publicKey: Buffer.from(await crypto.subtle.exportKey('raw', pair.publicKey)).toString('base64url'),
+    privateKey: Buffer.from(await crypto.subtle.exportKey('pkcs8', pair.privateKey)).toString('base64url'),
+  }
+}
+
+const workflows =readdirSync(join(repo, '.github/workflows')).filter((name) => /\.ya?ml$/.test(name))
 const load = (name: string) => parse(read(`.github/workflows/${name}`)) as Workflow
 const environmentOf = (job: Job) => (typeof job.environment === 'string' ? job.environment : job.environment?.name)
 /** The secrets an expression names; GitHub matches secret names in any case. */
@@ -87,20 +96,6 @@ describe('signing keys', () => {
       ...Object.fromEntries(['WINDOWS_CERTIFICATE', 'WINDOWS_CERTIFICATE_PASSWORD'].map((secret) => [secret, only('Windows', secret)])),
       VERSION: '${{ needs.plan.outputs.version }}',
     })
-  })
-
-  it('release-key.ts needs a terminal, and changes nothing without one', () => {
-    const before = ['release', 'preview'].map((flavour) => read(`apps/client/${flavour}-public-key.txt`))
-    for (const args of [[], ['--preview']]) {
-      let error = ''
-      try {
-        execFileSync(process.execPath, [join(import.meta.dirname, 'release-key.ts'), ...args], { stdio: 'pipe' })
-      } catch (thrown) {
-        error = String((thrown as { stderr: Buffer }).stderr)
-      }
-      expect(error).toContain('Run it in a terminal')
-    }
-    expect(['release', 'preview'].map((flavour) => read(`apps/client/${flavour}-public-key.txt`))).toEqual(before)
   })
 })
 
@@ -177,6 +172,16 @@ describe('sign-release.ts', () => {
     const { dir, error } = sign(other.privateKey, pair.publicKey)
     expect(error).toContain('RELEASE_SIGNING_KEY is not the private half of')
     expect(existsSync(join(dir, 'SHA256SUMS.txt.sig'))).toBe(false)
+  })
+
+  it('names a secret that is no whole private key, cut short or the public half, and writes no signature', async () => {
+    const pair = await generateKeyPair()
+    for (const secret of [pair.privateKey.slice(0, 40), pair.publicKey, '-----BEGIN PRIVATE KEY-----', '   ']) {
+      const { dir, error } = sign(secret, pair.publicKey)
+      expect(error, secret).toContain('RELEASE_SIGNING_KEY is not a whole Ed25519 private key (PKCS8, base64url)')
+      expect(error, secret).not.toContain(pair.privateKey.slice(0, 40))
+      expect(existsSync(join(dir, 'SHA256SUMS.txt.sig'))).toBe(false)
+    }
   })
 
   it('refuses a missing key', async () => {

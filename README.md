@@ -227,7 +227,7 @@ its own pull request (everything waiting ships with it), and a later pull reques
 from `package.json` or `Cargo.toml` (they only name the first release and local builds). For a minor or major release
 run the Release workflow by hand on `main` once CI is green there (Actions, Release, Run workflow, version `2.1.0`, above the latest release); the next automatic patch continues
 from it (v2.1.1). The Release workflow builds every platform, writes `SHA256SUMS.txt`, signs it with the `RELEASE_SIGNING_KEY` secret
-of the main-only `release-signing` environment (made with `node packages/release/release-key.ts`) and publishes the GitHub release, with notes written from the pull
+of the main-only `release-signing` environment (made by CodeFusion Console, [deployment](docs/DEPLOY.md#release-signing)) and publishes the GitHub release, with notes written from the pull
 requests merged since the last release and grouped by branch type (`feat/` New, `fix/` Fixes, `perf/` Faster; a PR
 labeled `skip-changelog` stays out). The app's What's new shows these notes, so PR titles are written for users. A version
 with a pre-release (`2.1.0-rc.1`) publishes a pre-release, which installed apps don't take. With the Apple and Windows
