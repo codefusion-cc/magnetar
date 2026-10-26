@@ -26,7 +26,8 @@ async function generateKeyPair(): Promise<{ publicKey: string; privateKey: strin
     privateKey: Buffer.from(await crypto.subtle.exportKey('pkcs8', pair.privateKey)).toString('base64url'),
   }
 }
-const workflows = readdirSync(join(repo, '.github/workflows')).filter((name) => /\.ya?ml$/.test(name))
+
+const workflows =readdirSync(join(repo, '.github/workflows')).filter((name) => /\.ya?ml$/.test(name))
 const load = (name: string) => parse(read(`.github/workflows/${name}`)) as Workflow
 const environmentOf = (job: Job) => (typeof job.environment === 'string' ? job.environment : job.environment?.name)
 /** The secrets an expression names; GitHub matches secret names in any case. */
