@@ -9,9 +9,40 @@ inputs:
   password:
     description: The certificate's password
     required: false
+  # Only to check that all six macOS secrets are set or none is: with some of them missing, the build would ship
+  # signed but never notarized, which Gatekeeper refuses, so the job stops instead.
+  signing-identity:
+    description: MACOS_SIGNING_IDENTITY
+    required: false
+  apple-id:
+    description: APPLE_ID
+    required: false
+  team-id:
+    description: APPLE_TEAM_ID
+    required: false
+  app-password:
+    description: APPLE_APP_PASSWORD
+    required: false
 runs:
   using: composite
   steps:
+    - shell: bash
+      env:
+        MACOS_CERTIFICATE: ${{ inputs.certificate != '' }}
+        MACOS_CERTIFICATE_PASSWORD: ${{ inputs.password != '' }}
+        MACOS_SIGNING_IDENTITY: ${{ inputs.signing-identity != '' }}
+        APPLE_ID: ${{ inputs.apple-id != '' }}
+        APPLE_TEAM_ID: ${{ inputs.team-id != '' }}
+        APPLE_APP_PASSWORD: ${{ inputs.app-password != '' }}
+      run: |
+        missing=()
+        for name in MACOS_CERTIFICATE MACOS_CERTIFICATE_PASSWORD MACOS_SIGNING_IDENTITY APPLE_ID APPLE_TEAM_ID APPLE_APP_PASSWORD; do
+          [ "${!name}" = true ] || missing+=("$name")
+        done
+        if [ "${#missing[@]}" -ne 0 ] && [ "${#missing[@]}" -ne 6 ]; then
+          echo "::error::Some macOS signing secrets of the code-signing environment are set and these are not: ${missing[*]}"
+          exit 1
+        fi
     - if: inputs.certificate != ''
       shell: bash
       env:
@@ -24,7 +55,7 @@ runs:
         security set-keychain-settings -lut 21600 "$keychain"
         security unlock-keychain -p "$password" "$keychain"
         echo "$MACOS_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
-        security import "$RUNNER_TEMP/certificate.p12" -k "$keychain" -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+        security import "$RUNNER_TEMP/certificate.p12" -k "$keychain" -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -x
         rm "$RUNNER_TEMP/certificate.p12"
         security set-key-partition-list -S apple-tool:,apple: -s -k "$password" "$keychain"
         security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')

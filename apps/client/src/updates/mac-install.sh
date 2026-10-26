@@ -14,14 +14,28 @@ if [ "$mode" = prepare ]; then
     /usr/bin/codesign --verify --deep --strict "$replacement"
     identifier="$5"
     [[ "$identifier" =~ ^[A-Za-z0-9.-]+$ ]] || exit 1
-    /usr/bin/codesign --verify -R "=identifier \"$identifier\"" "$replacement"
     # Ad-hoc releases have no Apple trust ticket; the release signature was verified before this
-    # script ran. Keep Gatekeeper enforcement for an installation signed with a certificate.
+    # script ran. An installation signed with a certificate takes only a replacement signed with a
+    # Developer ID certificate Apple issued to the same team, never an ad-hoc one, and Gatekeeper
+    # must accept it. The display text names the bundle's path, which can hold any line, so an
+    # installation counts as ad-hoc only when it says so and also fails Apple's anchor.
     installed_signature="$(/usr/bin/codesign --display --verbose=2 "$bundle" 2>&1)"
-    if printf '%s\n' "$installed_signature" | /usr/bin/grep -qx 'Signature=adhoc'; then
+    if printf '%s\n' "$installed_signature" | /usr/bin/grep -qx 'Signature=adhoc' \
+        && ! /usr/bin/codesign --verify -R "=anchor apple generic" "$bundle" 2>/dev/null; then
+        /usr/bin/codesign --verify -R "=identifier \"$identifier\"" "$replacement"
         echo "Ad-hoc installation: replacement signature and identifier verified."
     else
+        team="$(printf '%s\n' "$installed_signature" | /usr/bin/sed -n 's/^TeamIdentifier=//p')"
+        # Spelled out: on some macOS versions a range like A-Z also takes letters such as Ä.
+        if ! [[ "$team" =~ ^[ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789]{10}$ ]]; then
+            echo "The installed app is signed without a team; refusing the update."
+            exit 1
+        fi
+        # Developer ID Application: Apple's Developer ID intermediate, and the leaf's Developer ID extension.
+        developer_id='anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] and certificate leaf[field.1.2.840.113635.100.6.1.13]'
+        /usr/bin/codesign --verify -R "=identifier \"$identifier\" and $developer_id and certificate leaf[subject.OU] = \"$team\"" "$replacement"
         /usr/sbin/spctl --assess --type execute "$replacement"
+        echo "Installation of team $team: replacement signature, identifier and team verified."
     fi
     exit 0
 fi

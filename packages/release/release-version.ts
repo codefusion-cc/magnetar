@@ -11,7 +11,8 @@
  * `<folder>/.github/release-hold`.
  *
  * The version is the latest plain vX.Y.Z tag plus one patch; minor and major releases, and the first one, are the
- * Release workflow run by hand with their version. No file holds the version: the tag is the version.
+ * Release workflow run by hand with their version (`--tag`; `checkExplicitTag` says which it takes). No file holds the
+ * version: the tag is the version.
  * Pre-release tags (v2.0.0-rc.1) are ignored. A merge that changes only docs, tests or CI files is not released, nor is
  * one while `.github/release-hold` exists: work that ships in parts (a redesign) collects on main and is released by the
  * merge that deletes the file. Its text says why it holds.
@@ -26,10 +27,22 @@ import { parseArgs } from 'node:util'
 
 export type Version = readonly [major: number, minor: number, patch: number]
 
+/**
+ * A version number as Semantic Versioning, and so the app's updater, reads it: no leading zeros. At most 15 digits, so
+ * it stays exact as a JavaScript number.
+ */
+const NUMBER = '(0|[1-9]\\d{0,14})'
+const RELEASE = new RegExp(`^${NUMBER}\\.${NUMBER}\\.${NUMBER}$`)
+/** A release or a pre-release ("1.3.0-rc.1"), whose numeric parts have no leading zeros either. */
+const PART = '(?:0|[1-9]\\d*|\\d*[A-Za-z][0-9A-Za-z]*)'
+const VERSION = new RegExp(`^${NUMBER}\\.${NUMBER}\\.${NUMBER}(?:-(${PART}(?:\\.${PART})*))?$`)
+/** What Magnetar Preview's pre-releases start with (1.2.9-preview.412). */
+const PREVIEW = 'preview.'
+
 /** The version of a plain release tag ("v1.2.3" with the prefix "v"); a pre-release or any other tag is not a release. */
 export function parseTag(tag: string, prefix = 'v'): Version | null {
   if (!tag.startsWith(prefix)) return null
-  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(tag.slice(prefix.length))
+  const match = RELEASE.exec(tag.slice(prefix.length))
   return match ? [Number(match[1]), Number(match[2]), Number(match[3])] : null
 }
 
@@ -56,7 +69,7 @@ export function nextVersion(tags: readonly string[], prefix = 'v'): string | nul
 export function previewVersion(tags: readonly string[], build: number, prefix = 'v'): string | null {
   if (!Number.isSafeInteger(build) || build < 1) throw new Error(`Invalid build number ${build}`)
   const next = nextVersion(tags, prefix)
-  return next && `${next}-preview.${build}`
+  return next && `${next}-${PREVIEW}${build}`
 }
 
 /** Files that never reach a user of the app or the website: documentation, tests, CI and repository housekeeping. */
@@ -100,6 +113,25 @@ const HERE: Tagging = { prefix: 'v', folder: '' }
 /** The hold file of the app in `folder`. */
 export const holdFile = (folder: string) => (folder ? `${folder.replace(/\/+$/, '')}/${HOLD_FILE}` : HOLD_FILE)
 
+/**
+ * A version given by hand (release.yml's Run workflow on main): a release (v1.3.0) or a pre-release (v1.3.0-rc.1)
+ * above the latest release, never one of Magnetar Preview's. A tag that exists already is taken only on the commit it
+ * points at and only when it is the latest release or above it, so a release cut short is finished and no other
+ * commit's files ever land in it.
+ */
+export function checkExplicitTag(tag: string, tags: readonly string[], prefix: string, taggedAt: string | null, sha: string): void {
+  const match = tag.startsWith(prefix) ? VERSION.exec(tag.slice(prefix.length)) : null
+  if (!match) throw new Error(`${JSON.stringify(tag)} is not a version tag like ${prefix}1.3.0 or ${prefix}1.3.0-rc.1`)
+  if (match[4]?.startsWith(PREVIEW)) throw new Error(`${tag} is a Magnetar Preview version; preview-app.yml names those`)
+  // Every automatic release after it would pick the same unreadable tag.
+  if (!parseTag(`${prefix}${match[1]}.${match[2]}.${Number(match[3]) + 1}`, prefix)) throw new Error(`${tag}: the patch after it would not be a version`)
+  if (taggedAt != null && taggedAt !== sha) throw new Error(`${tag} exists already at ${taggedAt.slice(0, 7)}, not at ${sha.slice(0, 7)}`)
+  const latest = latestVersion(tags, prefix)
+  const above = latest ? compare([Number(match[1]), Number(match[2]), Number(match[3])], latest) : 1
+  // The tag of a release cut short is the latest release itself; any other version has to be above it.
+  if (above < 0 || (above === 0 && (taggedAt == null || match[4]))) throw new Error(`${tag} is not above the latest release, ${prefix}${format(latest!)}`)
+}
+
 /** What a commit becomes, given the release tags, its relation to the latest one and the files changed since. */
 export function plan(input: {
   tags: readonly string[]
@@ -130,6 +162,7 @@ function git(...args: string[]): string {
 /** The latest release tag and what separates `sha` from it, read from the checkout (which needs its tags). */
 function fromRepository(sha: string, tagging: Tagging, explicitTag?: string): Plan & { latest: string | null } {
   const tags = git('tag', '--list', `${tagging.prefix}*`).split('\n').filter(Boolean)
+  if (explicitTag) checkExplicitTag(explicitTag, tags, tagging.prefix, tags.includes(explicitTag) ? git('rev-list', '-n', '1', explicitTag) : null, sha)
   const latest = latestVersion(tags, tagging.prefix)
   const latestTag = latest ? `${tagging.prefix}${format(latest)}` : null
   const hold = holdFile(tagging.folder)
@@ -161,7 +194,7 @@ if (process.argv[1] === import.meta.filename) {
     options: { sha: { type: 'string' }, tag: { type: 'string' }, prefix: { type: 'string', default: HERE.prefix }, folder: { type: 'string', default: HERE.folder } },
   })
   const tagging = { prefix: values.prefix, folder: values.folder }
-  const sha = values.sha ?? git('rev-parse', 'HEAD')
+  const sha = git('rev-parse', '--verify', `${values.sha ?? 'HEAD'}^{commit}`)
   if (positionals[0] === 'preview') {
     const tags = git('tag', '--list', `${tagging.prefix}*`).split('\n').filter(Boolean)
     const version = previewVersion(tags, Number(git('rev-list', '--count', '--first-parent', sha)), tagging.prefix)
