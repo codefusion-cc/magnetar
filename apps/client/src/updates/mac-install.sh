@@ -26,7 +26,8 @@ if [ "$mode" = prepare ]; then
         echo "Ad-hoc installation: replacement signature and identifier verified."
     else
         team="$(printf '%s\n' "$installed_signature" | /usr/bin/sed -n 's/^TeamIdentifier=//p')"
-        if ! [[ "$team" =~ ^[A-Z0-9]{10}$ ]]; then
+        # Spelled out: on some macOS versions a range like A-Z also takes letters such as Ä.
+        if ! [[ "$team" =~ ^[ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789]{10}$ ]]; then
             echo "The installed app is signed without a team; refusing the update."
             exit 1
         fi
