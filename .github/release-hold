@@ -1,0 +1,3 @@
+Installed copies (1.2.8 and older) trust only the old release signing key, and main now signs with the new one, so
+a release now would be refused by every installed app. Held until the bridge release, signed with the old key and
+trusting the new one, is ready.
