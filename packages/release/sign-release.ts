@@ -16,7 +16,10 @@ const dir = positionals[0] ?? '.'
 const publicKeyFile = values['public-key']!
 const secret = process.env.RELEASE_SIGNING_KEY
 if (!secret) throw new Error('RELEASE_SIGNING_KEY is not set')
-const key = await crypto.subtle.importKey('pkcs8', Buffer.from(secret.trim(), 'base64url'), 'Ed25519', false, ['sign'])
+// Node's own error ("asn1 encoding routines: not enough data") names neither the secret nor what is wrong with it.
+const key = await crypto.subtle.importKey('pkcs8', Buffer.from(secret.trim(), 'base64url'), 'Ed25519', false, ['sign']).catch(() => {
+  throw new Error('RELEASE_SIGNING_KEY is not a whole Ed25519 private key (PKCS8, base64url): it may be cut short or the public half')
+})
 const publicKey = await crypto.subtle.importKey('raw', Buffer.from(readFileSync(publicKeyFile, 'utf8').trim(), 'base64url'), 'Ed25519', false, ['verify'])
 const manifest = readFileSync(join(dir, 'SHA256SUMS.txt'))
 const signature = new Uint8Array(await crypto.subtle.sign('Ed25519', key, manifest))
