@@ -17,9 +17,7 @@ on:
   workflow_call:
 
 permissions:
-  contents: write
-  # The release notes read the merged pull requests' titles and branches.
-  pull-requests: read
+  contents: read
 
 env:
   AWS_LC_SYS_PREBUILT_NASM: '1'
@@ -72,38 +70,47 @@ jobs:
       deployment: false
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: pnpm
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
+          toolchain: stable
           targets: ${{ matrix.target }}
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           key: ${{ matrix.target }}
       - run: pnpm install --frozen-lockfile
+      # The tests run before the certificate is in a keychain. The x64 macOS build is cross-compiled on an arm64
+      # runner, so its tests can't run there.
+      - run: cargo test --locked
+        if: matrix.target != 'x86_64-apple-darwin'
       # Only when the Developer ID certificate is a secret; without it the build is ad-hoc signed.
       - if: runner.os == 'macOS'
         uses: ./.github/actions/import-developer-id
         with:
           certificate: ${{ secrets.MACOS_CERTIFICATE }}
           password: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
-          notarization-set: ${{ secrets.MACOS_SIGNING_IDENTITY != '' }} ${{ secrets.APPLE_ID != '' }} ${{ secrets.APPLE_TEAM_ID != '' }} ${{ secrets.APPLE_APP_PASSWORD != '' }}
-      # The x64 macOS build is cross-compiled on an arm64 runner, so its tests can't run there.
-      - run: cargo test --locked
-        if: matrix.target != 'x86_64-apple-darwin'
+          signing-identity: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+          apple-id: ${{ secrets.APPLE_ID }}
+          team-id: ${{ secrets.APPLE_TEAM_ID }}
+          app-password: ${{ secrets.APPLE_APP_PASSWORD }}
+      # Each platform's build, and the crates' build scripts it runs, sees only its own platform's certificate.
       - name: Build
         shell: bash
         env:
-          MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
-          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
-          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
-        run: pnpm --filter @magnetar/client run build --target ${{ matrix.target }} --version ${{ needs.plan.outputs.version }}
+          MACOS_SIGNING_IDENTITY: ${{ runner.os == 'macOS' && secrets.MACOS_SIGNING_IDENTITY || '' }}
+          APPLE_ID: ${{ runner.os == 'macOS' && secrets.APPLE_ID || '' }}
+          APPLE_TEAM_ID: ${{ runner.os == 'macOS' && secrets.APPLE_TEAM_ID || '' }}
+          APPLE_APP_PASSWORD: ${{ runner.os == 'macOS' && secrets.APPLE_APP_PASSWORD || '' }}
+          WINDOWS_CERTIFICATE: ${{ runner.os == 'Windows' && secrets.WINDOWS_CERTIFICATE || '' }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ runner.os == 'Windows' && secrets.WINDOWS_CERTIFICATE_PASSWORD || '' }}
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: pnpm --filter @magnetar/client run build --target ${{ matrix.target }} --version "$VERSION"
       - name: Collect the release asset
         shell: bash
         run: |
@@ -152,6 +159,10 @@ jobs:
   publish:
     needs: [plan, sign]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      # The release notes read the merged pull requests' titles and branches.
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0

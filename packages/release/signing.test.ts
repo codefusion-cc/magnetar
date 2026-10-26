@@ -63,16 +63,30 @@ describe('signing keys', () => {
   })
 
   it('builds read the certificates from code-signing, and the macOS ones only all together', () => {
-    for (const [name, id] of [['release.yml', 'build'], ['preview-app.yml', 'build']] as const) {
-      const job = load(name).jobs![id]!
-      expect(environmentOf(job), `${name} ${id}`).toBe('code-signing')
+    for (const name of ['release.yml', 'preview-app.yml']) {
+      const job = load(name).jobs!.build!
+      expect(environmentOf(job), name).toBe('code-signing')
       const imported = (job.steps as { uses?: string; with?: Record<string, string> }[]).find((step) => step.uses === './.github/actions/import-developer-id')
-      expect(imported?.with, `${name} ${id}`).toEqual({
+      // The action stops the build when some of the six are set and others not (signed, never notarized).
+      expect(imported?.with, name).toEqual({
         certificate: '${{ secrets.MACOS_CERTIFICATE }}',
         password: '${{ secrets.MACOS_CERTIFICATE_PASSWORD }}',
-        'notarization-set': "${{ secrets.MACOS_SIGNING_IDENTITY != '' }} ${{ secrets.APPLE_ID != '' }} ${{ secrets.APPLE_TEAM_ID != '' }} ${{ secrets.APPLE_APP_PASSWORD != '' }}",
+        'signing-identity': '${{ secrets.MACOS_SIGNING_IDENTITY }}',
+        'apple-id': '${{ secrets.APPLE_ID }}',
+        'team-id': '${{ secrets.APPLE_TEAM_ID }}',
+        'app-password': '${{ secrets.APPLE_APP_PASSWORD }}',
       })
     }
+  })
+
+  it("a release's build on each platform gets only that platform's certificate", () => {
+    const build = load('release.yml').jobs!.build!.steps!.find((step) => step.run?.includes('run build --target'))!
+    const only = (os: string, secret: string) => `\${{ runner.os == '${os}' && secrets.${secret} || '' }}`
+    expect(build.env).toEqual({
+      ...Object.fromEntries(['MACOS_SIGNING_IDENTITY', 'APPLE_ID', 'APPLE_TEAM_ID', 'APPLE_APP_PASSWORD'].map((secret) => [secret, only('macOS', secret)])),
+      ...Object.fromEntries(['WINDOWS_CERTIFICATE', 'WINDOWS_CERTIFICATE_PASSWORD'].map((secret) => [secret, only('Windows', secret)])),
+      VERSION: '${{ needs.plan.outputs.version }}',
+    })
   })
 
   it('release-key.ts needs a terminal, and changes nothing without one', () => {
