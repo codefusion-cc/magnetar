@@ -199,9 +199,9 @@ rather than ship an app that is signed but not notarized.
 
 The macOS bundle is signed with the hardened runtime, notarized, stapled and checked with `spctl` before it is
 zipped. Changing from ad-hoc to Developer ID signing is fine for updates: an ad-hoc installation checks the bundle
-identifier. Once the installed app is certificate-signed, it takes only a replacement that Apple signed for the same
-team (read from the installed app's own signature) and that Gatekeeper accepts, never an ad-hoc one; a new team means
-installing once by hand.
+identifier. Once the installed app is certificate-signed, it takes only a replacement signed with a Developer ID
+Application certificate Apple issued to the same team (read from the installed app's own signature) and that Gatekeeper
+accepts, never an ad-hoc one or one signed for development; a new team means installing once by hand.
 
 ## Browser notifications (Web Push)
 
