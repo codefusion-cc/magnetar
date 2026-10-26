@@ -42,6 +42,11 @@ describe('nextVersion', () => {
     expect(nextVersion(['v1.2.0', 'v1.3.0-rc.1', 'v2.0.0-beta', 'latest', '1.9.0', 'v1.2.0.1'])).toBe('1.2.1')
     expect(parseTag('v1.3.0-rc.1')).toBeNull()
   })
+  it("ignores tags with leading zeros, which the app's updater can't read", () => {
+    for (const tag of ['v01.2.3', 'v1.02.3', 'v1.2.03', 'v00.0.0', 'v1.2.9999999999999999']) expect(parseTag(tag), tag).toBeNull()
+    expect(nextVersion(['v1.2.0', 'v1.3.00'])).toBe('1.2.1')
+    expect(parseTag('v0.0.0')).toEqual([0, 0, 0])
+  })
 })
 
 describe('changesShippedApp', () => {
@@ -76,10 +81,6 @@ describe('plan', () => {
     expect(plan({ tags, explicitTag: 'v1.3.0', changed: [] })).toEqual({ release: true, tag: 'v1.3.0', reason: 'version given by hand' })
     expect(plan({ tags, explicitTag: 'v1.3.0', containedInLatest: true })).toMatchObject({ release: true, tag: 'v1.3.0' })
   })
-  it('refuses a version given by hand that is not above the latest release', () => {
-    expect(() => plan({ tags, explicitTag: 'v1.2.1' })).toThrow('v1.2.1 is not above the latest release, v1.2.1')
-    expect(() => plan({ tags, explicitTag: 'v1.0.0', changed: ['apps/web/src/a.ts'] })).toThrow(/not above/)
-  })
   it('holds an app change while the hold file exists, and says why', () => {
     const held = plan({ tags, changed: ['apps/web/src/a.ts'], held: 'Infall redesign\n' })
     expect(held).toEqual({ release: false, tag: '', reason: 'held by .github/release-hold: Infall redesign' })
@@ -99,7 +100,7 @@ describe('checkExplicitTag', () => {
   const check = (tag: string, at: string | null = null, prefix = 'v', list: readonly string[] = tags) => () => checkExplicitTag(tag, list, prefix, at, sha)
 
   it('takes a release or a pre-release above the latest release', () => {
-    for (const tag of ['v1.2.2', 'v1.3.0', 'v2.0.0', 'v1.10.0', 'v1.3.0-rc.2', 'v1.2.2-beta', 'v1.2.2-rc.1.2', 'v10.0.0-0']) expect(check(tag), tag).not.toThrow()
+    for (const tag of ['v1.2.2', 'v1.3.0', 'v2.0.0', 'v1.10.0', 'v1.3.0-rc.2', 'v1.2.2-beta', 'v1.2.2-rc.1.2', 'v10.0.0-0', 'v1.3.0-0a', 'v1.3.0-rc.10', 'v1.3.0-01a', 'v1.2.999999999999999']) expect(check(tag), tag).not.toThrow()
   })
   it('takes the first release when there is none', () => {
     expect(check('v0.0.1', null, 'v', [])).not.toThrow()
@@ -119,7 +120,11 @@ describe('checkExplicitTag', () => {
   it('refuses anything that is not a version tag', () => {
     const bad = ['', 'v', '1.3.0', 'v1.3', 'v1.3.0.1', 'v1.3.0-', 'v1.3.0-rc..1', 'v1.3.0-rc.', 'v1.3.0+build.1', ' v1.3.0', 'v1.3.0 ',
       'v1.3.0\n', 'v1.3.0-rc_1', 'v1.3.0-rc.1;rm -rf /', 'v1.3.0/x', '../v1.3.0', 'V1.3.0', 'v\uff11.3.0', 'v1.3.0-\u00e9', `v1.3.0-${'a.'.repeat(5000)}`,
-      'refs/tags/v1.3.0', '-v1.3.0', 'v-1.3.0']
+      'refs/tags/v1.3.0', '-v1.3.0', 'v-1.3.0',
+      // Semantic Versioning has no leading zeros, and the app's updater skips a tag that has them.
+      'v01.3.0', 'v1.03.0', 'v1.3.00', 'v1.3.0-rc.01', 'v1.3.0-00',
+      // Past what a JavaScript number holds exactly, every later patch would be the same unparseable version.
+      'v1.2.9999999999999999', 'v1.2.99999999999999999999', 'v9999999999999999.0.0']
     for (const tag of bad) expect(check(tag), JSON.stringify(tag)).toThrow('is not a version tag like v1.3.0 or v1.3.0-rc.1')
   })
   it('takes a tag that exists only on the commit it points at', () => {
@@ -127,6 +132,10 @@ describe('checkExplicitTag', () => {
     expect(check('v1.3.0-rc.1', sha)).not.toThrow()
     expect(check('v1.2.1', 'b'.repeat(40))).toThrow(`v1.2.1 exists already at bbbbbbb, not at aaaaaaa`)
     expect(check('v1.2.1', '')).toThrow(/exists already/)
+    // Even on this commit, an existing tag below the latest release, or a pre-release of it, is never released again.
+    expect(check('v1.2.0', sha)).toThrow('v1.2.0 is not above the latest release, v1.2.1')
+    expect(check('v1.2.1-rc.1', sha)).toThrow('is not above the latest release')
+    expect(check('v1.2.1', null)).toThrow('is not above the latest release')
   })
   it('reads only its own prefix in the monorepo', () => {
     const mono = ['magnetar-v1.2.0', 'v9.0.0']
@@ -140,7 +149,8 @@ describe('checkExplicitTag', () => {
       const tag = `v${chosen.join('.')}${pre ? `-${pre}` : ''}`
       const above = released.every(([major, minor, patch]) => (chosen[0] - major || chosen[1] - minor || chosen[2] - patch) > 0)
       const preview = pre?.startsWith('preview.') ?? false
-      const ok = above && !preview
+      const leadingZero = pre?.split('.').some(part => /^0\d+$/.test(part)) ?? false
+      const ok = above && !preview && !leadingZero
       let threw = false
       try { checkExplicitTag(tag, released.map(v => `v${v.join('.')}`), 'v', null, sha) } catch { threw = true }
       return threw === !ok
@@ -215,6 +225,10 @@ describe('in a repository', () => {
     run(cwd, 'tag', 'v1.3.0')
     commit(cwd, 'apps/web/src/c.ts')
     expect(plan(cwd, 'plan')).toContain('tag=v1.3.1')
+    // A version given by hand is checked before anything is built.
+    expect(() => plan(cwd, 'plan', '--tag', 'v1.2.9')).toThrow('v1.2.9 is not above the latest release, v1.3.0')
+    expect(() => plan(cwd, 'plan', '--tag', 'v1.3.1-preview.7')).toThrow('is a Magnetar Preview version')
+    expect(plan(cwd, 'plan', '--tag', 'v1.4.0')).toContain('release=true tag=v1.4.0')
     // A queued older merge is already inside the newer release.
     expect(plan(cwd, 'plan', '--sha', 'HEAD~1')).toContain('release=false')
     // A hold collects app changes until the merge that deletes it releases them all.
