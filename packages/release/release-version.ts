@@ -29,7 +29,7 @@ export type Version = readonly [major: number, minor: number, patch: number]
 
 /**
  * A version number as Semantic Versioning, and so the app's updater, reads it: no leading zeros. At most 15 digits, so
- * it stays exact as a JavaScript number and the next patch is never a number nobody can tag.
+ * it stays exact as a JavaScript number.
  */
 const NUMBER = '(0|[1-9]\\d{0,14})'
 const RELEASE = new RegExp(`^${NUMBER}\\.${NUMBER}\\.${NUMBER}$`)
@@ -123,6 +123,8 @@ export function checkExplicitTag(tag: string, tags: readonly string[], prefix: s
   const match = tag.startsWith(prefix) ? VERSION.exec(tag.slice(prefix.length)) : null
   if (!match) throw new Error(`${JSON.stringify(tag)} is not a version tag like ${prefix}1.3.0 or ${prefix}1.3.0-rc.1`)
   if (match[4]?.startsWith(PREVIEW)) throw new Error(`${tag} is a Magnetar Preview version; preview-app.yml names those`)
+  // Every automatic release after it would pick the same unreadable tag.
+  if (!parseTag(`${prefix}${match[1]}.${match[2]}.${Number(match[3]) + 1}`, prefix)) throw new Error(`${tag}: the patch after it would not be a version`)
   if (taggedAt != null && taggedAt !== sha) throw new Error(`${tag} exists already at ${taggedAt.slice(0, 7)}, not at ${sha.slice(0, 7)}`)
   const latest = latestVersion(tags, prefix)
   const above = latest ? compare([Number(match[1]), Number(match[2]), Number(match[3])], latest) : 1

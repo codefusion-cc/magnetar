@@ -100,7 +100,7 @@ describe('checkExplicitTag', () => {
   const check = (tag: string, at: string | null = null, prefix = 'v', list: readonly string[] = tags) => () => checkExplicitTag(tag, list, prefix, at, sha)
 
   it('takes a release or a pre-release above the latest release', () => {
-    for (const tag of ['v1.2.2', 'v1.3.0', 'v2.0.0', 'v1.10.0', 'v1.3.0-rc.2', 'v1.2.2-beta', 'v1.2.2-rc.1.2', 'v10.0.0-0', 'v1.3.0-0a', 'v1.3.0-rc.10', 'v1.3.0-01a', 'v1.2.999999999999999']) expect(check(tag), tag).not.toThrow()
+    for (const tag of ['v1.2.2', 'v1.3.0', 'v2.0.0', 'v1.10.0', 'v1.3.0-rc.2', 'v1.2.2-beta', 'v1.2.2-rc.1.2', 'v10.0.0-0', 'v1.3.0-0a', 'v1.3.0-rc.10', 'v1.3.0-01a', 'v1.2.999999999999998', 'v999999999999999.999999999999999.0']) expect(check(tag), tag).not.toThrow()
   })
   it('takes the first release when there is none', () => {
     expect(check('v0.0.1', null, 'v', [])).not.toThrow()
@@ -112,6 +112,9 @@ describe('checkExplicitTag', () => {
   it('compares numerically, not as text', () => {
     expect(check('v1.9.0', null, 'v', ['v1.10.0'])).toThrow(/not above/)
     expect(check('v1.10.0', null, 'v', ['v1.9.0'])).not.toThrow()
+  })
+  it('refuses a version whose next patch could not be read', () => {
+    expect(check('v1.2.999999999999999')).toThrow('the patch after it would not be a version')
   })
   it("refuses Magnetar Preview's versions", () => {
     for (const tag of ['v1.2.2-preview.41', 'v1.3.0-preview.1', 'v2.0.0-preview.x']) expect(check(tag), tag).toThrow('is a Magnetar Preview version')
