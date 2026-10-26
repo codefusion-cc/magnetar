@@ -183,7 +183,10 @@ version.
 ## Code signing
 
 Optional: without these secrets releases are ad-hoc signed (macOS asks users to confirm the first launch, Windows
-SmartScreen warns).
+SmartScreen warns). They are secrets of the `code-signing` environment, which only `main` may use and only the Build
+jobs of `release.yml` and `preview-app.yml` read (`signing.test.ts` checks that too). Set them through CodeFusion
+Console, never as repository secrets. The six macOS ones go in together: with only some of them set, the build stops
+rather than ship an app that is signed but not notarized.
 
 | Secret | What it is |
 |---|---|
@@ -195,8 +198,10 @@ SmartScreen warns).
 | `WINDOWS_CERTIFICATE_PASSWORD` | The .pfx's password |
 
 The macOS bundle is signed with the hardened runtime, notarized, stapled and checked with `spctl` before it is
-zipped. Changing from ad-hoc to Developer ID signing is fine for updates: the updater checks the bundle identifier,
-and Gatekeeper only once the installed app is itself certificate-signed.
+zipped. Changing from ad-hoc to Developer ID signing is fine for updates: an ad-hoc installation checks the bundle
+identifier. Once the installed app is certificate-signed, it takes only a replacement that Apple signed for the same
+team (read from the installed app's own signature) and that Gatekeeper accepts, never an ad-hoc one; a new team means
+installing once by hand.
 
 ## Browser notifications (Web Push)
 

@@ -2,8 +2,9 @@ import { execFileSync } from 'node:child_process'
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { changesShippedApp, latestVersion, nextVersion, parseTag, plan, previewVersion } from './release-version.ts'
+import { changesShippedApp, checkExplicitTag, latestVersion, nextVersion, parseTag, plan, previewVersion } from './release-version.ts'
 
 const MONOREPO = { prefix: 'magnetar-v', folder: 'apps/magnetar' }
 
@@ -71,8 +72,13 @@ describe('plan', () => {
     expect(plan({ tags: [], changed: ['apps/client/src/rpc.rs'] })).toEqual({ release: false, tag: '', reason: 'no release tag yet: the first one is run by hand' })
     expect(plan({ tags: [], explicitTag: 'v0.1.0' })).toMatchObject({ release: true, tag: 'v0.1.0' })
   })
-  it('publishes a version given by hand as it is', () => {
-    expect(plan({ tags, explicitTag: 'v1.3.0', changed: [] })).toMatchObject({ release: true, tag: 'v1.3.0' })
+  it('publishes a version given by hand as it is, with or without app changes', () => {
+    expect(plan({ tags, explicitTag: 'v1.3.0', changed: [] })).toEqual({ release: true, tag: 'v1.3.0', reason: 'version given by hand' })
+    expect(plan({ tags, explicitTag: 'v1.3.0', containedInLatest: true })).toMatchObject({ release: true, tag: 'v1.3.0' })
+  })
+  it('refuses a version given by hand that is not above the latest release', () => {
+    expect(() => plan({ tags, explicitTag: 'v1.2.1' })).toThrow('v1.2.1 is not above the latest release, v1.2.1')
+    expect(() => plan({ tags, explicitTag: 'v1.0.0', changed: ['apps/web/src/a.ts'] })).toThrow(/not above/)
   })
   it('holds an app change while the hold file exists, and says why', () => {
     const held = plan({ tags, changed: ['apps/web/src/a.ts'], held: 'Infall redesign\n' })
@@ -84,6 +90,69 @@ describe('plan', () => {
   })
   it('never holds the first release, one given by hand', () => {
     expect(plan({ tags: [], explicitTag: 'v0.1.0', held: 'x' })).toMatchObject({ release: true, tag: 'v0.1.0' })
+  })
+})
+
+describe('checkExplicitTag', () => {
+  const tags = ['v1.2.0', 'v1.2.1', 'v1.3.0-rc.1', 'v1.2.2-preview.40']
+  const sha = 'a'.repeat(40)
+  const check = (tag: string, at: string | null = null, prefix = 'v', list: readonly string[] = tags) => () => checkExplicitTag(tag, list, prefix, at, sha)
+
+  it('takes a release or a pre-release above the latest release', () => {
+    for (const tag of ['v1.2.2', 'v1.3.0', 'v2.0.0', 'v1.10.0', 'v1.3.0-rc.2', 'v1.2.2-beta', 'v1.2.2-rc.1.2', 'v10.0.0-0']) expect(check(tag), tag).not.toThrow()
+  })
+  it('takes the first release when there is none', () => {
+    expect(check('v0.0.1', null, 'v', [])).not.toThrow()
+    expect(check('v0.1.0', null, 'v', ['latest', 'v1.0.0-rc.1'])).not.toThrow()
+  })
+  it('refuses the latest release, anything below it and pre-releases of either', () => {
+    for (const tag of ['v1.2.1', 'v1.2.0', 'v1.1.9', 'v0.9.0', 'v1.2.1-rc.1', 'v1.2.0-beta']) expect(check(tag), tag).toThrow('is not above the latest release, v1.2.1')
+  })
+  it('compares numerically, not as text', () => {
+    expect(check('v1.9.0', null, 'v', ['v1.10.0'])).toThrow(/not above/)
+    expect(check('v1.10.0', null, 'v', ['v1.9.0'])).not.toThrow()
+  })
+  it("refuses Magnetar Preview's versions", () => {
+    for (const tag of ['v1.2.2-preview.41', 'v1.3.0-preview.1', 'v2.0.0-preview.x']) expect(check(tag), tag).toThrow('is a Magnetar Preview version')
+    expect(check('v1.3.0-previews.1')).not.toThrow()
+  })
+  it('refuses anything that is not a version tag', () => {
+    const bad = ['', 'v', '1.3.0', 'v1.3', 'v1.3.0.1', 'v1.3.0-', 'v1.3.0-rc..1', 'v1.3.0-rc.', 'v1.3.0+build.1', ' v1.3.0', 'v1.3.0 ',
+      'v1.3.0\n', 'v1.3.0-rc_1', 'v1.3.0-rc.1;rm -rf /', 'v1.3.0/x', '../v1.3.0', 'V1.3.0', 'v\uff11.3.0', 'v1.3.0-\u00e9', `v1.3.0-${'a.'.repeat(5000)}`,
+      'refs/tags/v1.3.0', '-v1.3.0', 'v-1.3.0']
+    for (const tag of bad) expect(check(tag), JSON.stringify(tag)).toThrow('is not a version tag like v1.3.0 or v1.3.0-rc.1')
+  })
+  it('takes a tag that exists only on the commit it points at', () => {
+    expect(check('v1.2.1', sha)).not.toThrow()
+    expect(check('v1.3.0-rc.1', sha)).not.toThrow()
+    expect(check('v1.2.1', 'b'.repeat(40))).toThrow(`v1.2.1 exists already at bbbbbbb, not at aaaaaaa`)
+    expect(check('v1.2.1', '')).toThrow(/exists already/)
+  })
+  it('reads only its own prefix in the monorepo', () => {
+    const mono = ['magnetar-v1.2.0', 'v9.0.0']
+    expect(check('magnetar-v1.2.1', null, 'magnetar-v', mono)).not.toThrow()
+    expect(check('magnetar-v1.2.0', null, 'magnetar-v', mono)).toThrow('is not above the latest release, magnetar-v1.2.0')
+    expect(check('v1.3.0', null, 'magnetar-v', mono)).toThrow('is not a version tag like magnetar-v1.3.0')
+  })
+  it('takes exactly the versions above the latest, for any versions', () => {
+    const version = fc.tuple(fc.nat(50), fc.nat(50), fc.nat(50))
+    fc.assert(fc.property(fc.array(version, { maxLength: 5 }), version, fc.option(fc.stringMatching(/^[0-9A-Za-z]{1,8}(\.[0-9A-Za-z]{1,8}){0,2}$/), { nil: undefined }), (released, chosen, pre) => {
+      const tag = `v${chosen.join('.')}${pre ? `-${pre}` : ''}`
+      const above = released.every(([major, minor, patch]) => (chosen[0] - major || chosen[1] - minor || chosen[2] - patch) > 0)
+      const preview = pre?.startsWith('preview.') ?? false
+      const ok = above && !preview
+      let threw = false
+      try { checkExplicitTag(tag, released.map(v => `v${v.join('.')}`), 'v', null, sha) } catch { threw = true }
+      return threw === !ok
+    }))
+  })
+  it('never takes a string with characters outside a version tag', () => {
+    fc.assert(fc.property(fc.string({ unit: 'binary', minLength: 1 }).filter(s => /[^0-9A-Za-z.-]/.test(s)), junk => {
+      for (const tag of [`v1.3.0-${junk}`, `v${junk}`, `v1.3.0${junk}`]) {
+        try { checkExplicitTag(tag, [], 'v', null, sha); return false } catch { /* refused */ }
+      }
+      return true
+    }))
   })
 })
 
@@ -112,7 +181,7 @@ describe('as the monorepo tags it', () => {
 describe('in a repository', () => {
   const run = (cwd: string, ...args: string[]) => execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'commit.gpgsign=false', '-c', 'tag.gpgsign=false', ...args], { cwd, encoding: 'utf8' }).trim()
   const script = join(import.meta.dirname, 'release-version.ts')
-  const plan = (cwd: string, ...args: string[]) => execFileSync('node', [script, ...args], { cwd, encoding: 'utf8' }).trim()
+  const plan = (cwd: string, ...args: string[]) => execFileSync('node', [script, ...args], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
   function commit(cwd: string, file: string) {
     mkdirSync(join(cwd, file, '..'), { recursive: true })
     writeFileSync(join(cwd, file), String(Math.random()))
@@ -128,8 +197,12 @@ describe('in a repository', () => {
     expect(plan(cwd, 'display')).toBe('')
     expect(plan(cwd, 'plan', '--tag', 'v1.2.0')).toContain('tag=v1.2.0')
     run(cwd, 'tag', 'v1.2.0')
+    // A release cut short after tagging is finished on its own commit, by a short sha too, and on no other.
+    expect(plan(cwd, 'plan', '--tag', 'v1.2.0')).toContain('release=true tag=v1.2.0')
+    expect(plan(cwd, 'plan', '--tag', 'v1.2.0', '--sha', run(cwd, 'rev-parse', '--short', 'HEAD'))).toContain('tag=v1.2.0')
     expect(plan(cwd, 'plan')).toContain('release=false')
     commit(cwd, 'docs/a.md')
+    expect(() => plan(cwd, 'plan', '--tag', 'v1.2.0')).toThrow(/v1\.2\.0 exists already at \w{7}, not at \w{7}/)
     expect(plan(cwd, 'plan')).toContain('release=false')
     expect(plan(cwd, 'display')).toBe('1.2.0')
     commit(cwd, 'apps/web/src/a.ts')

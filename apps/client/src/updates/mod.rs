@@ -1307,6 +1307,122 @@ echo "$version" >> "$here/started"
         assert!(!prepare("Magnetar Preview.app", None));
     }
 
+    /// `prepare` for an installed app whose signature reads as `display` says (`codesign --display`), with an ad-hoc
+    /// replacement. The real codesign checks everything else, unless `trusted`: no Developer ID certificate signs
+    /// these tests' bundles, so a requirement is then only recorded. spctl is a stand-in that records its arguments.
+    /// Returns whether it succeeded, the requirements checked, what spctl assessed and the log.
+    #[cfg(target_os = "macos")]
+    fn prepare_over(display: &str, trusted: bool) -> (bool, Vec<String>, String, String) {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path();
+        signed_app(&path.join("Mac Apps/Magnetar.app"), "cc.codefusion.magnetar");
+        signed_app(&path.join("download/Magnetar.app"), "cc.codefusion.magnetar");
+        let codesign = r#"#!/bin/bash
+here="$(dirname "$0")"
+if [ "$1" = --display ]; then cat "$here/display"; exit 0; fi
+if [ "$2" = -R ]; then
+    printf '%s\n' "$3" >> "$here/requirements"
+    if [ -e "$here/trusted" ]; then exit 0; fi
+fi
+exec /usr/bin/codesign "$@"
+"#;
+        let spctl = "#!/bin/bash\nprintf '%s\\n' \"$*\" >> \"$(dirname \"$0\")/assessed\"\n";
+        for (name, body) in [("codesign", codesign), ("spctl", spctl)] {
+            std::fs::write(path.join(name), body).unwrap();
+            std::fs::set_permissions(path.join(name), std::os::unix::fs::PermissionsExt::from_mode(0o700)).unwrap();
+        }
+        std::fs::write(path.join("display"), display).unwrap();
+        if trusted {
+            std::fs::write(path.join("trusted"), "").unwrap();
+        }
+        let script = MAC_INSTALL_SCRIPT
+            .replace("/usr/bin/codesign", path.join("codesign").to_str().unwrap())
+            .replace("/usr/sbin/spctl", path.join("spctl").to_str().unwrap());
+        std::fs::write(path.join("install.sh"), script).unwrap();
+        let work = path.join("work");
+        std::fs::create_dir_all(&work).unwrap();
+        let ok = std::process::Command::new("/bin/bash")
+            .arg(path.join("install.sh"))
+            .arg("prepare")
+            .arg(path.join("Mac Apps/Magnetar.app"))
+            .arg(path.join("download/Magnetar.app"))
+            .arg(&work)
+            .arg("cc.codefusion.magnetar")
+            .status()
+            .unwrap()
+            .success();
+        let read = |name: &str| std::fs::read_to_string(path.join(name)).unwrap_or_default();
+        (ok, read("requirements").lines().map(String::from).collect(), read("assessed"), read("work/install.log"))
+    }
+
+    #[cfg(target_os = "macos")]
+    const DEVELOPER_ID: &str = "Executable=/Applications/Magnetar.app/Contents/MacOS/Magnetar\nIdentifier=cc.codefusion.magnetar\nFormat=app bundle with Mach-O thin (arm64)\nAuthority=Developer ID Application: CodeFusion (ABCDE12345)\nAuthority=Developer ID Certification Authority\nAuthority=Apple Root CA\nTeamIdentifier=ABCDE12345\n";
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn a_certificate_signed_app_takes_only_a_replacement_from_its_own_team() {
+        let identifier = "=identifier \"cc.codefusion.magnetar\"";
+        let team =
+            "=identifier \"cc.codefusion.magnetar\" and anchor apple generic and certificate leaf[subject.OU] = \"ABCDE12345\"";
+
+        // Signed by Apple for the installed app's team: the identifier, the team, then Gatekeeper.
+        let (ok, requirements, assessed, log) = prepare_over(DEVELOPER_ID, true);
+        assert!(ok, "{log}");
+        assert_eq!(requirements, [identifier, team]);
+        assert_eq!(assessed.lines().collect::<Vec<_>>().len(), 1);
+        assert!(
+            assessed.starts_with("--assess --type execute ") && assessed.trim_end().ends_with("/work/Replacement.app"),
+            "{assessed}"
+        );
+        assert!(log.contains("Installation of team ABCDE12345: replacement signature, identifier and team verified."), "{log}");
+
+        // An ad-hoc replacement never replaces it: the real codesign finds no Apple anchor, and Gatekeeper is not asked.
+        let (ok, requirements, assessed, _) = prepare_over(DEVELOPER_ID, false);
+        assert!(!ok);
+        assert_eq!(requirements, [identifier, team]);
+        assert_eq!(assessed, "");
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn a_certificate_signed_app_without_a_readable_team_takes_no_replacement() {
+        let without = |team_line: &str| DEVELOPER_ID.replace("TeamIdentifier=ABCDE12345\n", team_line);
+        let cases = [
+            // A self-signed certificate.
+            without("TeamIdentifier=not set\n"),
+            without(""),
+            without("TeamIdentifier=\n"),
+            without("TeamIdentifier=abcde12345\n"),
+            without("TeamIdentifier=ABCDE1234\n"),
+            without("TeamIdentifier=ABCDE123456\n"),
+            without("TeamIdentifier=ÄBCDE12345\n"),
+            without("TeamIdentifier=ABCDE 2345\n"),
+            // Text that would widen the requirement if it reached codesign.
+            without("TeamIdentifier=ABCDE12345\" or anchor apple generic and identifier \"x\n"),
+            without("TeamIdentifier=ABCDE12345\nTeamIdentifier=ZYXWV98765\n"),
+            without(" TeamIdentifier=ABCDE12345\n"),
+            without("Authority=Developer ID Application: TeamIdentifier=ABCDE12345\n"),
+        ];
+        for display in cases {
+            let (ok, requirements, assessed, log) = prepare_over(&display, true);
+            assert!(!ok, "{display}");
+            assert_eq!(requirements, ["=identifier \"cc.codefusion.magnetar\""], "{display}");
+            assert_eq!(assessed, "", "{display}");
+            assert!(log.contains("The installed app is signed without a team; refusing the update."), "{display}\n{log}");
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn an_ad_hoc_app_still_takes_an_ad_hoc_replacement_without_a_team() {
+        let (ok, requirements, assessed, log) =
+            prepare_over("Identifier=cc.codefusion.magnetar\nSignature=adhoc\nTeamIdentifier=not set\n", false);
+        assert!(ok, "{log}");
+        assert_eq!(requirements, ["=identifier \"cc.codefusion.magnetar\""]);
+        assert_eq!(assessed, "");
+        assert!(log.contains("Ad-hoc installation: replacement signature and identifier verified."), "{log}");
+    }
+
     #[test]
     fn manifest_signatures_must_match_the_release_key() {
         let signing = SigningKey::from_bytes(&[7; 32]);

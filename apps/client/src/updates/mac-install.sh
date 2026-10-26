@@ -16,12 +16,20 @@ if [ "$mode" = prepare ]; then
     [[ "$identifier" =~ ^[A-Za-z0-9.-]+$ ]] || exit 1
     /usr/bin/codesign --verify -R "=identifier \"$identifier\"" "$replacement"
     # Ad-hoc releases have no Apple trust ticket; the release signature was verified before this
-    # script ran. Keep Gatekeeper enforcement for an installation signed with a certificate.
+    # script ran. An installation signed with a certificate takes only a replacement Apple issued to
+    # the same team, never an ad-hoc one, and Gatekeeper must accept it.
     installed_signature="$(/usr/bin/codesign --display --verbose=2 "$bundle" 2>&1)"
     if printf '%s\n' "$installed_signature" | /usr/bin/grep -qx 'Signature=adhoc'; then
         echo "Ad-hoc installation: replacement signature and identifier verified."
     else
+        team="$(printf '%s\n' "$installed_signature" | /usr/bin/sed -n 's/^TeamIdentifier=//p')"
+        if ! [[ "$team" =~ ^[A-Z0-9]{10}$ ]]; then
+            echo "The installed app is signed without a team; refusing the update."
+            exit 1
+        fi
+        /usr/bin/codesign --verify -R "=identifier \"$identifier\" and anchor apple generic and certificate leaf[subject.OU] = \"$team\"" "$replacement"
         /usr/sbin/spctl --assess --type execute "$replacement"
+        echo "Installation of team $team: replacement signature, identifier and team verified."
     fi
     exit 0
 fi

@@ -15,6 +15,10 @@ jobs:
   build:
     name: Build
     runs-on: macos-14
+    # The Apple certificate, readable only from main (docs/DEPLOY.md, "Release signing").
+    environment:
+      name: code-signing
+      deployment: false
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
@@ -39,6 +43,7 @@ jobs:
         with:
           certificate: ${{ secrets.MACOS_CERTIFICATE }}
           password: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          notarization-set: ${{ secrets.MACOS_SIGNING_IDENTITY != '' }} ${{ secrets.APPLE_ID != '' }} ${{ secrets.APPLE_TEAM_ID != '' }} ${{ secrets.APPLE_APP_PASSWORD != '' }}
       - id: version
         run: echo "version=$(node packages/release/release-version.ts preview --sha "$GITHUB_SHA")" >> "$GITHUB_OUTPUT"
       - name: Build
@@ -63,7 +68,9 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     # Its own key, readable only from main: Magnetar Preview trusts it (preview-public-key.txt), the released app never does.
-    environment: preview-signing
+    environment:
+      name: preview-signing
+      deployment: false
     permissions:
       contents: write
     steps:

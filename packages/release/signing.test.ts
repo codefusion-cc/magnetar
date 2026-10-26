@@ -14,7 +14,10 @@ const read = (path: string) => readFileSync(join(repo, path), 'utf8').replaceAll
 type Job = { environment?: string | { name?: string }; needs?: string | string[]; uses?: string; secrets?: unknown; steps?: { run?: string; env?: Record<string, string> }[] }
 type Workflow = { on?: unknown; jobs?: Record<string, Job> }
 const SIGNING_KEYS: Record<string, string> = { RELEASE_SIGNING_KEY: 'release-signing', PREVIEW_SIGNING_KEY: 'preview-signing' }
-const SIGNING_ENVIRONMENTS = new Set(Object.values(SIGNING_KEYS))
+/** The Apple and Windows certificates the builds sign with, in an environment of their own beside the keys. */
+const CODE_SIGNING = ['MACOS_CERTIFICATE', 'MACOS_CERTIFICATE_PASSWORD', 'MACOS_SIGNING_IDENTITY', 'APPLE_ID', 'APPLE_TEAM_ID', 'APPLE_APP_PASSWORD', 'WINDOWS_CERTIFICATE', 'WINDOWS_CERTIFICATE_PASSWORD']
+const SIGNING_SECRETS: Record<string, string> = { ...SIGNING_KEYS, ...Object.fromEntries(CODE_SIGNING.map((secret) => [secret, 'code-signing'])) }
+const SIGNING_ENVIRONMENTS = new Set(Object.values(SIGNING_SECRETS))
 const workflows = readdirSync(join(repo, '.github/workflows')).filter((name) => /\.ya?ml$/.test(name))
 const load = (name: string) => parse(read(`.github/workflows/${name}`)) as Workflow
 const environmentOf = (job: Job) => (typeof job.environment === 'string' ? job.environment : job.environment?.name)
@@ -27,14 +30,14 @@ const MAIN_ONLY_TRIGGERS = new Set(['workflow_call', 'workflow_dispatch'])
 const triggersOf = (on: unknown) => (typeof on === 'string' ? [on] : Array.isArray(on) ? on : Object.keys(on ?? {}))
 
 describe('signing keys', () => {
-  it.each(workflows)('%s reads a signing key only in its main-only environment', (name) => {
+  it.each(workflows)('%s reads a signing key or certificate only in its main-only environment', (name) => {
     const jobs = Object.entries(load(name).jobs ?? {})
     expect(jobs.length, name).toBeGreaterThan(0)
     for (const [id, job] of jobs) {
       const text = JSON.stringify(job)
       expect(opaqueReads(text), `${name} ${id}`).toEqual([])
-      for (const secret of secretsOf(text).filter((secret) => secret in SIGNING_KEYS)) {
-        expect(environmentOf(job), `${name} ${id}: ${secret}`).toBe(SIGNING_KEYS[secret])
+      for (const secret of secretsOf(text).filter((secret) => secret in SIGNING_SECRETS)) {
+        expect(environmentOf(job), `${name} ${id}: ${secret}`).toBe(SIGNING_SECRETS[secret])
       }
       // Another repository's workflow handed every secret could read a key outside these rules.
       if (job.secrets === 'inherit') expect(job.uses, `${name} ${id}`).toMatch(/^\.\//)
@@ -57,6 +60,19 @@ describe('signing keys', () => {
     expect(steps.some((step) => /pnpm|npm |npx/.test(step.run ?? ''))).toBe(false)
     expect(jobs.publish!.needs).toContain('sign')
     expect(environmentOf(jobs.publish!)).toBeUndefined()
+  })
+
+  it('builds read the certificates from code-signing, and the macOS ones only all together', () => {
+    for (const [name, id] of [['release.yml', 'build'], ['preview-app.yml', 'build']] as const) {
+      const job = load(name).jobs![id]!
+      expect(environmentOf(job), `${name} ${id}`).toBe('code-signing')
+      const imported = (job.steps as { uses?: string; with?: Record<string, string> }[]).find((step) => step.uses === './.github/actions/import-developer-id')
+      expect(imported?.with, `${name} ${id}`).toEqual({
+        certificate: '${{ secrets.MACOS_CERTIFICATE }}',
+        password: '${{ secrets.MACOS_CERTIFICATE_PASSWORD }}',
+        'notarization-set': "${{ secrets.MACOS_SIGNING_IDENTITY != '' }} ${{ secrets.APPLE_ID != '' }} ${{ secrets.APPLE_TEAM_ID != '' }} ${{ secrets.APPLE_APP_PASSWORD != '' }}",
+      })
+    }
   })
 
   it('release-key.ts needs a terminal, and changes nothing without one', () => {

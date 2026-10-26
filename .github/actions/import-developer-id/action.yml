@@ -9,9 +9,28 @@ inputs:
   password:
     description: The certificate's password
     required: false
+  notarization-set:
+    description: >-
+      Whether MACOS_SIGNING_IDENTITY, APPLE_ID, APPLE_TEAM_ID and APPLE_APP_PASSWORD are set, as four true or false
+      words. With some of the six secrets set and others not, the build would ship signed but never notarized, which
+      Gatekeeper refuses, so the job stops instead.
+    required: true
 runs:
   using: composite
   steps:
+    - shell: bash
+      env:
+        SET: ${{ inputs.certificate != '' }} ${{ inputs.password != '' }} ${{ inputs.notarization-set }}
+      run: |
+        read -r -a set <<< "$SET"
+        names=(MACOS_CERTIFICATE MACOS_CERTIFICATE_PASSWORD MACOS_SIGNING_IDENTITY APPLE_ID APPLE_TEAM_ID APPLE_APP_PASSWORD)
+        if [ "${#set[@]}" -ne 6 ]; then echo "::error::notarization-set needs four true or false words, got: $SET"; exit 1; fi
+        missing=()
+        for i in "${!names[@]}"; do [ "${set[$i]}" = true ] || missing+=("${names[$i]}"); done
+        if [ "${#missing[@]}" -ne 0 ] && [ "${#missing[@]}" -ne 6 ]; then
+          echo "::error::Some macOS signing secrets of the code-signing environment are set and these are not: ${missing[*]}"
+          exit 1
+        fi
     - if: inputs.certificate != ''
       shell: bash
       env:

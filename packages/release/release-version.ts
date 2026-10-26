@@ -11,7 +11,7 @@
  * `<folder>/.github/release-hold`.
  *
  * The version is the latest plain vX.Y.Z tag plus one patch; minor and major releases, and the first one, are the
- * Release workflow run by hand with their version. No file holds the version: the tag is the version.
+ * Release workflow run by hand with their version (`--tag`; `checkExplicitTag` says which it takes). No file holds the version: the tag is the version.
  * Pre-release tags (v2.0.0-rc.1) are ignored. A merge that changes only docs, tests or CI files is not released, nor is
  * one while `.github/release-hold` exists: work that ships in parts (a redesign) collects on main and is released by the
  * merge that deletes the file. Its text says why it holds.
@@ -100,17 +100,41 @@ const HERE: Tagging = { prefix: 'v', folder: '' }
 /** The hold file of the app in `folder`. */
 export const holdFile = (folder: string) => (folder ? `${folder.replace(/\/+$/, '')}/${HOLD_FILE}` : HOLD_FILE)
 
+/**
+ * A version given by hand (release.yml's Run workflow on main): a release (v1.3.0) or a pre-release (v1.3.0-rc.1)
+ * above the latest release, never one of Magnetar Preview's. A tag that exists already is taken only on the commit it
+ * points at, so a release cut short is finished and no other commit's files ever land in it.
+ */
+export function checkExplicitTag(tag: string, tags: readonly string[], prefix: string, taggedAt: string | null, sha: string): void {
+  const match = tag.startsWith(prefix) ? /^(\d+\.\d+\.\d+)(?:-([0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*))?$/.exec(tag.slice(prefix.length)) : null
+  if (!match) throw new Error(`${JSON.stringify(tag)} is not a version tag like ${prefix}1.3.0 or ${prefix}1.3.0-rc.1`)
+  if (match[2]?.startsWith('preview.')) throw new Error(`${tag} is a Magnetar Preview version; preview-app.yml names those`)
+  if (taggedAt != null) {
+    if (taggedAt !== sha) throw new Error(`${tag} exists already at ${taggedAt.slice(0, 7)}, not at ${sha.slice(0, 7)}`)
+    return
+  }
+  const version = parseTag(`${prefix}${match[1]}`, prefix)
+  const latest = latestVersion(tags, prefix)
+  if (version && latest && compare(version, latest) <= 0) throw new Error(`${tag} is not above the latest release, ${prefix}${format(latest)}`)
+}
+
 /** What a commit becomes, given the release tags, its relation to the latest one and the files changed since. */
 export function plan(input: {
   tags: readonly string[]
   explicitTag?: string
+  /** The commit the explicit tag points at already, when it exists. */
+  explicitTagAt?: string | null
+  sha?: string
   containedInLatest?: boolean
   changed?: readonly string[]
   held?: string | null
   /** The commit that added the hold, and how many merges since the latest release it holds back. */
   hold?: { since: string; waiting: number }
 }, { prefix, folder }: Tagging = HERE): Plan {
-  if (input.explicitTag) return { release: true, tag: input.explicitTag, reason: 'version given by hand' }
+  if (input.explicitTag) {
+    checkExplicitTag(input.explicitTag, input.tags, prefix, input.explicitTagAt ?? null, input.sha ?? '')
+    return { release: true, tag: input.explicitTag, reason: 'version given by hand' }
+  }
   const latest = latestVersion(input.tags, prefix)
   if (!latest) return { release: false, tag: '', reason: 'no release tag yet: the first one is run by hand' }
   const latestTag = `${prefix}${format(latest)}`
@@ -152,7 +176,9 @@ function fromRepository(sha: string, tagging: Tagging, explicitTag?: string): Pl
   const holding = held != null && latestTag && !containedInLatest
     ? { since: git('log', '-1', '--format=%h', '--diff-filter=A', sha, '--', hold), waiting: Number(git('rev-list', '--count', '--first-parent', `${latestTag}..${sha}`)) }
     : undefined
-  return { ...plan({ tags, explicitTag, containedInLatest, changed, held, hold: holding }, tagging), latest: latestTag }
+  let explicitTagAt: string | null = null
+  if (explicitTag && tags.includes(explicitTag)) explicitTagAt = git('rev-list', '-n', '1', explicitTag)
+  return { ...plan({ tags, explicitTag, explicitTagAt, sha, containedInLatest, changed, held, hold: holding }, tagging), latest: latestTag }
 }
 
 if (process.argv[1] === import.meta.filename) {
@@ -161,7 +187,7 @@ if (process.argv[1] === import.meta.filename) {
     options: { sha: { type: 'string' }, tag: { type: 'string' }, prefix: { type: 'string', default: HERE.prefix }, folder: { type: 'string', default: HERE.folder } },
   })
   const tagging = { prefix: values.prefix, folder: values.folder }
-  const sha = values.sha ?? git('rev-parse', 'HEAD')
+  const sha = git('rev-parse', '--verify', `${values.sha ?? 'HEAD'}^{commit}`)
   if (positionals[0] === 'preview') {
     const tags = git('tag', '--list', `${tagging.prefix}*`).split('\n').filter(Boolean)
     const version = previewVersion(tags, Number(git('rev-list', '--count', '--first-parent', sha)), tagging.prefix)
